@@ -1,0 +1,86 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: brain-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./ingest-api/initdb:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - brain_default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  ingest-api:
+    build:
+      context: ./ingest-api
+      dockerfile: Dockerfile
+    container_name: brain-ingest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - OLLAMA_URL=http://172.18.0.1:11434
+      - API_SECRET=${API_SECRET}
+      - EMBED_MODEL=nomic-embed-text
+      - CHAT_MODEL=llama3.2
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - brain_default
+
+  mcp-server:
+    build:
+      context: ./ingest-api
+      dockerfile: Dockerfile.mcp
+    container_name: brain-mcp
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - OLLAMA_URL=http://172.18.0.1:11434
+      - MCP_SECRET=${MCP_SECRET}
+      - EMBED_MODEL=nomic-embed-text
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - brain_default
+
+  mission-control:
+    build:
+      context: ./mission-control
+      dockerfile: Dockerfile
+    container_name: brain-mission
+    restart: unless-stopped
+    environment:
+      - INGEST_URL=http://ingest-api:8000
+      - INGEST_TOKEN=${API_SECRET}
+      - MCP_URL=http://mcp-server:3000
+      - MCP_TOKEN=${MCP_SECRET}
+      - OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+    ports:
+      - "127.0.0.1:4173:4173"
+    networks:
+      - brain_default
+
+volumes:
+  pgdata:
+
+networks:
+  brain_default:
+    name: brain_default
