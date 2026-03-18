@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "second-brain": {
+      "url": "https://brain.kendowney.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ab44aeadc34c14039104250428400efedb7f19dd9345744023848219f80bdb60"
+      },
+      "config": {
+        "project_tag": "second-brain",
+        "visibility": "client"
+      }
+    }
+  }
+}

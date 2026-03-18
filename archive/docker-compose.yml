@@ -1,0 +1,107 @@
+# =============================================================
+# Second Brain — Docker Compose Stack
+# Place in: ~/brain/docker-compose.yml on your VPS
+# Copy .env.example to .env and fill in values before running
+# =============================================================
+
+services:
+
+  # -----------------------------------------------------------
+  # Postgres + pgvector (OB1 database)
+  # -----------------------------------------------------------
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: brain-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-brain}
+      POSTGRES_USER: ${POSTGRES_USER:-brain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./ob1/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------
+  # Litestream — streams Postgres WAL to Backblaze B2
+  # (runs as sidecar, reads from Postgres data dir)
+  # -----------------------------------------------------------
+  litestream:
+    image: litestream/litestream:latest
+    container_name: brain-litestream
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LITESTREAM_ACCESS_KEY_ID: ${B2_KEY_ID}
+      LITESTREAM_SECRET_ACCESS_KEY: ${B2_APP_KEY}
+    volumes:
+      - db-data:/var/lib/postgresql/data:ro
+      - ./litestream.yml:/etc/litestream.yml:ro
+    command: replicate
+
+  # -----------------------------------------------------------
+  # Ingest API (FastAPI — built in phase 2)
+  # -----------------------------------------------------------
+  ingest-api:
+    build: ./ingest-api
+    container_name: brain-ingest
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-brain}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-brain}
+      OLLAMA_URL: http://172.18.0.1:11434
+      API_SECRET: ${API_SECRET}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./ingest-api:/app
+      - audio-queue:/app/queue
+    extra_hosts:
+      - "host-gateway:host-gateway"
+
+  # -----------------------------------------------------------
+  # OB1 MCP server (exposes brain to Cursor / Claude Code)
+  # -----------------------------------------------------------
+  mcp-server:
+    build: ./mcp-server
+    container_name: brain-mcp
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-brain}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-brain}
+      OLLAMA_URL: http://host-gateway:11434
+      MCP_SECRET: ${MCP_SECRET}
+    ports:
+      - "127.0.0.1:3000:3000"
+    extra_hosts:
+      - "host-gateway:host-gateway"
+
+  telegram-bot:
+    build: ./telegram-bot
+    container_name: brain-telegram
+    restart: always
+    environment:
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      API_SECRET: ${API_SECRET}
+      ALLOWED_USER_ID: ${ALLOWED_USER_ID}
+      INGEST_URL: http://ingest-api:8000/ingest
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      - ingest-api
+
+volumes:
+  db-data:
+  audio-queue:
