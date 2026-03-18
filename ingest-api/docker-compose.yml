@@ -1,0 +1,19 @@
+# Example docker-compose for ingest-api.
+# Ensure Postgres (with pgvector) and Ollama are available; set env or override.
+services:
+  ingest-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://user:pass@db:5432/brain
+      OLLAMA_URL: http://host.docker.internal:11434
+      EMBED_MODEL: nomic-embed-text
+      CHAT_MODEL: llama3.2
+      API_SECRET: secret
+      INTERNAL_BASE_URL: http://ingest-api:8000
+    volumes:
+      - queue_data:/app/queue
+
+volumes:
+  queue_data: {}
