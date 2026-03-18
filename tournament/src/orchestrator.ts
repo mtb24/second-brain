@@ -11,7 +11,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { BotRunner, RunnerOptions } from './bot/runner.js'
 import { Strategy, Bot, BotPerformance } from './bot/types.js'
 import { MockAdapter } from './exchange/mock.js'
-import { loadStrategiesFromDB } from './strategies/loader.js'
 import {
   createRound,
   updateRoundStatus,
@@ -300,7 +299,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
     // All bots see the same real market data (fetched independently per tick)
     const tasks = bots.map((bot) => {
       const strategy = strategies.find((s) => s.id === bot.strategyId)!
-      const adapter = new MockAdapter(bot.startingBalance)
+      const adapter = new MockAdapter()
       const runner = new BotRunner(bot, strategy, adapter, runnerOptions)
       return runner.start().then(async (perf) => {
         await updateBotStatus(bot.id, 'finished', perf.finalBalance)
