@@ -212,7 +212,7 @@ function LiveChart({ live }: { live: LiveRound }) {
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
             labelStyle={{ color: '#94a3b8' }}
-            formatter={(value: number) => [`${value.toFixed(2)}%`, undefined]}
+            formatter={(value) => [value != null ? `${Number(value).toFixed(2)}%` : '', undefined]}
           />
           <Legend
             wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
@@ -273,7 +273,7 @@ function PerformanceChart({ rounds }: { rounds: Round[] }) {
           <Tooltip
             contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
             labelStyle={{ color: '#94a3b8' }}
-            formatter={(value: number) => [`${value.toFixed(2)}%`, undefined]}
+            formatter={(value) => [value != null ? `${Number(value).toFixed(2)}%` : '', undefined]}
           />
           <Legend
             wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
@@ -340,10 +340,10 @@ function TradingPage() {
           </select>
           <button
             onClick={() => startMutation.mutate()}
-            disabled={startMutation.isPending}
+            disabled={startMutation.isPending || liveQ.data?.status === 'running'}
             className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
           >
-            {startMutation.isPending ? 'Starting…' : 'Start round'}
+            {startMutation.isPending ? 'Starting…' : liveQ.data?.status === 'running' ? 'Running…' : 'Start round'}
           </button>
         </div>
       </div>

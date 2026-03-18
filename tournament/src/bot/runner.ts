@@ -2,6 +2,7 @@ import { ExchangeAdapter } from '../exchange/adapter.js'
 import { fetchPrice, fetchCandles } from '../exchange/prices.js'
 import { makeDecision, DecisionContext } from './decision.js'
 import { logDecisionToOB1 } from '../db/ingest.js'
+import { saveTick } from '../db/tournament.js'
 import { Bot, Strategy, TradingDecision, BotPerformance } from './types.js'
 
 export interface RunnerOptions {
@@ -127,13 +128,24 @@ export class BotRunner {
         decision, bot: this.bot, strategyName: this.strategy.name,
         balance, pnl: pnl.total,
       })
+
+      const pnlPct = pnl.startingBalance > 0 ? (pnl.total / pnl.startingBalance) * 100 : 0
+      saveTick({
+        roundId: this.bot.roundId,
+        botId: this.bot.id,
+        strategyId: this.bot.strategyId,
+        strategyName: this.strategy.name,
+        balance: pnl.currentBalance,
+        pnl: pnl.total,
+        pnlPercent: pnlPct,
+      }).catch((err) => console.error('[runner] saveTick error:', err))
     } catch (err) {
       console.error(`[BOT:${this.bot.name}] tick error:`, err)
     }
   }
 
   private async _execute(d: TradingDecision): Promise<void> {
-    if (process.env.DRY_RUN === 'true') {
+    if (this.adapter.isLive && process.env.DRY_RUN === 'true') {
       console.log(`[DRY_RUN] Would execute: ${d.action}${d.symbol ? ' ' + d.symbol : ''}${d.size ? ' $' + d.size : ''}`)
       return
     }
@@ -158,7 +170,7 @@ export class BotRunner {
     try {
       const positions = await this.adapter.getPositions()
       for (const p of positions) {
-        if (process.env.DRY_RUN !== 'true') {
+        if (!this.adapter.isLive || process.env.DRY_RUN !== 'true') {
           await this.adapter.closePosition(p.symbol)
         }
       }
