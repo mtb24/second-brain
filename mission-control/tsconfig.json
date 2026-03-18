@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "app/*": ["app/*"]
+    }
+  },
+  "include": ["src", "app", "vite.config.ts", "tailwind.config.cjs", "postcss.config.cjs"]
+}
+
