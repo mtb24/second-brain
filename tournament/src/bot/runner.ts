@@ -1,5 +1,5 @@
 import { ExchangeAdapter } from '../exchange/adapter.js'
-import { fetchPrice, fetchCandles } from '../exchange/prices.js'
+import { fetchPrices, fetchCandles } from '../exchange/prices.js'
 import { makeDecision, DecisionContext } from './decision.js'
 import { logDecisionToOB1 } from '../db/ingest.js'
 import { saveTick } from '../db/tournament.js'
@@ -78,10 +78,21 @@ export class BotRunner {
       const pnl = await this.adapter.getPnL()
 
       const marketData: DecisionContext['marketData'] = {}
+      // Fetch all prices in one batched API call, then fetch candles per symbol
+      let prices: Record<string, number> = {}
+      try {
+        prices = await fetchPrices(symbols)
+      } catch (err) {
+        console.error(`[runner] price batch fetch failed:`, err)
+      }
       for (const sym of symbols) {
+        const price = prices[sym]
+        if (price == null) {
+          console.error(`[runner] no price for ${sym} — skipping symbol this tick`)
+          continue
+        }
         try {
-          const [price, candles, book, fundingRate] = await Promise.all([
-            fetchPrice(sym),
+          const [candles, book, fundingRate] = await Promise.all([
             fetchCandles(sym, '1h', 24),
             this.adapter.getOrderBook(sym),
             this.adapter.getFundingRate(sym),

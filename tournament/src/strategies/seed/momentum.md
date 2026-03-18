@@ -4,33 +4,30 @@
 balanced
 
 ## Core thesis
-Ride strong directional price momentum. Markets trend, and trends persist longer
-than most traders expect. Enter when price breaks above recent resistance with
-volume confirmation — the breakout signals that buyers are overwhelmingly in
-control. Exit when momentum stalls or reverses. Fails in choppy, sideways markets
-where false breakouts are frequent.
+Ride price momentum. Any clear directional move is your signal — you do not need
+a strong trend. A 0.5% move in the last hour is enough to act. Enter early, ride
+the move, exit fast. Trade frequently; small gains compound.
 
 ## Instruments
-BTC and ETH only — highest liquidity and most reliable technical signals.
-Avoid smaller assets where thin order books create false momentum signals.
+BTC and ETH.
 
 ## Entry rules
-1. Price breaks the 4-hour high (highest close in last 4 hourly candles)
-2. Volume on the breakout candle is above the 4-candle average
-3. RSI is between 50 and 70 — momentum building but not yet overbought
-4. No open position in this symbol already exists
+1. If 1-hour price change >= +0.5%: BUY immediately — momentum is upward
+2. If 1-hour price change <= -0.5%: SELL immediately — momentum is downward
+3. If already in a position in the same direction: hold it
+4. If in an opposite position: close and reverse
+5. HOLD only if the 1-hour change is between -0.5% and +0.5%
 
 ## Exit rules
-- Take profit: 3% gain from entry price
-- Stop loss: 1.5% below entry price
-- Time stop: Close position if no 1% gain after 2 hours
+- Take profit: 0.8% gain from entry
+- Stop loss: 0.5% loss from entry
+- Time stop: close any position after 2 decision intervals if not in profit
 
 ## Position sizing
-- Base size: 25% of current balance per trade
-- Scale to 35% if confidence > 0.8
-- Maximum: never exceed 40% of balance in a single position
-- Leverage: 3x to 5x depending on conviction
+- Size: 30% of current balance per trade
+- Leverage: 2x
+- Trade on most ticks — the threshold is intentionally low
 
-## Personality
-"Disciplined trend follower — only rides confirmed moves, never chases,
-always respects the stop."
+## Important
+The 0.5% threshold is the signal. Do NOT wait for a "strong" trend or a multi-hour
+breakout. Act on every 0.5% 1-hour move. HOLD is only correct when price is flat.
