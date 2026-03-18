@@ -36,6 +36,20 @@ CREATE TABLE IF NOT EXISTS tournament_bots (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS tournament_ticks (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id      UUID NOT NULL REFERENCES tournament_rounds(id),
+  bot_id        UUID NOT NULL REFERENCES tournament_bots(id),
+  strategy_id   UUID NOT NULL REFERENCES tournament_strategies(id),
+  strategy_name TEXT NOT NULL,
+  balance       NUMERIC(14,4) NOT NULL,
+  pnl           NUMERIC(14,4) NOT NULL DEFAULT 0,
+  pnl_percent   NUMERIC(10,6) NOT NULL DEFAULT 0,
+  tick_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS tournament_ticks_round_id_idx ON tournament_ticks(round_id);
+CREATE INDEX IF NOT EXISTS tournament_ticks_tick_at_idx  ON tournament_ticks(tick_at);
+
 CREATE TABLE IF NOT EXISTS tournament_performance (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bot_id          UUID NOT NULL REFERENCES tournament_bots(id),

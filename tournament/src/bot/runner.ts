@@ -120,7 +120,6 @@ export class BotRunner {
       if (decision.action === 'hold') {
         this.holdDecisions++
       } else {
-        this.actionsTaken++
         await this._execute(decision)
       }
 
@@ -138,7 +137,7 @@ export class BotRunner {
         balance: pnl.currentBalance,
         pnl: pnl.total,
         pnlPercent: pnlPct,
-      }).catch((err) => console.error('[runner] saveTick error:', err))
+      }).catch((err) => console.error(`[runner] saveTick FAILED — no tick data will appear: ${err.message}`))
     } catch (err) {
       console.error(`[BOT:${this.bot.name}] tick error:`, err)
     }
@@ -147,12 +146,18 @@ export class BotRunner {
   private async _execute(d: TradingDecision): Promise<void> {
     if (this.adapter.isLive && process.env.DRY_RUN === 'true') {
       console.log(`[DRY_RUN] Would execute: ${d.action}${d.symbol ? ' ' + d.symbol : ''}${d.size ? ' $' + d.size : ''}`)
+      this.actionsTaken++
       return
     }
     try {
       if (d.action === 'close') {
         const positions = await this.adapter.getPositions()
-        for (const p of positions) await this.adapter.closePosition(p.symbol)
+        if (positions.length > 0) {
+          for (const p of positions) await this.adapter.closePosition(p.symbol)
+          this.actionsTaken++
+        } else {
+          console.log(`[runner:${this.bot.name}] close action — no open positions, skipped`)
+        }
       } else if ((d.action === 'buy' || d.action === 'sell') && d.symbol && d.size) {
         await this.adapter.placeOrder({
           symbol: d.symbol, side: d.action,
@@ -160,6 +165,9 @@ export class BotRunner {
           orderType: d.orderType ?? 'market',
           limitPrice: d.limitPrice,
         })
+        this.actionsTaken++
+      } else if (d.action === 'buy' || d.action === 'sell') {
+        console.warn(`[runner:${this.bot.name}] ${d.action} skipped — missing symbol or size (symbol=${d.symbol}, size=${d.size})`)
       }
     } catch (err) {
       console.error(`[runner] execute error:`, err)
