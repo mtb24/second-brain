@@ -52,7 +52,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   startingBalance: Number(process.env.TOURNAMENT_STARTING_BALANCE ?? 10000),
   roundDurationSeconds: Number(process.env.TOURNAMENT_ROUND_DURATION ?? 600),
   decisionIntervalSeconds: Number(process.env.TOURNAMENT_DECISION_INTERVAL ?? 60),
-  symbols: (process.env.TOURNAMENT_SYMBOLS ?? 'BTC,ETH').split(','),
+  symbols: (process.env.TOURNAMENT_SYMBOLS ?? 'BTC').split(','),
   fitnessThreshold: Number(process.env.TOURNAMENT_FITNESS_THRESHOLD ?? 0),
   dryRun: process.env.DRY_RUN !== 'false',
   verbose: process.env.TOURNAMENT_VERBOSE !== 'false',

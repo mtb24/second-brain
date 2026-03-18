@@ -8,14 +8,14 @@ import { Bot, Strategy, TradingDecision, BotPerformance } from './types.js'
 export interface RunnerOptions {
   decisionIntervalSeconds: number   // default: 60
   roundDurationSeconds: number      // default: 600
-  symbols: string[]                 // default: ['BTC', 'ETH']
+  symbols: string[]                 // default: ['BTC']
   verbose: boolean                  // default: true
 }
 
 const DEFAULT_OPTIONS: RunnerOptions = {
   decisionIntervalSeconds: 60,
   roundDurationSeconds: 600,
-  symbols: ['BTC', 'ETH'],
+  symbols: ['BTC'],
   verbose: true,
 }
 
