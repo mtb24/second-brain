@@ -96,7 +96,14 @@ export async function makeDecision(
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
     const cleaned = text.replace(/```json|```/g, '').trim()
-    const decision = JSON.parse(cleaned) as TradingDecision
+
+    let decision: TradingDecision
+    try {
+      decision = JSON.parse(cleaned) as TradingDecision
+    } catch {
+      console.warn(`[BOT:${botName}] non-JSON response — defaulting to HOLD. Got: "${cleaned.slice(0, 80)}${cleaned.length > 80 ? '…' : ''}"`)
+      return HOLD
+    }
 
     const { action, symbol, size, leverage, confidence } = decision
     console.log(

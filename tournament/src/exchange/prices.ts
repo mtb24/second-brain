@@ -9,7 +9,9 @@ const SYMBOL_MAP: Record<string, string> = {
 }
 
 const BASE = 'https://api.coingecko.com/api/v3'
-const CACHE_TTL_MS = 30_000
+// 55s TTL ensures cache survives any decision interval ≤60s, so all bots
+// share a single fetch per tick regardless of minor timing differences.
+const CACHE_TTL_MS = 55_000
 
 interface CacheEntry { value: unknown; expiresAt: number }
 const cache = new Map<string, CacheEntry>()
