@@ -60,12 +60,33 @@ services:
     networks:
       - brain_default
 
+  tournament:
+    build:
+      context: ./tournament
+      dockerfile: Dockerfile
+    container_name: brain-tournament
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY}
+      - DRY_RUN=${DRY_RUN}
+    ports:
+      - "127.0.0.1:3001:3001"
+    networks:
+      - brain_default
+
   mission-control:
     build:
       context: ./mission-control
       dockerfile: Dockerfile
     container_name: brain-mission
     restart: unless-stopped
+    depends_on:
+      - tournament
     environment:
       - INGEST_URL=http://ingest-api:8000
       - INGEST_TOKEN=${API_SECRET}
@@ -73,6 +94,7 @@ services:
       - MCP_TOKEN=${MCP_SECRET}
       - OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - TOURNAMENT_URL=http://tournament:3001
     ports:
       - "127.0.0.1:4173:4173"
     networks:

@@ -16,12 +16,14 @@
     "@tanstack/react-start": "^1.70.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "pg": "^8.11.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tanstack/nitro-v2-vite-plugin": "latest",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.10.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.0.0",
