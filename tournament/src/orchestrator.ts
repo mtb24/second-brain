@@ -221,16 +221,36 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
       }))
     } catch (err) {
       this.log(`[ORCHESTRATOR] Failed to parse researched strategies: ${err}`)
-      // Fallback: return a safe default
-      return [{
-        name: `adaptive-${Date.now()}`,
-        tier: 'balanced',
-        status: 'active',
-        source: 'master',
-        generation: this.currentGeneration,
-        parentIds: [],
-        doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
-      }]
+      // Fallback: ask Claude for a single named strategy rather than using a timestamp
+      try {
+        const fallback = await this.anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 100,
+          messages: [{ role: 'user', content: 'Give me a short kebab-case trading strategy name (2-3 words, no numbers). Reply with only the name, nothing else.' }],
+        })
+        const fallbackName = fallback.content[0].type === 'text'
+          ? fallback.content[0].text.trim().toLowerCase().replace(/[^a-z-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+          : 'adaptive-rsi'
+        return [{
+          name: fallbackName,
+          tier: 'balanced',
+          status: 'active',
+          source: 'master',
+          generation: this.currentGeneration,
+          parentIds: [],
+          doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
+        }]
+      } catch {
+        return [{
+          name: 'adaptive-rsi',
+          tier: 'balanced',
+          status: 'active',
+          source: 'master',
+          generation: this.currentGeneration,
+          parentIds: [],
+          doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
+        }]
+      }
     }
   }
 
