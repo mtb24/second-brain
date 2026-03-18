@@ -3,7 +3,9 @@
  * Lightweight HTTP server — accepts POST /start and runs TournamentOrchestrator.startRound()
  */
 
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+import { resolve } from 'path'
+loadEnv({ path: resolve(__dirname, '../../.env') })
 import http from 'http'
 import { TournamentOrchestrator } from './orchestrator.js'
 
