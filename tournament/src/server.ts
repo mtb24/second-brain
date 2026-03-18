@@ -19,7 +19,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/start') {
     console.log('[tournament-server] POST /start received')
     try {
-      const orchestrator = new TournamentOrchestrator()
+      const rawBody = await new Promise<string>((resolve) => {
+        let data = ''
+        req.on('data', (chunk) => { data += chunk })
+        req.on('end', () => resolve(data))
+      })
+      const body = rawBody ? JSON.parse(rawBody) : {}
+      const config = body.durationSeconds ? { roundDurationSeconds: Number(body.durationSeconds) } : {}
+      const orchestrator = new TournamentOrchestrator(config)
       const result = await orchestrator.startRound()
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, ...result }))

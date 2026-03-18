@@ -4,7 +4,8 @@ import {
 } from './adapter.js'
 import { fetchPrice, fetchCandles } from './prices.js'
 
-const SLIPPAGE = 0.0005  // 0.05%
+const SLIPPAGE = 0.0005   // 0.05%
+const WALK_STEP = 0.002   // ±0.1% per call
 
 interface MockState {
   balance: number
@@ -17,6 +18,19 @@ interface MockState {
 export class MockAdapter implements ExchangeAdapter {
   readonly name = 'mock'
   readonly isLive = false
+
+  // Simulated prices — seeded from real CoinGecko on first fetch, then random-walked
+  private priceCache = new Map<string, number>()
+
+  private async _getSimulatedPrice(symbol: string): Promise<number> {
+    if (!this.priceCache.has(symbol)) {
+      this.priceCache.set(symbol, await fetchPrice(symbol))
+    }
+    const current = this.priceCache.get(symbol)!
+    const next = current * (1 + (Math.random() - 0.5) * WALK_STEP)
+    this.priceCache.set(symbol, next)
+    return next
+  }
 
   private state: MockState = {
     balance: 1000,
@@ -41,7 +55,7 @@ export class MockAdapter implements ExchangeAdapter {
   }
 
   async getPrice(symbol: string): Promise<number> {
-    return fetchPrice(symbol)
+    return this._getSimulatedPrice(symbol)
   }
 
   async getCandles(
@@ -53,7 +67,7 @@ export class MockAdapter implements ExchangeAdapter {
   }
 
   async getOrderBook(symbol: string): Promise<OrderBook> {
-    const price = await fetchPrice(symbol)
+    const price = await this._getSimulatedPrice(symbol)
     const spread = price * 0.001
     return {
       bids: [[price - spread * 0.5, 1], [price - spread, 2], [price - spread * 1.5, 3],
@@ -73,7 +87,7 @@ export class MockAdapter implements ExchangeAdapter {
 
   async getPositions(): Promise<Position[]> {
     const prices = await Promise.all(
-      [...this.state.positions.keys()].map((s) => fetchPrice(s))
+      [...this.state.positions.keys()].map((s) => this._getSimulatedPrice(s))
     )
     const symbols = [...this.state.positions.keys()]
     return symbols.map((sym, i) => {
@@ -91,13 +105,7 @@ export class MockAdapter implements ExchangeAdapter {
   }
 
   async placeOrder(order: OrderRequest): Promise<OrderResult> {
-    if (process.env.DRY_RUN === 'true') {
-      console.log(`[DRY_RUN] Would place: ${JSON.stringify(order)}`)
-      const fillPrice = await fetchPrice(order.symbol)
-      return { orderId: 'dry-run', status: 'ok', fillPrice }
-    }
-
-    const fillPrice = await fetchPrice(order.symbol) * (1 + (order.side === 'buy' ? SLIPPAGE : -SLIPPAGE))
+    const fillPrice = await this._getSimulatedPrice(order.symbol) * (1 + (order.side === 'buy' ? SLIPPAGE : -SLIPPAGE))
     const existing = this.state.positions.get(order.symbol)
 
     if (existing) {
@@ -124,11 +132,6 @@ export class MockAdapter implements ExchangeAdapter {
   }
 
   async closePosition(symbol: string): Promise<OrderResult> {
-    if (process.env.DRY_RUN === 'true') {
-      console.log(`[DRY_RUN] Would close position: ${symbol}`)
-      const fillPrice = await fetchPrice(symbol)
-      return { orderId: 'dry-run', status: 'ok', fillPrice }
-    }
     return this._closePosition(symbol)
   }
 
@@ -136,7 +139,7 @@ export class MockAdapter implements ExchangeAdapter {
     const pos = this.state.positions.get(symbol)
     if (!pos) return { orderId: 'noop', status: 'ok' }
 
-    const exitPrice = await fetchPrice(symbol) * (1 + (pos.side === 'long' ? -SLIPPAGE : SLIPPAGE))
+    const exitPrice = await this._getSimulatedPrice(symbol) * (1 + (pos.side === 'long' ? -SLIPPAGE : SLIPPAGE))
     const pnlFactor = pos.side === 'long'
       ? (exitPrice - pos.entryPrice) / pos.entryPrice
       : (pos.entryPrice - exitPrice) / pos.entryPrice

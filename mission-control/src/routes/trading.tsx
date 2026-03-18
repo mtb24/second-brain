@@ -8,6 +8,19 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface LiveTick {
+  strategyName: string
+  balance: number
+  pnlPercent: number
+  tickAt: string
+}
+
+interface LiveRound {
+  roundId: string | null
+  status: string | null
+  ticks: LiveTick[]
+}
+
 interface BotPerf {
   botId: string
   botName: string
@@ -63,8 +76,25 @@ async function fetchRounds(): Promise<Round[]> {
   return rounds
 }
 
-async function startRound(): Promise<unknown> {
-  const res = await fetch('/api/tournament/start', { method: 'POST' })
+async function fetchLive(): Promise<LiveRound> {
+  const res = await fetch('/api/tournament/live')
+  if (!res.ok) throw new Error('Failed to load live data')
+  return res.json()
+}
+
+const DURATION_OPTIONS = [
+  { label: '10 min', value: 600 },
+  { label: '30 min', value: 1800 },
+  { label: '1 hour', value: 3600 },
+  { label: '3 hours', value: 10800 },
+]
+
+async function startRound(durationSeconds: number): Promise<unknown> {
+  const res = await fetch('/api/tournament/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ durationSeconds }),
+  })
   if (!res.ok) throw new Error('Failed to start round')
   return res.json()
 }
@@ -116,6 +146,95 @@ function buildChartData(rounds: Round[]) {
     return point
   })
   return { data, strategyNames }
+}
+
+// Group ticks by minute-resolution time label, pivot by strategyName
+function buildLiveChartData(ticks: LiveTick[]) {
+  const strategies = Array.from(new Set(ticks.map((t) => t.strategyName)))
+  const buckets = new Map<string, Map<string, number>>()
+  for (const tick of ticks) {
+    const label = new Date(tick.tickAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    if (!buckets.has(label)) buckets.set(label, new Map())
+    buckets.get(label)!.set(tick.strategyName, tick.pnlPercent)
+  }
+  const data = [...buckets.entries()].map(([label, vals]) => {
+    const point: Record<string, string | number> = { label }
+    for (const s of strategies) {
+      if (vals.has(s)) point[s] = Number(vals.get(s)!.toFixed(4))
+    }
+    return point
+  })
+  return { data, strategies }
+}
+
+// ── Live chart ────────────────────────────────────────────────────────────────
+
+function LiveChart({ live }: { live: LiveRound }) {
+  if (!live.ticks.length) {
+    return (
+      <div className="flex h-[220px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+        {live.status === 'running' ? 'Waiting for first tick…' : 'No tick data'}
+      </div>
+    )
+  }
+
+  const { data, strategies } = buildLiveChartData(live.ticks)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <p className="text-xs font-medium text-slate-300">
+          {live.status === 'running' ? 'Live round' : 'Last round'}
+        </p>
+        {live.status === 'running' && (
+          <span className="inline-flex items-center gap-1 rounded bg-blue-900/60 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+            LIVE
+          </span>
+        )}
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={{ stroke: '#1e293b' }}
+          />
+          <YAxis
+            tickFormatter={(v) => `${v}%`}
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={42}
+          />
+          <Tooltip
+            contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: '#94a3b8' }}
+            formatter={(value: number) => [`${value.toFixed(2)}%`, undefined]}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
+            iconType="circle"
+            iconSize={8}
+          />
+          {strategies.map((name, i) => (
+            <Line
+              key={name}
+              type="monotone"
+              dataKey={name}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 4 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
 }
 
 // ── Performance chart ─────────────────────────────────────────────────────────
@@ -188,15 +307,18 @@ export const Route = createFileRoute('/trading')({
 function TradingPage() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<'leaderboard' | 'rounds'>('leaderboard')
+  const [duration, setDuration] = useState(600)
 
   const leaderboardQ = useQuery({ queryKey: ['tournament-leaderboard'], queryFn: fetchLeaderboard, refetchInterval: 30_000 })
   const roundsQ = useQuery({ queryKey: ['tournament-rounds'], queryFn: fetchRounds, refetchInterval: 30_000 })
+  const liveQ = useQuery({ queryKey: ['tournament-live'], queryFn: fetchLive, refetchInterval: (query) => query.state.data?.status === 'running' ? 5_000 : 30_000 })
 
   const startMutation = useMutation({
-    mutationFn: startRound,
+    mutationFn: () => startRound(duration),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tournament-leaderboard'] })
       qc.invalidateQueries({ queryKey: ['tournament-rounds'] })
+      qc.invalidateQueries({ queryKey: ['tournament-live'] })
     },
   })
 
@@ -205,13 +327,25 @@ function TradingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-sm font-semibold text-slate-100">Tournament</h1>
-        <button
-          onClick={() => startMutation.mutate()}
-          disabled={startMutation.isPending}
-          className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
-        >
-          {startMutation.isPending ? 'Starting…' : 'Start round'}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            disabled={startMutation.isPending}
+            className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-60"
+          >
+            {DURATION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => startMutation.mutate()}
+            disabled={startMutation.isPending}
+            className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {startMutation.isPending ? 'Starting…' : 'Start round'}
+          </button>
+        </div>
       </div>
 
       {startMutation.isError && (
@@ -283,6 +417,9 @@ function TradingPage() {
               </table>
             </div>
           )}
+
+          {/* Live chart — current or most recent round, tick-level */}
+          {liveQ.data && <LiveChart live={liveQ.data} />}
 
           {/* Performance chart — uses already-fetched roundsQ data */}
           {roundsQ.isLoading && (

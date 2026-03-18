@@ -259,7 +259,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
   private async _spawnBots(roundId: string, strategies: Strategy[]): Promise<Bot[]> {
     const bots: Bot[] = []
     for (const strategy of strategies) {
-      const botName = `bot-${strategy.name}-r${roundId.slice(0, 8)}`
+      const botName = strategy.name
       const botId = await createBot({
         name: botName,
         roundId,
