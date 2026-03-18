@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+} from 'recharts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -90,6 +94,91 @@ function fmt(dt: string | null) {
   return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const LINE_COLORS = [
+  '#34d399', '#60a5fa', '#f472b6', '#fbbf24',
+  '#a78bfa', '#fb923c', '#38bdf8', '#f87171',
+]
+
+// Build [{label, [strategyName]: pnlPercent, ...}] from oldest→newest
+function buildChartData(rounds: Round[]) {
+  const sorted = [...rounds].reverse() // rounds API returns newest-first
+  const strategyNames = Array.from(
+    new Set(sorted.flatMap((r) => r.bots.map((b) => b.strategyName)))
+  )
+  const data = sorted.map((r, i) => {
+    const point: Record<string, string | number> = {
+      label: new Date(r.startedAt).toLocaleString('en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      roundNum: i + 1,
+    }
+    for (const bot of r.bots) {
+      point[bot.strategyName] = Number(bot.pnlPercent.toFixed(4))
+    }
+    return point
+  })
+  return { data, strategyNames }
+}
+
+// ── Performance chart ─────────────────────────────────────────────────────────
+
+function PerformanceChart({ rounds }: { rounds: Round[] }) {
+  const hasData = rounds.some((r) => r.bots.length > 0)
+  if (!hasData) {
+    return (
+      <div className="flex h-[300px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+        No round history yet
+      </div>
+    )
+  }
+
+  const { data, strategyNames } = buildChartData(rounds)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <p className="mb-3 text-xs font-medium text-slate-300">Performance over time</p>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={{ stroke: '#1e293b' }}
+          />
+          <YAxis
+            tickFormatter={(v) => `${v}%`}
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={42}
+          />
+          <Tooltip
+            contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: '#94a3b8' }}
+            formatter={(value: number) => [`${value.toFixed(2)}%`, undefined]}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
+            iconType="circle"
+            iconSize={8}
+          />
+          {strategyNames.map((name, i) => (
+            <Line
+              key={name}
+              type="monotone"
+              dataKey={name}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={1.5}
+              dot={{ r: 3, fill: LINE_COLORS[i % LINE_COLORS.length] }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/trading')({
@@ -147,7 +236,7 @@ function TradingPage() {
 
       {/* Leaderboard */}
       {tab === 'leaderboard' && (
-        <div>
+        <div className="space-y-4">
           {leaderboardQ.isLoading && <div className="text-xs text-slate-500">Loading…</div>}
           {leaderboardQ.error && <div className="text-xs text-red-400">{(leaderboardQ.error as Error).message}</div>}
           {leaderboardQ.data && leaderboardQ.data.length === 0 && (
@@ -194,6 +283,14 @@ function TradingPage() {
               </table>
             </div>
           )}
+
+          {/* Performance chart — uses already-fetched roundsQ data */}
+          {roundsQ.isLoading && (
+            <div className="flex h-[300px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+              Loading…
+            </div>
+          )}
+          {roundsQ.data && <PerformanceChart rounds={roundsQ.data} />}
         </div>
       )}
 
