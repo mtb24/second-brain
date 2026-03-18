@@ -4,6 +4,7 @@ node_modules/
 .output/
 __pycache__/
 *.pyc
+archive/
 backups/
 *.sql.gz
 .cursor/
