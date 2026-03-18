@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
@@ -122,6 +122,121 @@ function statusBadge(status: string) {
 function fmt(dt: string | null) {
   if (!dt) return '—'
   return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDurationLabel(seconds: number): string {
+  if (seconds >= 3600) return `${seconds / 3600} hr round`
+  return `${seconds / 60} min round`
+}
+
+function fmtCountdown(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':')
+}
+
+// ── Round timer hook ──────────────────────────────────────────────────────────
+
+type TimerPhase = 'idle' | 'running' | 'warning' | 'critical' | 'complete'
+
+interface TimerState {
+  remainingMs: number
+  percent: number      // 0–100 elapsed
+  phase: TimerPhase
+  durationLabel: string
+}
+
+function useRoundTimer(round: Round | null | undefined): TimerState {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (!round || (round.status !== 'running' && round.status !== 'complete')) {
+    return { remainingMs: 0, percent: 0, phase: 'idle', durationLabel: '' }
+  }
+
+  const durationLabel = fmtDurationLabel(round.durationSeconds)
+
+  if (round.status === 'complete') {
+    return { remainingMs: 0, percent: 100, phase: 'complete', durationLabel }
+  }
+
+  const totalMs = round.durationSeconds * 1000
+  const startMs = new Date(round.startedAt).getTime()
+  // ended_at is NULL while running — derive from started_at + duration
+  const endMs = round.endedAt ? new Date(round.endedAt).getTime() : startMs + totalMs
+  const remainingMs = Math.max(0, endMs - now)
+  const elapsedMs = now - startMs
+  const percent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100))
+
+  // Trust server: if poll says complete but timer hasn't hit zero, treat as complete
+  const phase: TimerPhase =
+    remainingMs <= 0 ? 'complete'
+    : remainingMs < 60_000 ? 'critical'
+    : remainingMs < 300_000 ? 'warning'
+    : 'running'
+
+  return { remainingMs, percent, phase, durationLabel }
+}
+
+// ── Round timer component ─────────────────────────────────────────────────────
+
+function RoundTimer({ round }: { round: Round | null | undefined }) {
+  const { remainingMs, percent, phase, durationLabel } = useRoundTimer(round)
+
+  const timeColor: Record<TimerPhase, string> = {
+    idle:     'text-slate-600',
+    running:  'text-slate-100',
+    warning:  'text-amber-400',
+    critical: 'text-red-400',
+    complete: 'text-slate-400',
+  }
+  const barColor: Record<TimerPhase, string> = {
+    idle:     'bg-slate-700',
+    running:  'bg-blue-500',
+    warning:  'bg-amber-500',
+    critical: 'bg-red-500',
+    complete: 'bg-slate-600',
+  }
+
+  if (phase === 'idle') {
+    return (
+      <span className="font-mono text-xs text-slate-600">No active round</span>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline gap-2.5">
+        <span
+          className={`font-mono text-2xl font-semibold tracking-tight ${timeColor[phase]} ${phase === 'critical' || phase === 'warning' ? 'animate-pulse' : ''}`}
+        >
+          {phase === 'complete' ? '00:00:00' : fmtCountdown(remainingMs)}
+        </span>
+        <span className="text-xs text-slate-500">{durationLabel}</span>
+        {phase === 'complete' && (
+          <span className="text-xs font-medium text-slate-400">Round complete</span>
+        )}
+        {phase === 'warning' && (
+          <span className="text-xs font-medium text-amber-500">ending soon</span>
+        )}
+        {phase === 'critical' && (
+          <span className="text-xs font-medium text-red-400">final minute</span>
+        )}
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className={`h-1 rounded-full transition-all duration-1000 ease-linear ${barColor[phase]}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  )
 }
 
 const LINE_COLORS = [
@@ -313,6 +428,9 @@ function TradingPage() {
   const roundsQ = useQuery({ queryKey: ['tournament-rounds'], queryFn: fetchRounds, refetchInterval: 30_000 })
   const liveQ = useQuery({ queryKey: ['tournament-live'], queryFn: fetchLive, refetchInterval: (query) => query.state.data?.status === 'running' ? 5_000 : 30_000 })
 
+  // Active round for the timer: prefer running, fall back to most recent
+  const activeRound = roundsQ.data?.find((r) => r.status === 'running') ?? roundsQ.data?.[0] ?? null
+
   const startMutation = useMutation({
     mutationFn: () => startRound(duration),
     onSuccess: () => {
@@ -354,6 +472,9 @@ function TradingPage() {
       {startMutation.isSuccess && (
         <div className="text-xs text-emerald-400">Round started — results will appear below.</div>
       )}
+
+      {/* Round timer */}
+      <RoundTimer round={activeRound} />
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-800 pb-1 text-xs">
