@@ -206,7 +206,9 @@ When writing the doc value, follow these RULES (do NOT output the RULES list its
 - Never use 'Compute', 'Calculate', 'I need to', or any reasoning language
 - Only reference data that is already in the decision prompt: current price, 1h change %, 24h change %, balance, open positions
 - Never reference RSI, SMA, Bollinger Bands, or any indicator that requires calculation from candle data
+- Do NOT add any extra bullets or any other text beyond the 3 bullets shown above (entry, exit, otherwise)
 - Keep rules to 3-5 bullet points max
+- Use [ACTION] as exactly BUY or SELL only (no '(short)'/'(long)' labels)
 - Always end with: Respond with JSON only. Never explain your reasoning."
 }
 
