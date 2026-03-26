@@ -1,154 +1,613 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { z } from 'zod'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+} from 'recharts'
 
-const TradingRuleSchema = z.object({
-  tier: z.string(),
-  duration_days: z.number(),
-  threshold_pct: z.number(),
-})
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const BracketResponseSchema = z.array(TradingRuleSchema)
-
-type TradingRule = z.infer<typeof TradingRuleSchema>
-
-async function fetchBracket(): Promise<TradingRule[]> {
-  const res = await fetch('/api/ingest/trading/bracket')
-  if (!res.ok) {
-    throw new Error('Failed to load bracket config')
-  }
-  const data = await res.json()
-  return BracketResponseSchema.parse(data)
+interface LiveTick {
+  strategyName: string
+  balance: number
+  pnlPercent: number
+  tickAt: string
 }
 
-async function saveBracket(rules: TradingRule[]): Promise<TradingRule[]> {
-  const res = await fetch('/api/ingest/trading/bracket', {
+interface LiveRound {
+  roundId: string | null
+  status: string | null
+  ticks: LiveTick[]
+}
+
+interface BotPerf {
+  botId: string
+  botName: string
+  strategyId: string
+  strategyName: string
+  tier: string
+  pnl: number
+  pnlPercent: number
+  fitnessScore: number
+  totalTrades: number
+  winRate: number
+}
+
+interface Round {
+  id: number
+  startedAt: string
+  endedAt: string | null
+  status: string
+  generation: number
+  durationSeconds: number
+  bots: BotPerf[]
+  winner: BotPerf | null
+}
+
+interface LeaderboardEntry {
+  id: string
+  name: string
+  tier: string
+  status: string
+  generation: number
+  roundsPlayed: number
+  wins: number
+  avgPnlPercent: string | null
+  avgFitness: string | null
+  bestFitness: string | null
+  totalTrades: number
+  winRate: string | null
+}
+
+// ── Fetchers ──────────────────────────────────────────────────────────────────
+
+async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
+  const res = await fetch('/api/tournament/leaderboard')
+  if (!res.ok) throw new Error('Failed to load leaderboard')
+  const { leaderboard } = await res.json()
+  return leaderboard
+}
+
+async function fetchRounds(): Promise<Round[]> {
+  const res = await fetch('/api/tournament/rounds?limit=10')
+  if (!res.ok) throw new Error('Failed to load rounds')
+  const { rounds } = await res.json()
+  return rounds
+}
+
+async function fetchLive(): Promise<LiveRound> {
+  const res = await fetch('/api/tournament/live')
+  if (!res.ok) throw new Error('Failed to load live data')
+  return res.json()
+}
+
+const DURATION_OPTIONS = [
+  { label: '10 min', value: 600 },
+  { label: '30 min', value: 1800 },
+  { label: '1 hour', value: 3600 },
+  { label: '3 hours', value: 10800 },
+]
+
+async function startRound(durationSeconds: number): Promise<unknown> {
+  const res = await fetch('/api/tournament/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(rules),
+    body: JSON.stringify({ durationSeconds }),
   })
-  if (!res.ok) {
-    throw new Error('Failed to save bracket config')
-  }
-  const data = await res.json()
-  return BracketResponseSchema.parse(data)
+  if (!res.ok) throw new Error('Failed to start round')
+  return res.json()
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function pnlColor(val: number | string | null) {
+  const n = Number(val)
+  if (n > 0) return 'text-emerald-400'
+  if (n < 0) return 'text-red-400'
+  return 'text-slate-400'
+}
+
+function statusBadge(status: string) {
+  const map: Record<string, string> = {
+    active: 'bg-emerald-900/60 text-emerald-300',
+    hall_of_fame: 'bg-yellow-900/60 text-yellow-300',
+    retired: 'bg-slate-800 text-slate-500',
+    running: 'bg-blue-900/60 text-blue-300',
+    complete: 'bg-slate-800 text-slate-400',
+  }
+  return map[status] ?? 'bg-slate-800 text-slate-400'
+}
+
+function fmt(dt: string | null) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDurationLabel(seconds: number): string {
+  if (seconds >= 3600) return `${seconds / 3600} hr round`
+  return `${seconds / 60} min round`
+}
+
+function fmtCountdown(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':')
+}
+
+// ── Round timer hook ──────────────────────────────────────────────────────────
+
+type TimerPhase = 'idle' | 'running' | 'warning' | 'critical' | 'complete'
+
+interface TimerState {
+  remainingMs: number
+  percent: number      // 0–100 elapsed
+  phase: TimerPhase
+  durationLabel: string
+}
+
+function useRoundTimer(round: Round | null | undefined): TimerState {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (!round || (round.status !== 'running' && round.status !== 'complete')) {
+    return { remainingMs: 0, percent: 0, phase: 'idle', durationLabel: '' }
+  }
+
+  const durationLabel = fmtDurationLabel(round.durationSeconds)
+
+  if (round.status === 'complete') {
+    return { remainingMs: 0, percent: 100, phase: 'complete', durationLabel }
+  }
+
+  const totalMs = round.durationSeconds * 1000
+  const startMs = new Date(round.startedAt).getTime()
+  // ended_at is NULL while running — derive from started_at + duration
+  const endMs = round.endedAt ? new Date(round.endedAt).getTime() : startMs + totalMs
+  const remainingMs = Math.max(0, endMs - now)
+  const elapsedMs = now - startMs
+  const percent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100))
+
+  // Trust server: if poll says complete but timer hasn't hit zero, treat as complete
+  const phase: TimerPhase =
+    remainingMs <= 0 ? 'complete'
+    : remainingMs < 60_000 ? 'critical'
+    : remainingMs < 300_000 ? 'warning'
+    : 'running'
+
+  return { remainingMs, percent, phase, durationLabel }
+}
+
+// ── Round timer component ─────────────────────────────────────────────────────
+
+function RoundTimer({ round }: { round: Round | null | undefined }) {
+  const { remainingMs, percent, phase, durationLabel } = useRoundTimer(round)
+
+  const timeColor: Record<TimerPhase, string> = {
+    idle:     'text-slate-600',
+    running:  'text-slate-100',
+    warning:  'text-amber-400',
+    critical: 'text-red-400',
+    complete: 'text-slate-400',
+  }
+  const barColor: Record<TimerPhase, string> = {
+    idle:     'bg-slate-700',
+    running:  'bg-blue-500',
+    warning:  'bg-amber-500',
+    critical: 'bg-red-500',
+    complete: 'bg-slate-600',
+  }
+
+  if (phase === 'idle') {
+    return (
+      <span className="font-mono text-xs text-slate-600">No active round</span>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline gap-2.5">
+        <span
+          className={`font-mono text-2xl font-semibold tracking-tight ${timeColor[phase]} ${phase === 'critical' || phase === 'warning' ? 'animate-pulse' : ''}`}
+        >
+          {phase === 'complete' ? '00:00:00' : fmtCountdown(remainingMs)}
+        </span>
+        <span className="text-xs text-slate-500">{durationLabel}</span>
+        {phase === 'complete' && (
+          <span className="text-xs font-medium text-slate-400">Round complete</span>
+        )}
+        {phase === 'warning' && (
+          <span className="text-xs font-medium text-amber-500">ending soon</span>
+        )}
+        {phase === 'critical' && (
+          <span className="text-xs font-medium text-red-400">final minute</span>
+        )}
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className={`h-1 rounded-full transition-all duration-1000 ease-linear ${barColor[phase]}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+const LINE_COLORS = [
+  '#34d399', '#60a5fa', '#f472b6', '#fbbf24',
+  '#a78bfa', '#fb923c', '#38bdf8', '#f87171',
+]
+
+// Build [{label, [strategyName]: pnlPercent, ...}] from oldest→newest
+function buildChartData(rounds: Round[]) {
+  const sorted = [...rounds].reverse() // rounds API returns newest-first
+  const strategyNames = Array.from(
+    new Set(sorted.flatMap((r) => r.bots.map((b) => b.strategyName)))
+  )
+  const data = sorted.map((r, i) => {
+    const point: Record<string, string | number> = {
+      label: new Date(r.startedAt).toLocaleString('en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      roundNum: i + 1,
+    }
+    for (const bot of r.bots) {
+      point[bot.strategyName] = Number(bot.pnlPercent.toFixed(4))
+    }
+    return point
+  })
+  return { data, strategyNames }
+}
+
+// Group ticks by minute-resolution time label, pivot by strategyName
+function buildLiveChartData(ticks: LiveTick[]) {
+  const strategies = Array.from(new Set(ticks.map((t) => t.strategyName)))
+  const buckets = new Map<string, Map<string, number>>()
+  for (const tick of ticks) {
+    const label = new Date(tick.tickAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    if (!buckets.has(label)) buckets.set(label, new Map())
+    buckets.get(label)!.set(tick.strategyName, tick.pnlPercent)
+  }
+  const data = [...buckets.entries()].map(([label, vals]) => {
+    const point: Record<string, string | number> = { label }
+    for (const s of strategies) {
+      if (vals.has(s)) point[s] = Number(vals.get(s)!.toFixed(4))
+    }
+    return point
+  })
+  return { data, strategies }
+}
+
+// ── Live chart ────────────────────────────────────────────────────────────────
+
+function LiveChart({ live }: { live: LiveRound }) {
+  if (!live.ticks.length) {
+    return (
+      <div className="flex h-[220px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+        {live.status === 'running' ? 'Waiting for first tick…' : 'No tick data'}
+      </div>
+    )
+  }
+
+  const { data, strategies } = buildLiveChartData(live.ticks)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <p className="text-xs font-medium text-slate-300">
+          {live.status === 'running' ? 'Live round' : 'Last round'}
+        </p>
+        {live.status === 'running' && (
+          <span className="inline-flex items-center gap-1 rounded bg-blue-900/60 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+            LIVE
+          </span>
+        )}
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={{ stroke: '#1e293b' }}
+          />
+          <YAxis
+            tickFormatter={(v) => `${v}%`}
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={42}
+          />
+          <Tooltip
+            contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: '#94a3b8' }}
+            formatter={(value) => [value != null ? `${Number(value).toFixed(2)}%` : '', undefined]}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
+            iconType="circle"
+            iconSize={8}
+          />
+          {strategies.map((name, i) => (
+            <Line
+              key={name}
+              type="monotone"
+              dataKey={name}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 4 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── Performance chart ─────────────────────────────────────────────────────────
+
+function PerformanceChart({ rounds }: { rounds: Round[] }) {
+  const hasData = rounds.some((r) => r.bots.length > 0)
+  if (!hasData) {
+    return (
+      <div className="flex h-[300px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+        No round history yet
+      </div>
+    )
+  }
+
+  const { data, strategyNames } = buildChartData(rounds)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <p className="mb-3 text-xs font-medium text-slate-300">Performance over time</p>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={{ stroke: '#1e293b' }}
+          />
+          <YAxis
+            tickFormatter={(v) => `${v}%`}
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={42}
+          />
+          <Tooltip
+            contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: '#94a3b8' }}
+            formatter={(value) => [value != null ? `${Number(value).toFixed(2)}%` : '', undefined]}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
+            iconType="circle"
+            iconSize={8}
+          />
+          {strategyNames.map((name, i) => (
+            <Line
+              key={name}
+              type="monotone"
+              dataKey={name}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={1.5}
+              dot={{ r: 3, fill: LINE_COLORS[i % LINE_COLORS.length] }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/trading')({
   component: TradingPage,
 })
 
 function TradingPage() {
-  const queryClient = useQueryClient()
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['trading-bracket'],
-    queryFn: fetchBracket,
-    refetchInterval: 60_000,
-  })
+  const qc = useQueryClient()
+  const [tab, setTab] = useState<'leaderboard' | 'rounds'>('leaderboard')
+  const [duration, setDuration] = useState(600)
 
-  const [local, setLocal] = useState<TradingRule[] | null>(null)
+  const leaderboardQ = useQuery({ queryKey: ['tournament-leaderboard'], queryFn: fetchLeaderboard, refetchInterval: 30_000 })
+  const roundsQ = useQuery({ queryKey: ['tournament-rounds'], queryFn: fetchRounds, refetchInterval: 30_000 })
+  const liveQ = useQuery({ queryKey: ['tournament-live'], queryFn: fetchLive, refetchInterval: (query) => query.state.data?.status === 'running' ? 5_000 : 30_000 })
 
-  const mutation = useMutation({
-    mutationFn: saveBracket,
-    onSuccess: (rules) => {
-      queryClient.setQueryData(['trading-bracket'], rules)
+  // Active round for the timer: prefer running, fall back to most recent
+  const activeRound = roundsQ.data?.find((r) => r.status === 'running') ?? roundsQ.data?.[0] ?? null
+
+  const startMutation = useMutation({
+    mutationFn: () => startRound(duration),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tournament-leaderboard'] })
+      qc.invalidateQueries({ queryKey: ['tournament-rounds'] })
+      qc.invalidateQueries({ queryKey: ['tournament-live'] })
     },
   })
 
-  const rules = local ?? data ?? []
-
-  function updateRule(index: number, partial: Partial<TradingRule>) {
-    setLocal((prev) => {
-      const list = prev ?? data ?? []
-      const next = [...list]
-      next[index] = { ...next[index]!, ...partial }
-      return next
-    })
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (rules.length === 0) return
-    mutation.mutate(rules)
-  }
-
   return (
     <div className="space-y-4">
-      <h1 className="text-sm font-semibold text-slate-100">
-        Trading bracket configuration
-      </h1>
-      {isLoading && (
-        <div className="text-xs text-slate-500">Loading config…</div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-semibold text-slate-100">Tournament</h1>
+        <div className="flex items-center gap-2">
+          <select
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            disabled={startMutation.isPending}
+            className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 focus:outline-none disabled:opacity-60"
+          >
+            {DURATION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => startMutation.mutate()}
+            disabled={startMutation.isPending || liveQ.data?.status === 'running'}
+            className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {startMutation.isPending ? 'Starting…' : liveQ.data?.status === 'running' ? 'Running…' : 'Start round'}
+          </button>
+        </div>
+      </div>
+
+      {startMutation.isError && (
+        <div className="text-xs text-red-400">{(startMutation.error as Error).message}</div>
       )}
-      {error && (
-        <div className="text-xs text-red-400">
-          {(error as Error).message}
+      {startMutation.isSuccess && (
+        <div className="text-xs text-emerald-400">Round started — results will appear below.</div>
+      )}
+
+      {/* Round timer */}
+      <RoundTimer round={activeRound} />
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-slate-800 pb-1 text-xs">
+        {(['leaderboard', 'rounds'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={tab === t ? 'text-slate-100 font-medium' : 'text-slate-500 hover:text-slate-300'}
+          >
+            {t === 'leaderboard' ? 'Leaderboard' : 'Round history'}
+          </button>
+        ))}
+      </div>
+
+      {/* Leaderboard */}
+      {tab === 'leaderboard' && (
+        <div className="space-y-4">
+          {leaderboardQ.isLoading && <div className="text-xs text-slate-500">Loading…</div>}
+          {leaderboardQ.error && <div className="text-xs text-red-400">{(leaderboardQ.error as Error).message}</div>}
+          {leaderboardQ.data && leaderboardQ.data.length === 0 && (
+            <div className="text-xs text-slate-500">No strategies yet. Start a round to seed them.</div>
+          )}
+          {leaderboardQ.data && leaderboardQ.data.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400">
+                    <th className="px-3 py-2 text-left font-medium">Strategy</th>
+                    <th className="px-3 py-2 text-left font-medium">Tier</th>
+                    <th className="px-3 py-2 text-left font-medium">Status</th>
+                    <th className="px-3 py-2 text-right font-medium">Rounds</th>
+                    <th className="px-3 py-2 text-right font-medium">Wins</th>
+                    <th className="px-3 py-2 text-right font-medium">Win%</th>
+                    <th className="px-3 py-2 text-right font-medium">Avg PnL%</th>
+                    <th className="px-3 py-2 text-right font-medium">Best fitness</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboardQ.data.map((s, i) => (
+                    <tr key={s.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                      <td className="px-3 py-2 font-mono text-slate-100">
+                        {i === 0 && <span className="mr-1 text-yellow-400">👑</span>}
+                        {s.name}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400">{s.tier}</td>
+                      <td className="px-3 py-2">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${statusBadge(s.status)}`}>
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-300">{s.roundsPlayed}</td>
+                      <td className="px-3 py-2 text-right text-slate-300">{s.wins}</td>
+                      <td className="px-3 py-2 text-right text-slate-300">{s.winRate != null ? `${s.winRate}%` : '—'}</td>
+                      <td className={`px-3 py-2 text-right ${pnlColor(s.avgPnlPercent)}`}>
+                        {s.avgPnlPercent != null ? `${s.avgPnlPercent}%` : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-300">{s.bestFitness ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Live chart — current or most recent round, tick-level */}
+          {liveQ.data && <LiveChart live={liveQ.data} />}
+
+          {/* Performance chart — uses already-fetched roundsQ data */}
+          {roundsQ.isLoading && (
+            <div className="flex h-[300px] items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-500">
+              Loading…
+            </div>
+          )}
+          {roundsQ.data && <PerformanceChart rounds={roundsQ.data} />}
         </div>
       )}
-      {rules.length > 0 && (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-xs"
-        >
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-slate-400">
-              <span>Tier</span>
-              <span>Duration (days)</span>
-              <span>Threshold (%)</span>
-            </div>
-            {rules.map((rule, i) => (
-              <div key={rule.tier} className="grid grid-cols-3 gap-2">
-                <input
-                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100"
-                  value={rule.tier}
-                  onChange={(e) => updateRule(i, { tier: e.target.value })}
-                  readOnly
-                  title="Tier is read-only"
-                />
-                <input
-                  type="number"
-                  className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100"
-                  value={rule.duration_days}
-                  onChange={(e) =>
-                    updateRule(i, { duration_days: Number(e.target.value) })
-                  }
-                />
-                <input
-                  type="number"
-                  className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100"
-                  value={rule.threshold_pct}
-                  onChange={(e) =>
-                    updateRule(i, { threshold_pct: Number(e.target.value) })
-                  }
-                  step="0.01"
-                />
-              </div>
-            ))}
-          </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="rounded bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
-            >
-              {mutation.isPending ? 'Saving…' : 'Save changes'}
-            </button>
-            {mutation.isError && (
-              <span className="text-xs text-red-400">
-                {(mutation.error as Error).message}
-              </span>
-            )}
-            {mutation.isSuccess && (
-              <span className="text-xs text-emerald-400">
-                Saved.
-              </span>
-            )}
-          </div>
-        </form>
+      {/* Round history */}
+      {tab === 'rounds' && (
+        <div className="space-y-3">
+          {roundsQ.isLoading && <div className="text-xs text-slate-500">Loading…</div>}
+          {roundsQ.error && <div className="text-xs text-red-400">{(roundsQ.error as Error).message}</div>}
+          {roundsQ.data && roundsQ.data.length === 0 && (
+            <div className="text-xs text-slate-500">No rounds yet.</div>
+          )}
+          {roundsQ.data?.map((round) => (
+            <div key={round.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-mono text-slate-100">Round #{round.id}</span>
+                  <span className="text-slate-500">gen {round.generation}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${statusBadge(round.status)}`}>
+                    {round.status}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-500">{fmt(round.startedAt)}</div>
+              </div>
+              {round.bots.length > 0 && (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-500">
+                      <th className="text-left font-normal py-0.5">Strategy</th>
+                      <th className="text-right font-normal py-0.5">PnL%</th>
+                      <th className="text-right font-normal py-0.5">Fitness</th>
+                      <th className="text-right font-normal py-0.5">Trades</th>
+                      <th className="text-right font-normal py-0.5">Win%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {round.bots.map((b, i) => (
+                      <tr key={b.botId}>
+                        <td className="py-0.5 font-mono text-slate-200">
+                          {i === 0 && round.status === 'complete' && <span className="mr-1 text-yellow-400">★</span>}
+                          {b.strategyName}
+                        </td>
+                        <td className={`py-0.5 text-right ${pnlColor(b.pnlPercent)}`}>
+                          {b.pnlPercent.toFixed(2)}%
+                        </td>
+                        <td className="py-0.5 text-right text-slate-300">{b.fitnessScore.toFixed(2)}</td>
+                        <td className="py-0.5 text-right text-slate-400">{b.totalTrades}</td>
+                        <td className="py-0.5 text-right text-slate-400">{(b.winRate * 100).toFixed(0)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {round.bots.length === 0 && (
+                <div className="text-[11px] text-slate-500">No bot data recorded.</div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
 }
-

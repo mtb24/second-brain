@@ -1,4 +1,6 @@
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+import { resolve } from 'path'
+loadEnv({ path: resolve(__dirname, '../../../.env') })
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { Pool } from 'pg'

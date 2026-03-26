@@ -4,34 +4,31 @@
 conservative
 
 ## Core thesis
-Prices overextend and snap back. When a market moves sharply in one direction
-in a short window, fear or greed has overwhelmed rational pricing. Fade the
-extreme by trading back toward fair value. Works best in range-bound markets
-with no clear macro trend. Fails when a genuine structural move is underway —
-do not fight a trend that has fundamental backing.
+Prices oscillate around a short-term average. When price moves 0.3% or more away
+from the recent mean, fade the move — it will revert. Act on every deviation. The
+threshold is low by design: in flat markets, 0.3% moves are real opportunities.
 
 ## Instruments
-BTC and ETH only — deep liquidity ensures mean reversion is reliable.
-Avoid assets where a single news event can sustain a one-directional move.
+BTC and ETH.
 
 ## Entry rules
-1. Price fell 3% or more in the last 1 hour AND RSI is below 28 (oversold)
-   — enter long (buy)
-   OR
-2. Price rose 3% or more in the last 1 hour AND RSI is above 72 (overbought)
-   — enter short (sell)
-3. No open position in this symbol already exists
+1. Calculate the 5-period SMA from the last 5 closing candle prices
+2. If current price is >= 0.3% ABOVE the SMA: SELL — price will revert down
+3. If current price is >= 0.3% BELOW the SMA: BUY — price will revert up
+4. If you have a position in the wrong direction: close and reverse
+5. HOLD only if price is within 0.3% of the SMA
 
 ## Exit rules
-- Take profit: 50% retracement of the triggering move
-- Stop loss: 2% beyond the extreme (i.e. 2% below the low for longs)
-- Time stop: Close if no reversion within 90 minutes of entry
+- Take profit: when price returns to within 0.1% of the SMA
+- Stop loss: 0.8% away from entry
+- Time stop: close after 3 decision intervals regardless
 
 ## Position sizing
-- Base size: 20% of current balance per trade
-- Maximum: never exceed 25% of balance in a single position
-- Leverage: 1x to 2x only — protect capital on wrong-direction bets
+- Size: 25% of current balance per trade
+- Leverage: 2x
+- Trade on most ticks — deviations of 0.3% from SMA are your bread and butter
 
-## Personality
-"Patient contrarian — waits for genuine extremes, never fights a clear trend,
-takes small profits consistently."
+## Important
+The 0.3% deviation threshold is intentionally low. Do NOT wait for 3% moves or
+RSI extremes — those almost never occur. Any 0.3% deviation from the 5-period SMA
+is a real signal. Act on it immediately.

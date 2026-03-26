@@ -11,7 +11,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { BotRunner, RunnerOptions } from './bot/runner.js'
 import { Strategy, Bot, BotPerformance } from './bot/types.js'
 import { MockAdapter } from './exchange/mock.js'
-import { loadStrategiesFromDB } from './strategies/loader.js'
 import {
   createRound,
   updateRoundStatus,
@@ -53,7 +52,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   startingBalance: Number(process.env.TOURNAMENT_STARTING_BALANCE ?? 10000),
   roundDurationSeconds: Number(process.env.TOURNAMENT_ROUND_DURATION ?? 600),
   decisionIntervalSeconds: Number(process.env.TOURNAMENT_DECISION_INTERVAL ?? 60),
-  symbols: (process.env.TOURNAMENT_SYMBOLS ?? 'BTC,ETH').split(','),
+  symbols: (process.env.TOURNAMENT_SYMBOLS ?? 'BTC').split(','),
   fitnessThreshold: Number(process.env.TOURNAMENT_FITNESS_THRESHOLD ?? 0),
   dryRun: process.env.DRY_RUN !== 'false',
   verbose: process.env.TOURNAMENT_VERBOSE !== 'false',
@@ -194,10 +193,26 @@ For each strategy return a JSON object with:
 {
   "name": "short-kebab-case-name",
   "tier": "conservative" | "balanced" | "aggressive",
-  "doc": "Full strategy description in markdown. Include: overview, entry conditions, exit conditions, position sizing, risk management. Min 200 words."
+  "doc": "Generate the strategy doc using ONLY this format:
+
+You are a [strategy-name] trader. BTC only.
+- If [condition using 1h change % or 24h change % from the prompt],
+  [ACTION] with [X]% of balance at [Y]x leverage.
+- If [exit condition], CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.
+
+When writing the doc value, follow these RULES (do NOT output the RULES list itself):
+- Never use 'Compute', 'Calculate', 'I need to', or any reasoning language
+- Only reference data that is already in the decision prompt: current price, 1h change %, 24h change %, balance, open positions
+- Never reference RSI, SMA, Bollinger Bands, or any indicator that requires calculation from candle data
+- Do NOT add any extra bullets or any other text beyond the 3 bullets shown above (entry, exit, otherwise)
+- Keep rules to 3-5 bullet points max
+- Use [ACTION] as exactly BUY or SELL only (no '(short)'/'(long)' labels)
+- Always end with: Respond with JSON only. Never explain your reasoning."
 }
 
-Return a JSON array of ${count} strategy objects. No markdown fences, just raw JSON.`
+Return a JSON array of ${count} strategy objects. No markdown fences, just raw JSON. Ensure each strategy's doc is a valid JSON string (use \\n for new lines).`
 
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -217,21 +232,140 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
         source: 'master' as const,
         generation: this.currentGeneration,
         parentIds: [],
-        doc: s.doc,
+        doc: this._sanitizeStrategyDoc(s.name, s.doc),
       }))
     } catch (err) {
       this.log(`[ORCHESTRATOR] Failed to parse researched strategies: ${err}`)
-      // Fallback: return a safe default
-      return [{
-        name: `adaptive-${Date.now()}`,
-        tier: 'balanced',
-        status: 'active',
-        source: 'master',
-        generation: this.currentGeneration,
-        parentIds: [],
-        doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
-      }]
+      // Fallback: ask Claude for a single named strategy rather than using a timestamp
+      try {
+        const fallback = await this.anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 100,
+          messages: [{ role: 'user', content: 'Give me a short kebab-case trading strategy name (2-3 words, no numbers). Reply with only the name, nothing else.' }],
+        })
+        const fallbackName = fallback.content[0].type === 'text'
+          ? fallback.content[0].text.trim().toLowerCase().replace(/[^a-z-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+          : 'adaptive-rsi'
+        return [{
+          name: fallbackName,
+          tier: 'balanced',
+          status: 'active',
+          source: 'master',
+          generation: this.currentGeneration,
+          parentIds: [],
+          doc: this._fallbackDeclarativeDoc(fallbackName),
+        }]
+      } catch {
+        return [{
+          name: 'adaptive-rsi',
+          tier: 'balanced',
+          status: 'active',
+          source: 'master',
+          generation: this.currentGeneration,
+          parentIds: [],
+          doc: this._fallbackDeclarativeDoc('adaptive-rsi'),
+        }]
+      }
     }
+  }
+
+  private _fallbackDeclarativeDoc(strategyName: string): string {
+    const name = typeof strategyName === 'string' && strategyName.trim()
+      ? strategyName.trim().toLowerCase()
+      : 'adaptive-rsi'
+    return this._templateDocForStrategy(name)
+  }
+
+  private _buildDeclarativeDoc(
+    strategyName: string,
+    entryCondition: string,
+    entryAction: 'BUY' | 'SELL',
+    entryPct: string,
+    leverage: string,
+    exitCondition: string,
+  ): string {
+    return `You are a ${strategyName} trader. BTC only.
+- If ${entryCondition}, ${entryAction} with ${entryPct}% of balance at ${leverage}x leverage.
+- If ${exitCondition}, CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.`
+  }
+
+  private _templateDocForStrategy(name: string): string {
+    const presets: Record<string, {
+      entryCondition: string
+      entryAction: 'BUY' | 'SELL'
+      entryPct: string
+      leverage: string
+      exitCondition: string
+    }> = {
+      'dip-buyer': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'BUY',
+        entryPct: '35',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 8 or pnl <= -6',
+      },
+      'trend-rider': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'BUY',
+        entryPct: '40',
+        leverage: '3',
+        exitCondition: 'open positions includes side long and pnl >= 10 or pnl <= -7',
+      },
+      'volatility-fade': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'SELL',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side short and pnl >= 8 or pnl <= -6',
+      },
+      'momentum-breakout': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'BUY',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
+      },
+      'funding-rate-fade': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'BUY',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
+      },
+      'range-reversal': {
+        entryCondition: 'open positions is none and (24h change % >= 0.1 or 24h change % <= -0.1)',
+        entryAction: 'BUY',
+        entryPct: '45',
+        leverage: '3',
+        exitCondition: 'open positions includes side long and pnl >= 9 or pnl <= -7',
+      },
+    }
+
+    const p = presets[name] ?? {
+      entryCondition: '1h change % >= 0.1 and open positions is none',
+      entryAction: 'BUY' as const,
+      entryPct: '25',
+      leverage: '2',
+      exitCondition: 'open positions pnl >= 6 or pnl <= -5',
+    }
+
+    return this._buildDeclarativeDoc(
+      name,
+      p.entryCondition,
+      p.entryAction,
+      p.entryPct,
+      p.leverage,
+      p.exitCondition,
+    )
+  }
+
+  private _sanitizeStrategyDoc(strategyName: string, _rawDoc: unknown): string {
+    const name = typeof strategyName === 'string' && strategyName.trim()
+      ? strategyName.trim().toLowerCase()
+      : 'adaptive-rsi'
+    return this._templateDocForStrategy(name)
   }
 
   // ── Bot spawning ──────────────────────────────────────────────────────────
@@ -239,7 +373,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
   private async _spawnBots(roundId: string, strategies: Strategy[]): Promise<Bot[]> {
     const bots: Bot[] = []
     for (const strategy of strategies) {
-      const botName = `bot-${strategy.name}-r${roundId.slice(0, 8)}`
+      const botName = strategy.name
       const botId = await createBot({
         name: botName,
         roundId,
@@ -280,7 +414,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
     // All bots see the same real market data (fetched independently per tick)
     const tasks = bots.map((bot) => {
       const strategy = strategies.find((s) => s.id === bot.strategyId)!
-      const adapter = new MockAdapter(bot.startingBalance)
+      const adapter = new MockAdapter()
       const runner = new BotRunner(bot, strategy, adapter, runnerOptions)
       return runner.start().then(async (perf) => {
         await updateBotStatus(bot.id, 'finished', perf.finalBalance)

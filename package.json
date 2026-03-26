@@ -1,0 +1,11 @@
+{
+  "name": "second-brain",
+  "version": "0.1.0",
+  "description": "Personal operating system — thought ingestion, AI agent, trading tournament, and mission control dashboard",
+  "author": "Ken Downey",
+  "private": true,
+  "workspaces": [
+    "mission-control",
+    "tournament"
+  ]
+}

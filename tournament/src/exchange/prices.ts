@@ -9,7 +9,9 @@ const SYMBOL_MAP: Record<string, string> = {
 }
 
 const BASE = 'https://api.coingecko.com/api/v3'
-const CACHE_TTL_MS = 30_000
+// 55s TTL ensures cache survives any decision interval ≤60s, so all bots
+// share a single fetch per tick regardless of minor timing differences.
+const CACHE_TTL_MS = 55_000
 
 interface CacheEntry { value: unknown; expiresAt: number }
 const cache = new Map<string, CacheEntry>()
@@ -85,6 +87,32 @@ export async function fetchPrice(symbol: string): Promise<number> {
     })
   } catch (err) {
     console.error(`[prices] fetchPrice ${symbol} failed:`, err)
+    throw err
+  }
+}
+
+// Batch-fetch prices for multiple symbols in a single API call.
+// Returns a map of symbol → price; missing symbols are omitted.
+export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
+  const key = `prices:${[...symbols].sort().join(',')}`
+  try {
+    return await fetchWithCache(key, async () => {
+      const ids = symbols.map(geckoId).join(',')
+      const data = await geckoGet<Record<string, { usd: number }>>(
+        `/simple/price?ids=${ids}&vs_currencies=usd`
+      )
+      const result: Record<string, number> = {}
+      for (const sym of symbols) {
+        const id = geckoId(sym)
+        if (data[id]?.usd != null) {
+          result[sym] = data[id].usd
+          console.log(`[prices] fetch ${sym}: $${data[id].usd}`)
+        }
+      }
+      return result
+    })
+  } catch (err) {
+    console.error(`[prices] fetchPrices ${symbols.join(',')} failed:`, err)
     throw err
   }
 }

@@ -1,20 +1,21 @@
 import { ExchangeAdapter } from '../exchange/adapter.js'
-import { fetchPrice, fetchCandles } from '../exchange/prices.js'
+import { fetchPrices, fetchCandles } from '../exchange/prices.js'
 import { makeDecision, DecisionContext } from './decision.js'
 import { logDecisionToOB1 } from '../db/ingest.js'
+import { saveTick } from '../db/tournament.js'
 import { Bot, Strategy, TradingDecision, BotPerformance } from './types.js'
 
 export interface RunnerOptions {
   decisionIntervalSeconds: number   // default: 60
   roundDurationSeconds: number      // default: 600
-  symbols: string[]                 // default: ['BTC', 'ETH']
+  symbols: string[]                 // default: ['BTC']
   verbose: boolean                  // default: true
 }
 
 const DEFAULT_OPTIONS: RunnerOptions = {
   decisionIntervalSeconds: 60,
   roundDurationSeconds: 600,
-  symbols: ['BTC', 'ETH'],
+  symbols: ['BTC'],
   verbose: true,
 }
 
@@ -77,10 +78,21 @@ export class BotRunner {
       const pnl = await this.adapter.getPnL()
 
       const marketData: DecisionContext['marketData'] = {}
+      // Fetch all prices in one batched API call, then fetch candles per symbol
+      let prices: Record<string, number> = {}
+      try {
+        prices = await fetchPrices(symbols)
+      } catch (err) {
+        console.error(`[runner] price batch fetch failed:`, err)
+      }
       for (const sym of symbols) {
+        const price = prices[sym]
+        if (price == null) {
+          console.error(`[runner] no price for ${sym} — skipping symbol this tick`)
+          continue
+        }
         try {
-          const [price, candles, book, fundingRate] = await Promise.all([
-            fetchPrice(sym),
+          const [candles, book, fundingRate] = await Promise.all([
             fetchCandles(sym, '1h', 24),
             this.adapter.getOrderBook(sym),
             this.adapter.getFundingRate(sym),
@@ -119,7 +131,6 @@ export class BotRunner {
       if (decision.action === 'hold') {
         this.holdDecisions++
       } else {
-        this.actionsTaken++
         await this._execute(decision)
       }
 
@@ -127,20 +138,37 @@ export class BotRunner {
         decision, bot: this.bot, strategyName: this.strategy.name,
         balance, pnl: pnl.total,
       })
+
+      const pnlPct = pnl.startingBalance > 0 ? (pnl.total / pnl.startingBalance) * 100 : 0
+      saveTick({
+        roundId: this.bot.roundId,
+        botId: this.bot.id,
+        strategyId: this.bot.strategyId,
+        strategyName: this.strategy.name,
+        balance: pnl.currentBalance,
+        pnl: pnl.total,
+        pnlPercent: pnlPct,
+      }).catch((err) => console.error(`[runner] saveTick FAILED — no tick data will appear: ${err.message}`))
     } catch (err) {
       console.error(`[BOT:${this.bot.name}] tick error:`, err)
     }
   }
 
   private async _execute(d: TradingDecision): Promise<void> {
-    if (process.env.DRY_RUN === 'true') {
+    if (this.adapter.isLive && process.env.DRY_RUN === 'true') {
       console.log(`[DRY_RUN] Would execute: ${d.action}${d.symbol ? ' ' + d.symbol : ''}${d.size ? ' $' + d.size : ''}`)
+      this.actionsTaken++
       return
     }
     try {
       if (d.action === 'close') {
         const positions = await this.adapter.getPositions()
-        for (const p of positions) await this.adapter.closePosition(p.symbol)
+        if (positions.length > 0) {
+          for (const p of positions) await this.adapter.closePosition(p.symbol)
+          this.actionsTaken++
+        } else {
+          console.log(`[runner:${this.bot.name}] close action — no open positions, skipped`)
+        }
       } else if ((d.action === 'buy' || d.action === 'sell') && d.symbol && d.size) {
         await this.adapter.placeOrder({
           symbol: d.symbol, side: d.action,
@@ -148,6 +176,9 @@ export class BotRunner {
           orderType: d.orderType ?? 'market',
           limitPrice: d.limitPrice,
         })
+        this.actionsTaken++
+      } else if (d.action === 'buy' || d.action === 'sell') {
+        console.warn(`[runner:${this.bot.name}] ${d.action} skipped — missing symbol or size (symbol=${d.symbol}, size=${d.size})`)
       }
     } catch (err) {
       console.error(`[runner] execute error:`, err)
@@ -158,7 +189,7 @@ export class BotRunner {
     try {
       const positions = await this.adapter.getPositions()
       for (const p of positions) {
-        if (process.env.DRY_RUN !== 'true') {
+        if (!this.adapter.isLive || process.env.DRY_RUN !== 'true') {
           await this.adapter.closePosition(p.symbol)
         }
       }

@@ -7,7 +7,10 @@
  *   TOURNAMENT_BOT_COUNT=5 npm run tournament
  */
 
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+import { resolve } from 'path'
+// Load ~/brain/.env (parent of the tournament dir) as the source of truth
+loadEnv({ path: resolve(__dirname, '../../.env') })
 import { TournamentOrchestrator } from './orchestrator.js'
 
 async function main() {

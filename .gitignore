@@ -4,6 +4,12 @@ node_modules/
 .output/
 __pycache__/
 *.pyc
+archive/
 backups/
 *.sql.gz
 .cursor/
+mission-control/.nitro/
+mission-control/dist/
+mission-control/.output/
+tournament/dist/
+package-lock.json

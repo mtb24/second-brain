@@ -99,6 +99,29 @@ export async function updateBotStatus(
   }
 }
 
+// ── Ticks ─────────────────────────────────────────────────────────────────────
+
+export interface TickRecord {
+  roundId: string
+  botId: string
+  strategyId: string
+  strategyName: string
+  balance: number
+  pnl: number
+  pnlPercent: number
+}
+
+export async function saveTick(tick: TickRecord): Promise<void> {
+  const db = getPool()
+  await db.query(
+    `INSERT INTO tournament_ticks
+       (round_id, bot_id, strategy_id, strategy_name, balance, pnl, pnl_percent)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [tick.roundId, tick.botId, tick.strategyId, tick.strategyName,
+     tick.balance, tick.pnl, tick.pnlPercent]
+  )
+}
+
 // ── Performance ───────────────────────────────────────────────────────────────
 
 export async function savePerformance(perf: BotPerformance): Promise<void> {

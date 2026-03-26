@@ -86,7 +86,10 @@ services:
     container_name: brain-mission
     restart: unless-stopped
     depends_on:
-      - tournament
+      db:
+        condition: service_healthy
+      tournament:
+        condition: service_started
     environment:
       - INGEST_URL=http://ingest-api:8000
       - INGEST_TOKEN=${API_SECRET}
@@ -95,6 +98,7 @@ services:
       - OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - TOURNAMENT_URL=http://tournament:3001
+      - DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     ports:
       - "127.0.0.1:4173:4173"
     networks:
