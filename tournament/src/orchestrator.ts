@@ -300,42 +300,42 @@ Respond with JSON only. Never explain your reasoning.`
       exitCondition: string
     }> = {
       'dip-buyer': {
-        entryCondition: '1h change % <= -0.2 and open positions is none',
+        entryCondition: 'open positions is none and 24h change % <= -0.1',
         entryAction: 'BUY',
         entryPct: '35',
         leverage: '2',
         exitCondition: 'open positions includes side long and pnl >= 8 or pnl <= -6',
       },
       'trend-rider': {
-        entryCondition: '1h change % >= 0.2 and 24h change % >= 0.2 and open positions is none',
+        entryCondition: 'open positions is none and 24h change % >= 0.1',
         entryAction: 'BUY',
         entryPct: '40',
         leverage: '3',
         exitCondition: 'open positions includes side long and pnl >= 10 or pnl <= -7',
       },
       'volatility-fade': {
-        entryCondition: '1h change % >= 0.3 and open positions is none',
+        entryCondition: 'open positions is none and 24h change % >= 0.3',
         entryAction: 'SELL',
         entryPct: '30',
         leverage: '2',
         exitCondition: 'open positions includes side short and pnl >= 8 or pnl <= -6',
       },
       'momentum-breakout': {
-        entryCondition: '1h change % >= 0.1 and open positions is none',
+        entryCondition: 'open positions is none and 1h change % >= 0.1',
         entryAction: 'BUY',
         entryPct: '30',
         leverage: '2',
         exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
       },
       'funding-rate-fade': {
-        entryCondition: '1h change % <= -0.1 and open positions is none',
+        entryCondition: 'open positions is none and 1h change % <= -0.1',
         entryAction: 'BUY',
         entryPct: '30',
         leverage: '2',
         exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
       },
       'range-reversal': {
-        entryCondition: '1h change % <= -0.3 and 24h change % <= -0.3 and open positions is none',
+        entryCondition: 'open positions is none and 24h change % <= -0.3',
         entryAction: 'BUY',
         entryPct: '45',
         leverage: '3',

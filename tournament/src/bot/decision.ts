@@ -61,6 +61,10 @@ ${marketStr}
 
 Respond with a single JSON object only. No markdown, no explanation, no preamble.
 If your JSON is malformed, the bot defaults to hold.
+Treat the strategy rules as hard constraints:
+- If the entry condition in the strategy matches and there is no open position, return buy/sell (NOT hold).
+- If the exit condition matches with an open position, return close (NOT hold).
+- Return hold only when neither entry nor exit condition matches.
 
 {"action":"buy"|"sell"|"close"|"hold","symbol":"BTC","size":200,"leverage":3,"orderType":"market","limitPrice":null,"reasoning":"one sentence max","confidence":0.75}
 
