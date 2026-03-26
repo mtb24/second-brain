@@ -60,7 +60,7 @@ fi
 FAIL_BODY="[tournament-cron] Round FAILED (exit ${RC}).
 
 ${OUT}"
-  ingest_text "$FAIL_BODY" "tournament-cron" || true
+ingest_text "$FAIL_BODY" "tournament-cron" || true
 
 TG_MSG="Tournament cron failed (exit ${RC}).
 
