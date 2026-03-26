@@ -232,7 +232,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
         source: 'master' as const,
         generation: this.currentGeneration,
         parentIds: [],
-        doc: s.doc,
+        doc: this._sanitizeStrategyDoc(s.name, s.doc),
       }))
     } catch (err) {
       this.log(`[ORCHESTRATOR] Failed to parse researched strategies: ${err}`)
@@ -253,11 +253,7 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
           source: 'master',
           generation: this.currentGeneration,
           parentIds: [],
-          doc: `You are a ${fallbackName} trader. BTC only.
-- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
-- If 1h change % is negative, CLOSE.
-- Otherwise HOLD.
-Respond with JSON only. Never explain your reasoning.`,
+          doc: this._fallbackDeclarativeDoc(fallbackName),
         }]
       } catch {
         return [{
@@ -267,14 +263,92 @@ Respond with JSON only. Never explain your reasoning.`,
           source: 'master',
           generation: this.currentGeneration,
           parentIds: [],
-          doc: `You are a adaptive-rsi trader. BTC only.
-- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
-- If 1h change % is negative, CLOSE.
-- Otherwise HOLD.
-Respond with JSON only. Never explain your reasoning.`,
+          doc: this._fallbackDeclarativeDoc('adaptive-rsi'),
         }]
       }
     }
+  }
+
+  private _fallbackDeclarativeDoc(strategyName: string): string {
+    return `You are a ${strategyName} trader. BTC only.
+- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
+- If 1h change % is negative, CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.`
+  }
+
+  private _buildDeclarativeDoc(
+    strategyName: string,
+    entryCondition: string,
+    entryAction: 'BUY' | 'SELL',
+    entryPct: string,
+    leverage: string,
+    exitCondition: string,
+  ): string {
+    return `You are a ${strategyName} trader. BTC only.
+- If ${entryCondition}, ${entryAction} with ${entryPct}% of balance at ${leverage}x leverage.
+- If ${exitCondition}, CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.`
+  }
+
+  private _sanitizeStrategyDoc(strategyName: string, rawDoc: unknown): string {
+    const name = typeof strategyName === 'string' && strategyName.trim() ? strategyName.trim() : 'adaptive-rsi'
+    const doc = typeof rawDoc === 'string' ? rawDoc : ''
+
+    const lower = doc.toLowerCase()
+    const forbidden = [
+      'compute',
+      'calculate',
+      'i need to',
+      'rsi',
+      'sma',
+      'bollinger',
+      'ema',
+      'macd',
+      'atr',
+      'stochastic',
+      'ichimoku',
+      'bollinger bands',
+      'volume',
+      'candle',
+      'candles',
+    ]
+
+    if (forbidden.some((k) => lower.includes(k))) {
+      return this._fallbackDeclarativeDoc(name)
+    }
+
+    // Expected entry form (allow optional "(short)" / "(long)" labels which we strip):
+    // - If <cond>, BUY|SELL (optional "(short|long)") with <X>% of balance at <Y>x leverage.
+    const entryRe = /- If\s+(.+?),\s*(BUY|SELL)(?:\s*\((?:short|long)\))?\s+with\s+(\d+(?:\.\d+)?)%\s+of balance\s+at\s+(\d+(?:\.\d+)?)x\s+leverage\./i
+    const exitRe = /- If\s+(.+?),\s*CLOSE\b/i
+
+    const entryMatch = doc.match(entryRe)
+    const exitMatch = doc.match(exitRe)
+
+    if (!entryMatch || !exitMatch) return this._fallbackDeclarativeDoc(name)
+
+    const entryCondition = entryMatch[1].trim().replace(/\s+/g, ' ')
+    const entryActionRaw = entryMatch[2].toUpperCase()
+    const entryPct = entryMatch[3]
+    const leverage = entryMatch[4]
+    const exitCondition = exitMatch[1].trim().replace(/\s+/g, ' ')
+
+    if (entryActionRaw !== 'BUY' && entryActionRaw !== 'SELL') return this._fallbackDeclarativeDoc(name)
+
+    // Re-check extracted conditions for forbidden indicator language.
+    const condLower = `${entryCondition} ${exitCondition}`.toLowerCase()
+    if (forbidden.some((k) => condLower.includes(k))) return this._fallbackDeclarativeDoc(name)
+
+    return this._buildDeclarativeDoc(
+      name,
+      entryCondition,
+      entryActionRaw as 'BUY' | 'SELL',
+      entryPct,
+      leverage,
+      exitCondition,
+    )
   }
 
   // ── Bot spawning ──────────────────────────────────────────────────────────
