@@ -1,0 +1,5 @@
+Execute the production tournament cron script (scheduled automation — authorized). Run exactly one synchronous bash invocation, no confirmation prompts:
+
+bash /home/brain/brain/tournament/scripts/tournament-cron.sh
+
+The script runs the round, logs results to OB1 via ingest-api, and notifies Ken on Telegram if it fails. Reply with one line: done, or failed + reason.
