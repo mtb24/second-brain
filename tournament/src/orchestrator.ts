@@ -193,10 +193,24 @@ For each strategy return a JSON object with:
 {
   "name": "short-kebab-case-name",
   "tier": "conservative" | "balanced" | "aggressive",
-  "doc": "Full strategy description in markdown. Include: overview, entry conditions, exit conditions, position sizing, risk management. Min 200 words."
+  "doc": "Generate the strategy doc using ONLY this format:
+
+You are a [strategy-name] trader. BTC only.
+- If [condition using 1h change % or 24h change % from the prompt],
+  [ACTION] with [X]% of balance at [Y]x leverage.
+- If [exit condition], CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.
+
+When writing the doc value, follow these RULES (do NOT output the RULES list itself):
+- Never use 'Compute', 'Calculate', 'I need to', or any reasoning language
+- Only reference data that is already in the decision prompt: current price, 1h change %, 24h change %, balance, open positions
+- Never reference RSI, SMA, Bollinger Bands, or any indicator that requires calculation from candle data
+- Keep rules to 3-5 bullet points max
+- Always end with: Respond with JSON only. Never explain your reasoning."
 }
 
-Return a JSON array of ${count} strategy objects. No markdown fences, just raw JSON.`
+Return a JSON array of ${count} strategy objects. No markdown fences, just raw JSON. Ensure each strategy's doc is a valid JSON string (use \\n for new lines).`
 
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -237,7 +251,11 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
           source: 'master',
           generation: this.currentGeneration,
           parentIds: [],
-          doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
+          doc: `You are a ${fallbackName} trader. BTC only.
+- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
+- If 1h change % is negative, CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.`,
         }]
       } catch {
         return [{
@@ -247,7 +265,11 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
           source: 'master',
           generation: this.currentGeneration,
           parentIds: [],
-          doc: 'Adaptive strategy: buy when RSI < 30 and price is below 20-period SMA. Sell when RSI > 70 or price is above 20-period SMA. Position size: 20% of balance. Stop loss: 3%. Take profit: 5%.',
+          doc: `You are a adaptive-rsi trader. BTC only.
+- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
+- If 1h change % is negative, CLOSE.
+- Otherwise HOLD.
+Respond with JSON only. Never explain your reasoning.`,
         }]
       }
     }
