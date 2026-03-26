@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-03-17
+Last updated: 2026-03-26
 
 ---
 
@@ -159,9 +159,12 @@ CREATE TABLE IF NOT EXISTS tournament_performance (
 # Re-seed strategies
 docker exec brain-db psql -U brain -d brain -c "
 INSERT INTO tournament_strategies (name, description, file_path) VALUES
-  ('momentum', 'Buy when trending up, sell when trending down', 'strategies/momentum.md'),
-  ('mean-revert', 'Buy below moving average, sell above', 'strategies/mean-revert.md'),
-  ('breakout', 'Buy on volume breakout, sell on breakdown', 'strategies/breakout.md')
+  ('dip-buyer', 'Buy on 24h dip, exit at profit or stop loss', 'strategies/dip-buyer.md'),
+  ('trend-rider', 'Follow trend direction, exit on reversal', 'strategies/trend-rider.md'),
+  ('volatility-fade', 'Short volatility spikes, exit at mean reversion', 'strategies/volatility-fade.md'),
+  ('momentum-breakout', 'Buy on momentum breakout, exit at target or stop', 'strategies/momentum-breakout.md'),
+  ('funding-rate-fade', 'Trade against funding rate extremes', 'strategies/funding-rate-fade.md'),
+  ('range-reversal', 'Buy range lows, sell range highs', 'strategies/range-reversal.md')
 ON CONFLICT (name) DO NOTHING;"
 ```
 
@@ -245,14 +248,19 @@ Server: `~/brain/tournament/`
 
 ### Phase 1 (complete)
 - Exchange adapter + MockAdapter, CoinGecko fetcher
-- Claude decision engine, 3 strategies seeded
+- Claude decision engine, strategies seeded
 - Bot runner (DRY_RUN=true), OB1 logging, DB tables
 
-### Phase 2 (planned)
-- Round orchestration (parallel bots, shared market data)
-- Performance tracking + leaderboard
-- Mission Control Trading page live UI
-- Daily cron scheduling
+### Phase 2 (in progress)
+- ✅ Round orchestration (parallel bots, shared market data, round lifecycle)
+- ✅ Prompt-native strategy docs (1h/24h change %, balance, open positions; low entry thresholds 0.1–0.5%; dollar-PnL exits)
+- ✅ First full round completed: 6 bots, 10min, all producing trades (gen 1, round `1243048e`)
+- 🔲 Performance tracking + leaderboard
+- 🔲 Mission Control Trading page live UI
+- 🔲 Daily cron scheduling
+
+### Active strategies (6)
+`dip-buyer`, `trend-rider`, `volatility-fade`, `momentum-breakout`, `funding-rate-fade`, `range-reversal`
 
 ---
 
