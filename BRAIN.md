@@ -33,6 +33,22 @@ DNS managed via DigitalOcean.
 
 ---
 
+## Repo root (git workspace)
+
+The GitHub repo root (local: `/Users/kendowney/Sites/SecondBrain/`) includes **`CLAUDE.md`** — instructions for the Dev Partner (Cursor/Claude) on workflow, deploy pipeline, and conventions. It is not deployed as a runtime artifact; it exists for humans and agents working in the repo.
+
+Optional paths tracked in git:
+
+- `openclaw/skills/strategy-master/` — mirror of the VPS OpenClaw workspace skill (see **Strategy Master Agent** below)
+
+---
+
+## Git on the VPS (`~/brain`)
+
+The server checkout uses a **deploy key**; **`main`** is the default branch (historically `master` existed — **do not recreate `master`**). **`git push` to GitHub over SSH works** from the VPS for routine deploys and doc updates.
+
+---
+
 ## Directory Structure
 
 ```
@@ -40,7 +56,7 @@ DNS managed via DigitalOcean.
 ├── .env                        ← single source of truth for all credentials
 ├── docker-compose.yml          ← 4-service stack definition
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
-├── BRAIN.md                    ← this file
+├── BRAIN.md                    ← this file (also mirrored from repo root in git)
 ├── backups/                    ← pg_dump .sql.gz files (7-day retention)
 ├── ingest-api/
 │   ├── Dockerfile
@@ -236,6 +252,29 @@ Retention: 7 backups
 - Agent: **Cortex 🧠**, model: `claude-sonnet-4-6`
 - Telegram bot: `@kensbrainbot`, Ken telegramUserId: `7221971575`
 
+### Workspace skills (VPS)
+
+| Skill | Path | Status |
+|-------|------|--------|
+| **Session close** | `~/.openclaw/workspace/skills/session-close/SKILL.md` | Deployed and tested — summarizes session, proposes BRAIN.md edits, commits on approval |
+| **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/SKILL.md` | Deployed — see below |
+
+### OpenClaw cron (Gateway scheduler)
+
+Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from the VPS often fails with a WebSocket handshake error to localhost; use **`jobs.json` on disk** to verify schedules (see Known Gotchas).
+
+| Job name | Schedule (UTC) | Purpose |
+|----------|----------------|---------|
+| Tournament round (3h) | `0 */3 * * *` | Runs `tournament/scripts/tournament-cron.sh` (isolated agent turn) |
+| Strategy master (12h) | `0 6,18 * * *` | Runs strategy-master skill — **job id:** `c5a4596a-9cc1-4881-b982-dbc441355fa5` |
+
+### Strategy Master Agent
+
+- **Schedule:** every **12 hours** at **06:00 and 18:00 UTC** (offset from 3-hour tournament rounds).
+- **Behavior:** Loads recent tournament results from OB1 (and DB fallback), infers winners/losers, proposes **1–2** new strategies via **Telegram** with **plain-English** explanations (no finance jargon in the user-facing text). Waits for **YES** / **NO** per proposal; on YES inserts into `tournament_strategies` as **`active`** with **`source='master'`**; on NO logs rejection to OB1.
+- **Strategy docs:** Must follow the **declarative doc format** enforced by `_sanitizeStrategyDoc` / `_templateDocForStrategy` in `tournament/src/orchestrator.ts` (prompt-native fields only; dollar PnL exits; ending with `"Respond with JSON only. Never explain your reasoning."`).
+- **Cron payload:** `~/brain/tournament/scripts/openclaw-strategy-master-cron-message.txt`
+
 ---
 
 ## Mission Control
@@ -258,19 +297,39 @@ Server: `~/brain/tournament/`
 - Bot runner, OB1 logging, DB tables
 
 ### Phase 2 (complete)
-- Round orchestration (parallel bots, shared market data)
-- Performance tracking + leaderboard
+
+- **Round orchestration** — single round record, parallel bots, **shared market data** across competitors
+- **Parallel bots** — concurrent execution with shared `MockAdapter` conditions
+- **Performance tracking** — leaderboard, per-bot final metrics
+- **Live charting** — Mission Control Trading page: leaderboard, **live chart** (poll), round history
+- **Tick data** — per-tick DB writes to **`tournament_ticks`** (balance / PnL snapshots for charts)
 - MockAdapter price simulation: seeded from CoinGecko, then ±0.1% random walk per tick
 - `DRY_RUN` guard applies to live adapters only — MockAdapter always executes
-- Per-tick DB writes (`tournament_ticks`) for live charting
-- Mission Control Trading page: leaderboard, live chart (5s poll), round history
 - Round duration selector: 10m / 30m / 1h / 3h
 - Bot names = strategy name (clean, no timestamp suffix)
-- Auto-research new strategies via Claude when slots exceed supply
+- Auto-research new strategies via Claude when slots exceed supply (docs must stay **declarative** — see `orchestrator.ts` sanitizer)
 
-### Phase 3 (planned)
-- Daily cron scheduling
-- Real exchange adapter
+### Phase 3 (complete)
+
+- **3-hour tournament rounds via OpenClaw** — isolated cron job runs `tournament/scripts/tournament-cron.sh` (see `openclaw-cron-message.txt` pattern in `tournament/scripts/`)
+- **Strategy Master** — 12h cron for proposed strategies (see **Strategy Master Agent** above)
+
+### Active strategies
+
+**Rows with `status = 'active'` in production Postgres** (authoritative for who competes next):
+
+| name | status |
+|------|--------|
+| `momentum-breakout` | active |
+| `trend-rider` | active |
+
+*As of 2026-03-26 the live DB has **two** active rows; others are `retired` or inactive.*
+
+**Six declarative template names** in `tournament/src/orchestrator.ts` (`_templateDocForStrategy` presets — used when the sanitizer normalizes a strategy doc): `dip-buyer`, `trend-rider`, `volatility-fade`, `momentum-breakout`, `funding-rate-fade`, `range-reversal`. New or auto-researched strategies must still follow the same **declarative rules** (prompt-native fields, dollar PnL exits, no indicator jargon) or the sanitizer replaces the doc with a template.
+
+### Future work
+
+- **Real exchange adapter** (not shipped yet)
 
 ---
 
@@ -278,9 +337,12 @@ Server: `~/brain/tournament/`
 
 ```
 /Users/kendowney/Sites/SecondBrain/
+├── CLAUDE.md               ← Dev Partner rules (workflow, deploy, brain search)
+├── BRAIN.md                ← system doc (commit when updated)
 ├── .env                    ← credentials (never commit)
 ├── docker-compose.yml
 ├── ingest-api/initdb/01-init.sql
+├── openclaw/skills/        ← optional mirrors of ~/.openclaw/workspace/skills/
 ├── mission-control/
 └── tournament/
 ```
@@ -308,6 +370,9 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 
 - **Docker bridge IP** for `brain_default` is `172.19.0.1` (not 172.18.0.1)
 - **OpenClaw is trusted-proxy only** — must go through Nginx, never direct ws://
+- **`openclaw cron list`** (CLI on the VPS) may **fail with a WebSocket handshake error** to `127.0.0.1:18789` — **`~/.openclaw/cron/jobs.json` on disk** is the reliable source for scheduled jobs
+- **Git default branch on the VPS** is **`main`** (repo was historically `master` — **do not recreate `master`**)
+- **Auto-researched / hand-authored strategy docs** must use the **declarative doc format** enforced by `_sanitizeStrategyDoc` in `tournament/src/orchestrator.ts` (prompt-native fields only; dollar PnL exits; closing line `Respond with JSON only. Never explain your reasoning.`)
 - **`B2_APP_KEY`** — never `B2_APPLICATION_KEY`
 - **Vector extension** — `initdb/01-init.sql` handles fresh DB; if DB exists run: `docker exec brain-db psql -U brain -d brain -c "CREATE EXTENSION IF NOT EXISTS vector;"`
 - **Tournament tables** not in `initdb/01-init.sql` — create manually after DB wipe
