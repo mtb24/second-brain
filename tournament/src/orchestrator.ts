@@ -270,11 +270,10 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
   }
 
   private _fallbackDeclarativeDoc(strategyName: string): string {
-    return `You are a ${strategyName} trader. BTC only.
-- If 1h change % is positive and 24h change % is positive, BUY with 20% of balance at 3x leverage.
-- If 1h change % is negative, CLOSE.
-- Otherwise HOLD.
-Respond with JSON only. Never explain your reasoning.`
+    const name = typeof strategyName === 'string' && strategyName.trim()
+      ? strategyName.trim().toLowerCase()
+      : 'adaptive-rsi'
+    return this._templateDocForStrategy(name)
   }
 
   private _buildDeclarativeDoc(
@@ -292,63 +291,81 @@ Respond with JSON only. Never explain your reasoning.`
 Respond with JSON only. Never explain your reasoning.`
   }
 
-  private _sanitizeStrategyDoc(strategyName: string, rawDoc: unknown): string {
-    const name = typeof strategyName === 'string' && strategyName.trim() ? strategyName.trim() : 'adaptive-rsi'
-    const doc = typeof rawDoc === 'string' ? rawDoc : ''
-
-    const lower = doc.toLowerCase()
-    const forbidden = [
-      'compute',
-      'calculate',
-      'i need to',
-      'rsi',
-      'sma',
-      'bollinger',
-      'ema',
-      'macd',
-      'atr',
-      'stochastic',
-      'ichimoku',
-      'bollinger bands',
-      'volume',
-      'candle',
-      'candles',
-    ]
-
-    if (forbidden.some((k) => lower.includes(k))) {
-      return this._fallbackDeclarativeDoc(name)
+  private _templateDocForStrategy(name: string): string {
+    const presets: Record<string, {
+      entryCondition: string
+      entryAction: 'BUY' | 'SELL'
+      entryPct: string
+      leverage: string
+      exitCondition: string
+    }> = {
+      'dip-buyer': {
+        entryCondition: '1h change % <= -0.2 and open positions is none',
+        entryAction: 'BUY',
+        entryPct: '35',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 8 or pnl <= -6',
+      },
+      'trend-rider': {
+        entryCondition: '1h change % >= 0.2 and 24h change % >= 0.2 and open positions is none',
+        entryAction: 'BUY',
+        entryPct: '40',
+        leverage: '3',
+        exitCondition: 'open positions includes side long and pnl >= 10 or pnl <= -7',
+      },
+      'volatility-fade': {
+        entryCondition: '1h change % >= 0.3 and open positions is none',
+        entryAction: 'SELL',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side short and pnl >= 8 or pnl <= -6',
+      },
+      'momentum-breakout': {
+        entryCondition: '1h change % >= 0.1 and open positions is none',
+        entryAction: 'BUY',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
+      },
+      'funding-rate-fade': {
+        entryCondition: '1h change % <= -0.1 and open positions is none',
+        entryAction: 'BUY',
+        entryPct: '30',
+        leverage: '2',
+        exitCondition: 'open positions includes side long and pnl >= 6 or pnl <= -5',
+      },
+      'range-reversal': {
+        entryCondition: '1h change % <= -0.3 and 24h change % <= -0.3 and open positions is none',
+        entryAction: 'BUY',
+        entryPct: '45',
+        leverage: '3',
+        exitCondition: 'open positions includes side long and pnl >= 9 or pnl <= -7',
+      },
     }
 
-    // Expected entry form (allow optional "(short)" / "(long)" labels which we strip):
-    // - If <cond>, BUY|SELL (optional "(short|long)") with <X>% of balance at <Y>x leverage.
-    const entryRe = /- If\s+(.+?),\s*(BUY|SELL)(?:\s*\((?:short|long)\))?\s+with\s+(\d+(?:\.\d+)?)%\s+of balance\s+at\s+(\d+(?:\.\d+)?)x\s+leverage\./i
-    const exitRe = /- If\s+(.+?),\s*CLOSE\b/i
-
-    const entryMatch = doc.match(entryRe)
-    const exitMatch = doc.match(exitRe)
-
-    if (!entryMatch || !exitMatch) return this._fallbackDeclarativeDoc(name)
-
-    const entryCondition = entryMatch[1].trim().replace(/\s+/g, ' ')
-    const entryActionRaw = entryMatch[2].toUpperCase()
-    const entryPct = entryMatch[3]
-    const leverage = entryMatch[4]
-    const exitCondition = exitMatch[1].trim().replace(/\s+/g, ' ')
-
-    if (entryActionRaw !== 'BUY' && entryActionRaw !== 'SELL') return this._fallbackDeclarativeDoc(name)
-
-    // Re-check extracted conditions for forbidden indicator language.
-    const condLower = `${entryCondition} ${exitCondition}`.toLowerCase()
-    if (forbidden.some((k) => condLower.includes(k))) return this._fallbackDeclarativeDoc(name)
+    const p = presets[name] ?? {
+      entryCondition: '1h change % >= 0.1 and open positions is none',
+      entryAction: 'BUY' as const,
+      entryPct: '25',
+      leverage: '2',
+      exitCondition: 'open positions pnl >= 6 or pnl <= -5',
+    }
 
     return this._buildDeclarativeDoc(
       name,
-      entryCondition,
-      entryActionRaw as 'BUY' | 'SELL',
-      entryPct,
-      leverage,
-      exitCondition,
+      p.entryCondition,
+      p.entryAction,
+      p.entryPct,
+      p.leverage,
+      p.exitCondition,
     )
+  }
+
+  private _sanitizeStrategyDoc(strategyName: string, _rawDoc: unknown): string {
+    const name = typeof strategyName === 'string' && strategyName.trim()
+      ? strategyName.trim().toLowerCase()
+      : 'adaptive-rsi'
+    return this._templateDocForStrategy(name)
   }
 
   // ── Bot spawning ──────────────────────────────────────────────────────────
