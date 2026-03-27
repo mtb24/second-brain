@@ -1,52 +1,18 @@
 import { adventureCategoryMeta } from './adventureCategories'
-
-const IMAGE_GLOB_PATTERN =
-  '../../public/images/adventures/**/*.{jpg,jpeg,png,gif,webp,avif,JPG,JPEG,PNG,GIF,WEBP}'
-
-/** Discover category folders via placeholder files (empty dirs still tracked in git). */
-const placeholderModules = import.meta.glob(
-  '../../public/images/adventures/*/placeholder.txt',
-  { eager: true },
-)
-
-const imageUrlModules = import.meta.glob<string>(IMAGE_GLOB_PATTERN, {
-  eager: true,
-  query: '?url',
-  import: 'default',
-})
-
-const SLUG_RE = /\/images\/adventures\/([^/]+)\//
-
-function slugFromModuleKey(key: string): string | null {
-  const m = key.match(SLUG_RE)
-  return m?.[1] ?? null
-}
+import { adventureManifest } from './adventureManifest'
 
 function collectSlugs(): string[] {
   const slugs = new Set<string>()
-
-  for (const key of Object.keys(placeholderModules)) {
-    const slug = slugFromModuleKey(key)
-    if (slug) slugs.add(slug)
-  }
-
-  for (const key of Object.keys(imageUrlModules)) {
-    const slug = slugFromModuleKey(key)
-    if (slug) slugs.add(slug)
-  }
 
   for (const slug of Object.keys(adventureCategoryMeta)) {
     slugs.add(slug)
   }
 
-  return [...slugs]
-}
+  for (const slug of Object.keys(adventureManifest)) {
+    slugs.add(slug)
+  }
 
-function imagesForSlug(slug: string): string[] {
-  return Object.entries(imageUrlModules)
-    .filter(([key]) => slugFromModuleKey(key) === slug)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, url]) => url)
+  return [...slugs]
 }
 
 function sortSlugs(slugs: string[]): string[] {
@@ -76,5 +42,5 @@ const slugsSorted = sortSlugs(collectSlugs())
 export const adventureCategoriesBuild: AdventureCategoryBuild[] = slugsSorted.map((slug) => ({
   slug,
   displayTitle: slugToDisplayTitle(slug),
-  imageUrls: imagesForSlug(slug),
+  imageUrls: adventureManifest[slug] ?? [],
 }))

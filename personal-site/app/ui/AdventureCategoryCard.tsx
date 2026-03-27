@@ -36,6 +36,7 @@ function useInView<T extends HTMLElement>(): {
 type AdventureCategoryCardProps = {
   title: string
   description?: string
+  /** Absolute URLs (e.g. B2 friendly URLs from adventureManifest). */
   imageUrls: string[]
   placeholder: ReactNode
 }

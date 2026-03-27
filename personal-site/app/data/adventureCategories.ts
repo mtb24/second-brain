@@ -1,5 +1,5 @@
 /**
- * Optional metadata for adventure image folders under public/images/adventures/<slug>/.
+ * Optional metadata for adventure categories (B2 path adventures/<slug>/).
  * Categories without an entry still render (title from slug; no description).
  */
 export type AdventureIconKey =

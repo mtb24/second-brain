@@ -142,11 +142,16 @@ function AdventuresPage() {
         title="Outside the editor"
         description={
           <p className="max-w-2xl">
-            Desert, dirt, and distance. Each category pulls from{' '}
+            Desert, dirt, and distance. Photos are served from a public Backblaze B2
+            bucket; URLs are listed in{' '}
             <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
-              public/images/adventures/
+              app/data/adventureManifest.files.json
             </code>{' '}
-            at build time — add folders or images, then rebuild.
+            (use{' '}
+            <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
+              scripts/upload-adventure-images.sh
+            </code>{' '}
+            to upload and update the manifest).
           </p>
         }
       />
