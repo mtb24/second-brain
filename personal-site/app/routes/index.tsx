@@ -64,6 +64,11 @@ const howIThink = [
     body:
       'The best infrastructure is the kind you forget about. My Second Brain runs tournament rounds every 3 hours, proposes strategies every 12, and updates its own documentation on command.',
   },
+  {
+    title: 'Fixing messy frontends',
+    body:
+      'I step into legacy React codebases, untangle shared state, extract reusable patterns, and leave behind systems that scale. Most of my career has been cleaning up what others started.',
+  },
 ] as const
 
 const coreStrengthColumns = [
@@ -197,7 +202,7 @@ function HomePage() {
           <h2 className="mb-10 text-sm font-medium uppercase tracking-nav text-cobalt">
             How I think
           </h2>
-          <ul className="grid gap-6 md:grid-cols-3">
+          <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             {howIThink.map((item) => (
               <li key={item.title}>
                 <article className="flex h-full flex-col rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/40 hover:shadow-cobalt-glow">

@@ -7,7 +7,7 @@ export const siteHeadline =
   'Senior Frontend Engineer | Design Systems | React, TypeScript, Accessibility, UI Architecture'
 
 export const siteSubHeadline =
-  'Frontend engineer specializing in design systems, reusable UI components, and scalable frontend architecture across complex SaaS platforms'
+  'Senior frontend engineer who owns architecture, builds production design systems, and ships AI-enabled interfaces. I step into complex codebases, define patterns, and make teams faster.'
 
 export const coreStrengths = [
   'React and TypeScript single-page applications',
