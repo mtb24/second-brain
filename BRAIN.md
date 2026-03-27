@@ -54,7 +54,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 ```
 ~/brain/
 ├── .env                        ← single source of truth for all credentials
-├── docker-compose.yml          ← 4-service stack definition
+├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, personal-site)
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
 ├── BRAIN.md                    ← this file (also mirrored from repo root in git)
 ├── backups/                    ← pg_dump .sql.gz files (7-day retention)
@@ -70,6 +70,8 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 │   └── app/
 │       └── server/
 │           └── openclawGateway.ts
+├── personal-site/              ← kendowney.com (TanStack Start)
+│   └── Dockerfile
 ├── tournament/                 ← Trading tournament (TypeScript)
 └── archive/                    ← Old compose references
 ```
@@ -87,6 +89,7 @@ Env: `~/brain/.env` (real file, not symlink)
 | ingest-api | brain-ingest | 127.0.0.1:8000 | custom (Python 3.12) |
 | mcp-server | brain-mcp | 127.0.0.1:3000 | custom (Python 3.12) |
 | mission-control | brain-mission | 127.0.0.1:4173 | custom (Node 22 Alpine) |
+| personal-site | brain-personal-site | 127.0.0.1:4174 | custom (Node 22 Alpine) |
 
 **Removed:** litestream (wrong tool for Postgres — use pg_dump instead)
 
@@ -217,6 +220,7 @@ Retention: 7 backups
 
 ### kendowney.com
 - `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
+- **Nginx:** configured in `/etc/nginx/sites-available/brain` (enabled); apex `server_name kendowney.com` proxies to `4174` — not `sites-available/default` (disabled on VPS).
 
 ---
 
@@ -359,6 +363,11 @@ rsync -av --delete --exclude='node_modules' --exclude='.git' \
 rsync -av --delete --exclude='node_modules' --exclude='.git' \
   /Users/kendowney/Sites/SecondBrain/tournament/ \
   brain@147.182.240.24:~/brain/tournament/
+
+rsync -av --delete --exclude='node_modules' --exclude='.git' \
+  --exclude='dist' --exclude='.output' --exclude='.nitro' --exclude='.tanstack' \
+  /Users/kendowney/Sites/SecondBrain/personal-site/ \
+  brain@147.182.240.24:~/brain/personal-site/
 ```
 
 ### Sync from server
