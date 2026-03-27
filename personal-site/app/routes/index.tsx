@@ -47,6 +47,24 @@ const featured: FeaturedProject[] = [
   },
 ]
 
+const howIThink = [
+  {
+    title: 'Why most design systems fail adoption',
+    body:
+      'Most design systems die because they are shipped as component libraries without governance. Tokens, constraints, and adoption pathways matter more than the catalog of components itself.',
+  },
+  {
+    title: 'Constraining AI-generated UI',
+    body:
+      'LLMs can write React, but they will not reliably follow your design system. The missing piece is a contract layer that validates AI output against real component APIs before it ships.',
+  },
+  {
+    title: 'Building systems that run without you',
+    body:
+      'The best infrastructure is the kind you forget about. My Second Brain runs tournament rounds every three hours, proposes strategies every twelve, and updates its own documentation on command.',
+  },
+] as const
+
 function HomePage() {
   return (
     <div className="pt-[52px] md:pt-[56px]">
@@ -63,8 +81,9 @@ function HomePage() {
               Ken Downey
             </h1>
             <p className="text-lg text-ink-secondary md:text-xl md:leading-relaxed">
-              Staff frontend engineer building AI-enabled interfaces and
-              autonomous systems. Races motorcycles in Baja. Prospects for gold.
+              Staff Frontend Engineer — React, design systems, and AI-enabled
+              interfaces. I build production component libraries, autonomous AI
+              systems, and the governance layers between them.
             </p>
             <ul className="flex flex-wrap gap-2">
               {techTags.map((tag) => (
@@ -138,6 +157,28 @@ function HomePage() {
                 </li>
               )
             })}
+          </ul>
+        </div>
+      </section>
+
+      <section className="border-t border-warmborder bg-void-deep py-16 md:py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="mb-10 text-sm font-medium uppercase tracking-nav text-cobalt">
+            How I think
+          </h2>
+          <ul className="grid gap-6 md:grid-cols-3">
+            {howIThink.map((item) => (
+              <li key={item.title}>
+                <article className="flex h-full flex-col rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/40 hover:shadow-cobalt-glow">
+                  <h3 className="text-base font-medium tracking-[-0.5px] text-[#f0e8d8]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-ink-secondary md:text-[15px] md:leading-relaxed">
+                    {item.body}
+                  </p>
+                </article>
+              </li>
+            ))}
           </ul>
         </div>
       </section>
