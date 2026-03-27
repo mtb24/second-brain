@@ -1,26 +1,26 @@
 /**
- * Adventure carousel images live in Backblaze B2 under adventures/<slug>/.
+ * Adventure carousel images are served from the same origin at
+ * `/images/adventures/<slug>/…` (Nginx `alias` → `/home/brain/adventure-images/adventures/`;
+ * see BRAIN.md). Filenames per category live in adventureManifest.files.json
+ * (updated by `npm run sync-adventures` or the adventure-photo OpenClaw skill).
  *
- * Filenames per category are maintained in adventureManifest.files.json (updated by
- * npm run sync-adventures in personal-site/). This module turns them into public friendly URLs.
- *
- * Set VITE_ADVENTURE_B2_BASE locally if your bucket’s friendly URL root differs.
+ * Optional: `VITE_ADVENTURE_IMAGE_BASE` for dev/proxy overrides (must be a path or origin URL prefix).
  */
 import files from './adventureManifest.files.json'
 
-/** `${B2_BASE}/<slug>/<filename>` — matches B2 key prefix `adventures/<slug>/`. */
-export const B2_BASE =
-  (import.meta.env.VITE_ADVENTURE_B2_BASE as string | undefined) ||
-  'https://f004.backblazeb2.com/file/kendowney-assets/adventures'
+/** Base path or URL prefix before `/<slug>/<filename>`. */
+export const IMAGE_BASE =
+  (import.meta.env.VITE_ADVENTURE_IMAGE_BASE as string | undefined) || '/images/adventures'
 
-/** B2 friendly URLs need encoded path segments (spaces, parentheses, etc.). */
+/** Path segments must be encoded (spaces, parentheses, etc.). */
 function adventureImageUrl(slug: string, relativePath: string): string {
   const encodedSlug = encodeURIComponent(slug)
   const encodedPath = relativePath
     .split('/')
     .map((seg) => encodeURIComponent(seg))
     .join('/')
-  return `${B2_BASE}/${encodedSlug}/${encodedPath}`
+  const base = IMAGE_BASE.replace(/\/$/, '')
+  return `${base}/${encodedSlug}/${encodedPath}`
 }
 
 export const adventureManifest: Record<string, string[]> = Object.fromEntries(

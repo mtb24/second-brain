@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Full-tree sync: local adventure staging → Backblaze B2 (adventures/<category>/...)
-# then regenerate app/data/adventureManifest.files.json from the local tree.
+# Full-tree sync: local adventure staging → VPS static dir (Nginx serves /images/adventures/)
+# then regenerate app/data/adventureManifest.files.json from the local staging tree.
 #
-# Prerequisites: b2 CLI (pip install b2), B2_KEY_ID + B2_APP_KEY in env.
-# Optional: B2_BUCKET_NAME (default kendowney-assets), ADVENTURE_STAGING_ROOT.
-# HEIC: before sync, all .heic/.HEIC under staging are converted to .jpg via macOS
-# sips and the HEIC originals are removed locally; b2 sync also excludes *.heic.
-# Images: max edge 1600px + JPEG Q≈70 before upload to cut B2 download bandwidth.
-# (WebP via sips is possible on newer macOS; JPEG/PNG pipeline is the default here.)
+# Prerequisites: rsync + SSH to the VPS; macOS sips for HEIC + optimization (local only).
+# Optional env:
+#   ADVENTURE_STAGING_ROOT — default ~/Sites/kendowney.com/images/adventures
+#   ADVENTURE_RSYNC_DEST   — default brain@147.182.240.24:/home/brain/adventure-images/adventures/
+#
+# HEIC → JPEG, max edge 1600px, JPEG Q≈70 before rsync (see inline comments below).
 #
 # Usage (from personal-site/):
 #   npm run sync-adventures
@@ -23,26 +23,7 @@ DEFAULT_STAGING="${HOME}/Sites/kendowney.com/images/adventures"
 STAGING="${ADVENTURE_STAGING_ROOT:-$DEFAULT_STAGING}"
 STAGING="$(cd "$(dirname "$STAGING")" && pwd)/$(basename "$STAGING")"
 
-# shellcheck disable=SC1090
-for envfile in "$SITE_ROOT/../.env" "$SITE_ROOT/.env"; do
-  if [[ -f "$envfile" ]]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$envfile"
-    set +a
-    break
-  fi
-done
-
-if ! command -v b2 >/dev/null 2>&1; then
-  echo "error: b2 CLI not found. Install: pip install b2  (then ensure b2 is on PATH)" >&2
-  exit 1
-fi
-
-: "${B2_KEY_ID:?Set B2_KEY_ID (see personal-site/.env.example)}"
-: "${B2_APP_KEY:?Set B2_APP_KEY (see personal-site/.env.example)}"
-
-BUCKET="${B2_BUCKET_NAME:-kendowney-assets}"
+RSYNC_DEST="${ADVENTURE_RSYNC_DEST:-brain@147.182.240.24:/home/brain/adventure-images/adventures/}"
 
 if [[ ! -d "$STAGING" ]]; then
   echo "error: staging directory does not exist: $STAGING" >&2
@@ -50,8 +31,8 @@ if [[ ! -d "$STAGING" ]]; then
   exit 1
 fi
 
-echo "Staging:  $STAGING"
-echo "B2 target: b2://${BUCKET}/adventures"
+echo "Staging:    $STAGING"
+echo "Rsync dest: $RSYNC_DEST"
 
 # HEIC → JPEG before sync (browsers cannot display HEIC). macOS sips only.
 if command -v sips >/dev/null 2>&1; then
@@ -71,7 +52,7 @@ else
   fi
 fi
 
-# Resize + compress raster images before B2 (skip GIF — sips can break animation).
+# Resize + compress (skip GIF — sips can break animation).
 if command -v sips >/dev/null 2>&1; then
   while IFS= read -r -d '' img; do
     ext="${img##*.}"
@@ -93,18 +74,14 @@ if command -v sips >/dev/null 2>&1; then
     \) -print0 2>/dev/null
   )
 else
-  echo "warning: sips not found; images are not resized before upload." >&2
+  echo "warning: sips not found; images are not resized before rsync." >&2
 fi
 
-b2 account authorize "$B2_KEY_ID" "$B2_APP_KEY" >/dev/null
-
-# Mirror local categories to B2; --delete removes remote files absent locally.
-# Exclude junk so Finder metadata never lands in the bucket; exclude HEIC as a safety net.
-b2 sync --delete \
-  --exclude-regex '(.*\.DS_Store|.*\.[Hh][Ee][Ii][Cc])' \
-  --allow-empty-source \
-  "$STAGING" \
-  "b2://${BUCKET}/adventures"
+rsync -av --delete \
+  --exclude='.DS_Store' \
+  --exclude='*.heic' --exclude='*.HEIC' \
+  "$STAGING/" \
+  "$RSYNC_DEST"
 
 node "$GENERATE_MANIFEST"
 echo "Done. Commit app/data/adventureManifest.files.json if changed; then build/deploy the site."

@@ -41,7 +41,7 @@ The GitHub repo root (local: `/Users/kendowney/Sites/SecondBrain/`) includes **`
 Optional paths tracked in git:
 
 - `openclaw/skills/strategy-master/` — mirror of the VPS OpenClaw workspace skill (see **Strategy Master Agent** below)
-- `openclaw/skills/adventure-photo/` — mirror of **adventure-photo** (Telegram → B2 → Adventures page; see **Workspace skills** below)
+- `openclaw/skills/adventure-photo/` — mirror of **adventure-photo** (Telegram → VPS static images → Adventures page; see **Workspace skills** below)
 
 ---
 
@@ -54,7 +54,10 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 ## Directory Structure
 
 ```
-~/brain/
+/home/brain/adventure-images/   ← kendowney.com adventure photos (NOT in git / NOT in Docker; Nginx serves /images/adventures/)
+└── adventures/<category>/...
+
+~/brain/   (git checkout: /home/brain/brain/)
 ├── .env                        ← single source of truth for all credentials
 ├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, personal-site, honest-fit)
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
@@ -131,16 +134,18 @@ OPENCLAW_GATEWAY_TOKEN=...   ← operator token from device-auth.json
 OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
 B2_BUCKET=...
 B2_KEY_ID=...
-B2_APP_KEY=...               ← note: B2_APP_KEY not B2_APPLICATION_KEY
-B2_BUCKET_NAME=kendowney-assets   ← public assets bucket for kendowney.com adventures (us-west-004; see `personal-site/scripts/upload-adventure-images.sh`)
-B2_PUBLIC_URL=https://f004.backblazeb2.com/file/kendowney-assets   ← friendly URL prefix, no trailing slash; images at `{B2_PUBLIC_URL}/adventures/<slug>/<file>`
+B2_APP_KEY=...               ← note: B2_APP_KEY not B2_APPLICATION_KEY (optional — legacy / one-off; **adventure gallery is on-VPS**, not B2)
+B2_BUCKET_NAME=kendowney-assets
+B2_PUBLIC_URL=https://f004.backblazeb2.com/file/kendowney-assets   ← optional legacy
 DB_URL=postgresql://brain:...@localhost:5432/brain
 DRY_RUN=true
 ```
 
 **Local Mac:** `/Users/kendowney/Sites/SecondBrain/.env` (same content, never committed)
 
-**Backblaze public buckets:** Creating an **allPublic** bucket via API may return `no_payment_history` until the B2 account has billing on file. After that, create `kendowney-assets` as allPublic (us-west-004 → `f004` host) and keep `B2_PUBLIC_URL` / default `VITE_ADVENTURE_B2_BASE` aligned with the B2 UI friendly URL.
+**Adventure images (kendowney.com):** Stored at **`/home/brain/adventure-images/adventures/<category>/`** on the VPS. Nginx **`location /images/adventures/`** → `alias /home/brain/adventure-images/adventures/;` (see **Nginx Config**). Sync from Mac: `personal-site/scripts/sync-adventures.sh` (rsync + `generate-adventure-manifest.mjs`). Site uses **`IMAGE_BASE` = `/images/adventures`** in `adventureManifest.ts`.
+
+**Backblaze:** Optional for other assets or migration; adventure carousels no longer use B2 download bandwidth.
 
 ---
 
@@ -231,6 +236,7 @@ Retention: 7 backups
 
 ### kendowney.com
 - `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
+- `/images/adventures/` → static **`alias /home/brain/adventure-images/adventures/`** (long cache: `expires 30d`, `Cache-Control: public, immutable`)
 - **Nginx:** configured in `/etc/nginx/sites-available/brain` (enabled); apex `server_name kendowney.com` proxies to `4174` — not `sites-available/default` (disabled on VPS).
 
 ### honestfit.kendowney.com
@@ -280,7 +286,7 @@ Retention: 7 backups
 |-------|------|--------|
 | **Session close** | `~/.openclaw/workspace/skills/session-close/SKILL.md` | Deployed and tested — summarizes session, proposes BRAIN.md edits, commits on approval |
 | **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/SKILL.md` | Deployed — see below |
-| **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/SKILL.md` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); uploads to B2 `adventures/<category>/`, regenerates `personal-site/app/data/adventureManifest.files.json` from `b2 ls --json`, rebuilds `personal-site` Docker; confirms with public B2 URL |
+| **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/SKILL.md` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); writes to **`/home/brain/adventure-images/adventures/<category>/`**, regenerates manifest via **`generate-adventure-manifest.mjs`** (`ADVENTURE_STAGING_ROOT` = that tree), rebuilds `personal-site` Docker; confirms with **`https://kendowney.com/images/adventures/...`** |
 
 ### OpenClaw cron (Gateway scheduler)
 

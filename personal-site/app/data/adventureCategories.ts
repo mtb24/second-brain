@@ -1,6 +1,7 @@
 /**
  * Optional metadata for adventure categories (B2 path adventures/<slug>/).
- * Slugs must match folder names under ~/Sites/kendowney.com/images/adventures/
+ * Slugs must match folder names under ~/Sites/kendowney.com/images/adventures/ (staging)
+ * and under /home/brain/adventure-images/adventures/ on the VPS (Nginx static).
  * (and keys in adventureManifest.files.json). Categories without an entry still
  * render (title from slug; no description).
  */

@@ -4,7 +4,7 @@
  *
  * Each immediate subdirectory of the staging root is a category key (slug).
  * Image files are collected recursively; paths are POSIX-style relative to that category
- * (e.g. subdir/photo.jpg → stored as "subdir/photo.jpg" for B2 keys adventures/<slug>/subdir/photo.jpg).
+ * (e.g. subdir/photo.jpg → served as /images/adventures/<slug>/subdir/photo.jpg on the VPS).
  *
  * Env:
  *   ADVENTURE_STAGING_ROOT — override default ~/Sites/kendowney.com/images/adventures
