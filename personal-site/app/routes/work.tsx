@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { HONEST_FIT_URL } from '@/constants'
 import { InnerPageShell } from '@/ui/InnerPageShell'
 import { PageHeader } from '@/ui/PageHeader'
 
@@ -51,7 +52,8 @@ const projects: Project[] = [
     description:
       'AI-powered job fit analysis — hybrid deterministic + LLM reasoning.',
     tags: ['AI', 'Product'],
-    href: '/honest-fit',
+    href: HONEST_FIT_URL,
+    external: true,
   },
   {
     name: 'Trading Tournament',

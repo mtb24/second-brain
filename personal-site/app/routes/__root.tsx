@@ -9,17 +9,28 @@ import {
   Link,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { HONEST_FIT_URL } from '@/constants'
 import '@/styles/globals.css'
 
 const queryClient = new QueryClient()
 
-const navItems = [
-  { to: '/work', label: 'Work' },
-  { to: '/adventures', label: 'Adventures' },
-  { to: '/honest-fit', label: 'Honest Fit' },
-  { to: '/resume', label: 'Resume' },
-  { to: '/contact', label: 'Contact' },
-] as const
+type NavItem =
+  | { kind: 'internal'; to: '/work' | '/adventures' | '/resume' | '/contact'; label: string }
+  | { kind: 'external'; href: string; label: string }
+
+const navItems: NavItem[] = [
+  { kind: 'internal', to: '/work', label: 'Work' },
+  { kind: 'internal', to: '/adventures', label: 'Adventures' },
+  { kind: 'external', href: HONEST_FIT_URL, label: 'Honest Fit' },
+  { kind: 'internal', to: '/resume', label: 'Resume' },
+  { kind: 'internal', to: '/contact', label: 'Contact' },
+]
+
+const navLinkClassDesktop =
+  'text-xs font-medium uppercase tracking-nav text-ink-secondary transition-colors hover:text-cobalt-light [&.active]:text-cobalt [&.active]:underline [&.active]:decoration-cobalt [&.active]:decoration-2 [&.active]:underline-offset-[6px]'
+
+const navLinkClassMobile =
+  'border-b border-warmborder/60 py-3 text-xs font-medium uppercase tracking-nav text-ink-secondary transition-colors last:border-0 hover:text-cobalt-light [&.active]:text-cobalt [&.active]:underline [&.active]:decoration-cobalt [&.active]:decoration-2 [&.active]:underline-offset-4'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -75,15 +86,23 @@ function SiteHeader() {
           className="hidden items-center gap-8 md:flex"
           aria-label="Primary"
         >
-          {navItems.map(({ to, label }) => (
-            <Link
-              key={to}
-              to={to}
-              className="text-xs font-medium uppercase tracking-nav text-ink-secondary transition-colors hover:text-cobalt-light [&.active]:text-cobalt [&.active]:underline [&.active]:decoration-cobalt [&.active]:decoration-2 [&.active]:underline-offset-[6px]"
-            >
-              {label}
-            </Link>
-          ))}
+          {navItems.map((item) =>
+            item.kind === 'external' ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={navLinkClassDesktop}
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link key={item.to} to={item.to} className={navLinkClassDesktop}>
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
 
         <button
@@ -102,16 +121,29 @@ function SiteHeader() {
         className={`border-t border-cobalt/25 bg-nav-bar md:hidden ${open ? 'block' : 'hidden'}`}
       >
         <nav className="flex flex-col px-6 py-3" aria-label="Mobile primary">
-          {navItems.map(({ to, label }) => (
-            <Link
-              key={to}
-              to={to}
-              className="border-b border-warmborder/60 py-3 text-xs font-medium uppercase tracking-nav text-ink-secondary transition-colors last:border-0 hover:text-cobalt-light [&.active]:text-cobalt [&.active]:underline [&.active]:decoration-cobalt [&.active]:decoration-2 [&.active]:underline-offset-4"
-              onClick={() => setOpen(false)}
-            >
-              {label}
-            </Link>
-          ))}
+          {navItems.map((item) =>
+            item.kind === 'external' ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={navLinkClassMobile}
+                onClick={() => setOpen(false)}
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={navLinkClassMobile}
+                onClick={() => setOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
       </div>
     </header>

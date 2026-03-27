@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { HONEST_FIT_URL } from '@/constants'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -6,7 +7,15 @@ export const Route = createFileRoute('/')({
 
 const techTags = ['React', 'TypeScript', 'Design Systems', 'AI Agents'] as const
 
-const featured = [
+type FeaturedProject = {
+  title: string
+  blurb: string
+  tags: readonly string[]
+  href: string
+  external?: boolean
+}
+
+const featured: FeaturedProject[] = [
   {
     title: 'Second Brain',
     blurb:
@@ -31,11 +40,12 @@ const featured = [
   {
     title: 'Honest Fit Assessment',
     blurb:
-      'Job fit analysis that blends deterministic checks with LLM reasoning — shipping soon.',
+      'Job fit analysis that blends deterministic checks with LLM reasoning.',
     tags: ['AI', 'Product'],
-    href: '/honest-fit',
+    href: HONEST_FIT_URL,
+    external: true,
   },
-] as const
+]
 
 function HomePage() {
   return (
@@ -89,12 +99,11 @@ function HomePage() {
             Featured work
           </h2>
           <ul className="grid gap-6 md:grid-cols-2">
-            {featured.map((project) => (
-              <li key={project.title}>
-                <Link
-                  to={project.href}
-                  className="group block h-full rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/40 hover:shadow-cobalt-glow"
-                >
+            {featured.map((project) => {
+              const cardClass =
+                'group block h-full rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/40 hover:shadow-cobalt-glow'
+              const inner = (
+                <>
                   <h3 className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8] group-hover:text-cobalt-light">
                     {project.title}
                   </h3>
@@ -108,9 +117,27 @@ function HomePage() {
                       </li>
                     ))}
                   </ul>
-                </Link>
-              </li>
-            ))}
+                </>
+              )
+              return (
+                <li key={project.title}>
+                  {project.external ? (
+                    <a
+                      href={project.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  ) : (
+                    <Link to={project.href} className={cardClass}>
+                      {inner}
+                    </Link>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </section>
