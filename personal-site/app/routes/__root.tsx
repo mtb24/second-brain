@@ -61,7 +61,7 @@ function SiteHeader() {
   const [open, setOpen] = useState(false)
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-warmborder/80 bg-void-deep/95 backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-cobalt bg-nav-bar/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3 md:py-3.5">
         <Link
           to="/"
@@ -99,7 +99,7 @@ function SiteHeader() {
 
       <div
         id="mobile-nav"
-        className={`border-t border-warmborder bg-void-deep md:hidden ${open ? 'block' : 'hidden'}`}
+        className={`border-t border-cobalt/25 bg-nav-bar md:hidden ${open ? 'block' : 'hidden'}`}
       >
         <nav className="flex flex-col px-6 py-3" aria-label="Mobile primary">
           {navItems.map(({ to, label }) => (

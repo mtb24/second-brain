@@ -22,6 +22,10 @@ export default {
           light: '#2563eb',
         },
         warmborder: '#3a3530',
+        /** Fixed header — dark navy with blue undertone (desert noir adjacency) */
+        nav: {
+          bar: '#0a1628',
+        },
       },
       fontFamily: {
         sans: [

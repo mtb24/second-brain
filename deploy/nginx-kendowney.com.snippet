@@ -1,0 +1,20 @@
+# Reference: kendowney.com → personal-site (Docker brain-personal-site on 4174)
+# Install under sites-available / include as appropriate; reload nginx after edits.
+
+server {
+    listen 443 ssl http2;
+    server_name kendowney.com www.kendowney.com;
+
+    # ssl_certificate / ssl_certificate_key — use existing cert paths on the VPS
+
+    location / {
+        proxy_pass http://127.0.0.1:4174;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}

@@ -32,6 +32,7 @@ Services and their paths:
 - `tournament/` → `~/brain/tournament/`
 - `mission-control/` → `~/brain/mission-control/`
 - `ingest-api/` → `~/brain/ingest-api/`
+- `personal-site/` → `~/brain/personal-site/`
 
 ## When helping with code
 - Follow the conventions in BRAIN.md exactly

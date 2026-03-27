@@ -215,6 +215,9 @@ Retention: 7 backups
 - `/` → `127.0.0.1:4173`
 - `/openclaw/` → `127.0.0.1:18789` with `proxy_set_header X-Forwarded-User "iframeuser"`
 
+### kendowney.com
+- `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
+
 ---
 
 ## OpenClaw / Cortex
