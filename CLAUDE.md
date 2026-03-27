@@ -32,7 +32,7 @@ Services and their paths:
 - `tournament/` → `~/brain/tournament/`
 - `mission-control/` → `~/brain/mission-control/`
 - `ingest-api/` → `~/brain/ingest-api/`
-- `personal-site/` → `~/brain/personal-site/` (after rsync: `cd ~/brain && docker compose build personal-site && docker compose up -d personal-site`)
+- **kendowney.com** (separate repo: `~/Sites/kendowney.com/`, https://github.com/mtb24/kendowney.com) → rsync to `~/brain/personal-site/` then **`cd ~/brain/personal-site && docker compose build && docker compose up -d`** (uses `docker-compose.yml` in that tree; external `brain_default`). If the VPS still has a `personal-site` service in **`~/brain/docker-compose.yml`**, use that file instead.
 
 ## When helping with code
 - Follow the conventions in BRAIN.md exactly

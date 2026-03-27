@@ -130,8 +130,16 @@ This overwrites `~/brain/personal-site/app/data/adventureManifest.files.json` fr
 
 ## Step 5 — Rebuild personal-site (required)
 
+If **`~/brain/docker-compose.yml`** still defines a `personal-site` service:
+
 ```bash
 cd ~/brain && docker compose build personal-site && docker compose up -d personal-site
+```
+
+Otherwise build from the synced tree (see **kendowney.com** repo `docker-compose.yml`):
+
+```bash
+cd ~/brain/personal-site && docker compose build && docker compose up -d
 ```
 
 If the build fails, report the error — do not claim the site updated.
@@ -148,7 +156,7 @@ Example:
 
 ## Operational notes
 
-- **Local bulk sync:** `personal-site/scripts/sync-adventures.sh` (macOS) — HEIC/resize with **sips**, then **rsync** to `brain@147.182.240.24:/home/brain/adventure-images/adventures/`, then **generate-adventure-manifest.mjs** locally.
+- **Local bulk sync:** `~/Sites/kendowney.com/scripts/sync-adventures.sh` (macOS) — HEIC/resize with **sips**, then **rsync** to `brain@147.182.240.24:/home/brain/adventure-images/adventures/`, then **generate-adventure-manifest.mjs** locally (`npm run sync-adventures` in the **kendowney.com** repo).
 - **Nginx 403:** `www-data` must traverse `/home/brain` and read files — see BRAIN.md (`chmod o+x /home/brain`, `chmod -R a+rX /home/brain/adventure-images`).
 - **Do not** commit the manifest from this flow unless Ken asks; the VPS working tree + Docker image are what matter for production.
 - **Idempotency:** Regenerating the manifest rescans the whole static tree.

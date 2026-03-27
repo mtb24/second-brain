@@ -104,19 +104,8 @@ services:
     networks:
       - brain_default
 
-  personal-site:
-    build:
-      context: ./personal-site
-      dockerfile: Dockerfile
-    container_name: brain-personal-site
-    restart: unless-stopped
-    environment:
-      - PORT=4174
-      - HOST=0.0.0.0
-    ports:
-      - "127.0.0.1:4174:4174"
-    networks:
-      - brain_default
+  # personal-site (kendowney.com) lives in https://github.com/mtb24/kendowney.com
+  # Rsync to ~/brain/personal-site/ on the VPS; optional: docker-compose.yml in that repo (external brain_default).
 
   honest-fit:
     build:

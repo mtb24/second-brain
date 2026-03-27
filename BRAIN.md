@@ -29,6 +29,7 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | `brain.kendowney.com` | Ingest API + MCP server |
 | `mission.kendowney.com` | Mission Control dashboard + OpenClaw proxy |
 | `honestfit.kendowney.com` | Honest Fit Assessment (TanStack Start, Docker `brain-honest-fit`) |
+| `kendowney.com` | Personal site — source repo **https://github.com/mtb24/kendowney.com** (rsync → `~/brain/personal-site/`, container `brain-personal-site`) |
 
 DNS managed via DigitalOcean.
 
@@ -59,7 +60,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 
 ~/brain/   (git checkout: /home/brain/brain/)
 ├── .env                        ← single source of truth for all credentials
-├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, personal-site, honest-fit)
+├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, honest-fit); kendowney.com is a separate repo (rsync → personal-site/)
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
 ├── BRAIN.md                    ← this file (also mirrored from repo root in git)
 ├── backups/                    ← pg_dump .sql.gz files (7-day retention)
@@ -75,8 +76,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 │   └── app/
 │       └── server/
 │           └── openclawGateway.ts
-├── personal-site/              ← kendowney.com (TanStack Start)
-│   └── Dockerfile
+├── personal-site/              ← kendowney.com **content only** (rsync from ~/Sites/kendowney.com/ — not in SecondBrain git)
 ├── honest-fit/                 ← honestfit.kendowney.com (HFA; not in this repo — sync from ~/Sites/AI/HonestFitAssessment)
 │   └── Dockerfile
 ├── tournament/                 ← Trading tournament (TypeScript)
@@ -96,8 +96,9 @@ Env: `~/brain/.env` (real file, not symlink)
 | ingest-api | brain-ingest | 127.0.0.1:8000 | custom (Python 3.12) |
 | mcp-server | brain-mcp | 127.0.0.1:3000 | custom (Python 3.12) |
 | mission-control | brain-mission | 127.0.0.1:4173 | custom (Node 22 Alpine) |
-| personal-site | brain-personal-site | 127.0.0.1:4174 | custom (Node 22 Alpine) |
 | honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | custom (Node 22 Alpine, pnpm; `vite preview`) |
+
+**kendowney.com (`brain-personal-site`, port 4174):** Source is **https://github.com/mtb24/kendowney.com** → rsync to `~/brain/personal-site/`. It is **not** a service in SecondBrain’s `docker-compose.yml`; build with `docker compose` from **`~/brain/personal-site/`** using **`docker-compose.yml`** in the kendowney.com repo (external `brain_default` network), or maintain an equivalent stanza on the VPS.
 
 **Host 3001** is already used by **tournament** on the host; honest-fit uses **3002** → container **3000**. Compose: `env_file: .env` (shared `~/brain/.env`).
 
@@ -143,7 +144,7 @@ DRY_RUN=true
 
 **Local Mac:** `/Users/kendowney/Sites/SecondBrain/.env` (same content, never committed)
 
-**Adventure images (kendowney.com):** Stored at **`/home/brain/adventure-images/adventures/<category>/`** on the VPS (not in git / not in Docker). Nginx **`location /images/adventures/`** → `alias /home/brain/adventure-images/adventures/;` (see **Nginx Config**). Sync from Mac: `personal-site/scripts/sync-adventures.sh` (rsync + `generate-adventure-manifest.mjs`). Site uses **`IMAGE_BASE` = `/images/adventures`** in `adventureManifest.ts`.
+**Adventure images (kendowney.com):** Stored at **`/home/brain/adventure-images/adventures/<category>/`** on the VPS (not in git / not in Docker). Nginx **`location /images/adventures/`** → `alias /home/brain/adventure-images/adventures/;` (see **Nginx Config**). Sync from Mac: **`~/Sites/kendowney.com/scripts/sync-adventures.sh`** (`npm run sync-adventures` in the **kendowney.com** repo). Site uses **`IMAGE_BASE` = `/images/adventures`** in `adventureManifest.ts`.
 
 **Nginx must read under `/home/brain/`:** `www-data` needs **`chmod o+x /home/brain`** (traverse only) and readable image tree, e.g. **`chmod -R a+rX /home/brain/adventure-images`**. Without this, `/images/adventures/...` returns **403**.
 
@@ -402,7 +403,7 @@ rsync -av --delete --exclude='node_modules' --exclude='.git' \
 
 rsync -av --delete --exclude='node_modules' --exclude='.git' \
   --exclude='dist' --exclude='.output' --exclude='.nitro' --exclude='.tanstack' \
-  /Users/kendowney/Sites/SecondBrain/personal-site/ \
+  /Users/kendowney/Sites/kendowney.com/ \
   brain@147.182.240.24:~/brain/personal-site/
 
 rsync -av --delete \
@@ -433,6 +434,7 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **`docker compose down` wipes named volumes** — backup first
 - **`~/brain/.env` is a real file** — not a symlink
 - **Adventure static files under `/home/brain/adventure-images/`** — Nginx serves them; **`chmod o+x /home/brain`** (and `a+rX` on the image tree) required or browsers get **403**
+- **kendowney.com** — lives in **`~/Sites/kendowney.com/`** / **github.com/mtb24/kendowney.com**, not under SecondBrain; **`docker compose`** in SecondBrain no longer defines `personal-site`
 - **Cortex refuses unsupervised action** — correct per AGENTS.md
 - **`routeTree.gen.ts`** — generated by TanStack Router Vite plugin at build time. If you see `createFileRoute arg not assignable to undefined`, run `npm run build` inside `mission-control/` to regenerate it. Commit the result.
 - **`DRY_RUN`** — only gates live adapters (`isLive=true`). MockAdapter ignores it and always simulates trades.
