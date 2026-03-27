@@ -36,6 +36,8 @@ Services and their paths:
 
 ## When helping with code
 - Follow the conventions in BRAIN.md exactly
+- Whenever you edit **BRAIN.md**, refresh the **Last updated:** line at the top to
+  today’s date (`YYYY-MM-DD`)
 - If you make an architectural decision, say so explicitly and ask if it
   should be saved to the brain
 - Never suggest a pattern that contradicts an existing convention without
