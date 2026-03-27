@@ -41,6 +41,7 @@ The GitHub repo root (local: `/Users/kendowney/Sites/SecondBrain/`) includes **`
 Optional paths tracked in git:
 
 - `openclaw/skills/strategy-master/` — mirror of the VPS OpenClaw workspace skill (see **Strategy Master Agent** below)
+- `openclaw/skills/adventure-photo/` — mirror of **adventure-photo** (Telegram → B2 → Adventures page; see **Workspace skills** below)
 
 ---
 
@@ -279,6 +280,7 @@ Retention: 7 backups
 |-------|------|--------|
 | **Session close** | `~/.openclaw/workspace/skills/session-close/SKILL.md` | Deployed and tested — summarizes session, proposes BRAIN.md edits, commits on approval |
 | **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/SKILL.md` | Deployed — see below |
+| **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/SKILL.md` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); uploads to B2 `adventures/<category>/`, regenerates `personal-site/app/data/adventureManifest.files.json` from `b2 ls --json`, rebuilds `personal-site` Docker; confirms with public B2 URL |
 
 ### OpenClaw cron (Gateway scheduler)
 
