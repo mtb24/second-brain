@@ -118,6 +118,22 @@ services:
     networks:
       - brain_default
 
+  honest-fit:
+    build:
+      context: ./honest-fit
+      dockerfile: Dockerfile
+    container_name: brain-honest-fit
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+    ports:
+      # Host 3001 is used by tournament; use 3002 for Nginx upstream
+      - "127.0.0.1:3002:3000"
+    networks:
+      - brain_default
+
 volumes:
   pgdata:
 
