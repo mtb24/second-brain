@@ -149,5 +149,6 @@ Example:
 ## Operational notes
 
 - **Local bulk sync:** `personal-site/scripts/sync-adventures.sh` (macOS) — HEIC/resize with **sips**, then **rsync** to `brain@147.182.240.24:/home/brain/adventure-images/adventures/`, then **generate-adventure-manifest.mjs** locally.
+- **Nginx 403:** `www-data` must traverse `/home/brain` and read files — see BRAIN.md (`chmod o+x /home/brain`, `chmod -R a+rX /home/brain/adventure-images`).
 - **Do not** commit the manifest from this flow unless Ken asks; the VPS working tree + Docker image are what matter for production.
 - **Idempotency:** Regenerating the manifest rescans the whole static tree.
