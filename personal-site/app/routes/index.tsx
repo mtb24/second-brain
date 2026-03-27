@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { HONEST_FIT_URL } from '@/constants'
+import { coreStrengths, siteSubHeadline } from '@/data/kenProfile'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -49,20 +50,26 @@ const featured: FeaturedProject[] = [
 
 const howIThink = [
   {
-    title: 'Why most design systems fail adoption',
+    title: 'Design systems that get adopted',
     body:
-      'Most design systems die because they are shipped as component libraries without governance. Tokens, constraints, and adoption pathways matter more than the catalog of components itself.',
+      "Most design systems die because they're component libraries without governance. Tokens, constraints, and adoption pathways matter more than the components.",
   },
   {
     title: 'Constraining AI-generated UI',
     body:
-      'LLMs can write React, but they will not reliably follow your design system. The missing piece is a contract layer that validates AI output against real component APIs before it ships.',
+      "LLMs can write React, but they can't follow your design system. The missing piece is a contract layer that validates AI output against real component APIs before it ships.",
   },
   {
     title: 'Building systems that run without you',
     body:
-      'The best infrastructure is the kind you forget about. My Second Brain runs tournament rounds every three hours, proposes strategies every twelve, and updates its own documentation on command.',
+      'The best infrastructure is the kind you forget about. My Second Brain runs tournament rounds every 3 hours, proposes strategies every 12, and updates its own documentation on command.',
   },
+] as const
+
+const coreStrengthColumns = [
+  coreStrengths.slice(0, 3),
+  coreStrengths.slice(3, 6),
+  coreStrengths.slice(6, 8),
 ] as const
 
 function HomePage() {
@@ -81,9 +88,7 @@ function HomePage() {
               Ken Downey
             </h1>
             <p className="text-lg text-ink-secondary md:text-xl md:leading-relaxed">
-              Staff Frontend Engineer — React, design systems, and AI-enabled
-              interfaces. I build production component libraries, autonomous AI
-              systems, and the governance layers between them.
+              {siteSubHeadline}
             </p>
             <ul className="flex flex-wrap gap-2">
               {techTags.map((tag) => (
@@ -108,6 +113,32 @@ function HomePage() {
                 Get in touch
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-warmborder py-16 md:py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="mb-10 text-sm font-medium uppercase tracking-nav text-cobalt">
+            Core strengths
+          </h2>
+          <div className="grid gap-10 md:grid-cols-3 md:gap-8">
+            {coreStrengthColumns.map((col, i) => (
+              <ul
+                key={i}
+                className="space-y-4 text-[15px] leading-relaxed text-ink-secondary md:text-base md:leading-relaxed"
+              >
+                {col.map((line) => (
+                  <li key={line} className="flex gap-3">
+                    <span
+                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cobalt"
+                      aria-hidden
+                    />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
           </div>
         </div>
       </section>

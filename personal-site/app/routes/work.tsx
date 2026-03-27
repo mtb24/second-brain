@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  clearCapitalExperience,
+  frogCombinedCaseStudy,
+  portlandCaseStudyExperience,
+  stories,
+  talageExperience,
+  type ProfileExperience,
+} from '@/data/kenProfile'
 import { InnerPageShell } from '@/ui/InnerPageShell'
 import { PageHeader } from '@/ui/PageHeader'
 
@@ -7,200 +15,229 @@ export const Route = createFileRoute('/work')({
   component: WorkPage,
 })
 
-type CaseStudyLink = {
-  label: string
-  href: string
-  external?: boolean
+function formatRange(start: string, end: string | null) {
+  return `${start} – ${end ?? 'Present'}`
 }
 
-type CaseStudy = {
-  title: string
-  subtitle?: string
-  context: string
-  problem: string
-  role: string
-  tech: readonly string[]
-  outcome: string
-  links?: readonly CaseStudyLink[]
-}
-
-const caseStudies: CaseStudy[] = [
-  {
-    title: 'City of Portland Design System',
-    subtitle: 'ICF',
-    context:
-      'City government needed unified digital services across departments so residents could complete tasks online without hitting a different look, feel, and behavior on every site.',
-    problem:
-      'Fragmented UI: each department built its own components, there was no shared design language, and accessibility gaps showed up wherever patterns diverged.',
-    role:
-      'Owned frontend architecture. Built and published @cityofportland/component-library and @cityofportland/design-tokens as production npm packages. Defined the token pipeline, component API standards, and Storybook documentation so teams could ship consistently.',
-    tech: [
-      'React',
-      'TypeScript',
-      'Storybook',
-      'Design Tokens',
-      'npm publishing',
-    ],
-    outcome:
-      'City-wide adoption across departments. The public packages remain in use today.',
-    links: [
-      {
-        label: 'Packages on npm',
-        href: 'https://www.npmjs.com/search?q=scope%3Acityofportland',
-        external: true,
-      },
-    ],
-  },
-  {
-    title: 'Clear Capital',
-    subtitle: 'Property analytics platform',
-    context:
-      'Real estate analytics platform serving appraisers and lenders — dense property data, review queues, and decisions that have to hold up under scrutiny.',
-    problem:
-      'Complex property review workflows and data-heavy dashboards made it hard to move through reviews quickly without losing context or missing critical fields.',
-    role:
-      'Led frontend architecture for property analytics dashboards and review workflows. Built interactive data visualizations and streamlined multi-step review so appraisers could focus on judgment, not hunting for the next control.',
-    tech: ['React', 'TypeScript', 'Data visualization'],
-    outcome:
-      'Improved appraiser workflow efficiency and reduced time spent in review cycles.',
-  },
-  {
-    title: 'Second Brain',
-    subtitle: 'Personal project',
-    context:
-      'A personal operating system for knowledge capture, AI agents, and autonomous trading — one place to ingest thoughts, query semantically, and run experiments that do not need a human in the loop every hour.',
-    problem:
-      'No off-the-shelf product combined voice capture, semantic search, AI agent orchestration, and a live trading tournament in a single system wired to how I actually work.',
-    role:
-      'Architected and built the entire stack solo: Postgres with pgvector, FastAPI ingest service, MCP server for IDE integration, OpenClaw agent (Cortex) for Telegram capture, Mission Control dashboard, and a genetic-algorithm trading tournament with Claude-powered strategy bots.',
-    tech: [
-      'TypeScript',
-      'Python',
-      'FastAPI',
-      'Postgres',
-      'pgvector',
-      'Docker',
-      'Nginx',
-      'OpenClaw',
-      'TanStack Start',
-      'Claude API',
-    ],
-    outcome:
-      'Fully operational: tournament runs automatically every 3 hours, Strategy Master proposes new strategies every 12 hours, and 13+ strategies have been tested and evolved in the wild.',
-    links: [
-      { label: 'Mission Control', href: 'https://mission.kendowney.com', external: true },
-      { label: 'Trading', href: 'https://mission.kendowney.com/trading', external: true },
-    ],
-  },
-  {
-    title: 'AI Design System Contract Layer',
-    subtitle: 'Research project',
-    context:
-      'Large language models can generate UI code, but that output rarely conforms to an existing design system — it is fast, but it is not governed.',
-    problem:
-      'AI-generated components tend toward arbitrary styling, invented props, and layouts that violate design system constraints. There was no validation layer between LLM output and what actually renders in production.',
-    role:
-      'Designed a contract validation layer between LLM-generated UI and the render pipeline: map output to approved React components, enforce token usage, and reject non-conforming output. Conceptual and prototype stage with working validation logic.',
-    tech: ['React', 'TypeScript', 'JSON Schema', 'LLM integration'],
-    outcome:
-      'A concrete approach to AI UI governance — no equivalent in the ecosystem I have seen. Featured on Ken’s AI Experiments on YouTube.',
-    links: [
-      {
-        label: 'Ken’s AI Experiments (YouTube)',
-        href: 'https://www.youtube.com/results?search_query=Ken%27s+AI+Experiments',
-        external: true,
-      },
-    ],
-  },
-]
-
-function WorkPage() {
+function TechPills({ items }: { items: readonly string[] }) {
   return (
-    <InnerPageShell>
-      <PageHeader
-        kicker="Work"
-        title="Case studies"
-        description={
-          <p>
-            Production systems, public design infrastructure, and research at
-            the intersection of interfaces and AI — with clear ownership and
-            outcomes.
-          </p>
-        }
-      />
-
-      <div className="space-y-10 md:space-y-12">
-        {caseStudies.map((study) => (
-          <CaseStudyCard key={study.title} study={study} />
-        ))}
-      </div>
-    </InnerPageShell>
+    <ul className="flex flex-wrap gap-2">
+      {items.map((t) => (
+        <li key={t}>
+          <span className="inline-block rounded-full border-[0.5px] border-cobalt bg-transparent px-2.5 py-0.5 font-mono text-[11px] text-cobalt">
+            {t}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
+function DomainTag({ children }: { children: ReactNode }) {
   return (
-    <h3 className="mb-2 text-xs font-medium uppercase tracking-nav text-cobalt">
+    <p className="text-xs font-medium uppercase tracking-nav text-cobalt/90">
       {children}
-    </h3>
+    </p>
   )
 }
 
-function CaseStudyCard({ study }: { study: CaseStudy }) {
+function ProfileCaseStudyCard({
+  storyTitle,
+  exp,
+}: {
+  storyTitle?: string
+  exp: ProfileExperience
+}) {
   return (
-    <article className="rounded-lg border-[0.5px] border-warmborder bg-surface p-6 shadow-none transition-colors hover:border-cobalt/35 hover:shadow-cobalt-glow md:p-8">
+    <article className="rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/35 hover:shadow-cobalt-glow md:p-8">
       <header className="border-b border-warmborder/80 pb-6">
-        <h2 className="text-xl font-medium tracking-[-0.5px] text-[#f0e8d8] md:text-2xl">
-          {study.title}
-        </h2>
-        {study.subtitle ? (
-          <p className="mt-1 text-sm text-cobalt">{study.subtitle}</p>
+        {storyTitle ? (
+          <p className="mb-2 text-sm font-medium text-[#e8e0d0]">{storyTitle}</p>
         ) : null}
+        <h2 className="text-xl font-medium tracking-[-0.5px] text-[#f0e8d8] md:text-2xl">
+          {exp.company}
+        </h2>
+        <p className="mt-2 text-base text-cobalt-light">{exp.role}</p>
+        <p className="mt-1 text-sm text-ink-secondary">
+          {formatRange(exp.start, exp.end)}
+          {exp.location ? ` · ${exp.location}` : ''}
+        </p>
+        <div className="mt-4">
+          <DomainTag>{exp.domain}</DomainTag>
+        </div>
       </header>
 
-      <div className="mt-6 space-y-6 text-[15px] leading-relaxed text-ink-secondary md:text-base md:leading-[1.7]">
+      <div className="mt-6 space-y-6">
         <section>
-          <SectionLabel>Context</SectionLabel>
-          <p>{study.context}</p>
-        </section>
-        <section>
-          <SectionLabel>Problem</SectionLabel>
-          <p>{study.problem}</p>
-        </section>
-        <section>
-          <SectionLabel>What I did</SectionLabel>
-          <p className="text-[#e8e0d0]">{study.role}</p>
-        </section>
-        <section>
-          <SectionLabel>Tech</SectionLabel>
-          <ul className="flex flex-wrap gap-2">
-            {study.tech.map((t) => (
-              <li key={t}>
-                <span className="inline-block rounded-full border-[0.5px] border-cobalt bg-transparent px-2.5 py-0.5 font-mono text-[11px] text-cobalt">
-                  {t}
-                </span>
-              </li>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Highlights
+          </h3>
+          <ul className="list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-ink-secondary md:text-base md:leading-[1.7]">
+            {exp.highlights.map((h) => (
+              <li key={h}>{h}</li>
             ))}
           </ul>
         </section>
         <section>
-          <SectionLabel>Outcome</SectionLabel>
-          <p className="border-l-2 border-cobalt/60 pl-4 text-[#e8e0d0]">
-            {study.outcome}
-          </p>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Tech stack
+          </h3>
+          <TechPills items={exp.stack} />
         </section>
       </div>
 
-      {study.links && study.links.length > 0 ? (
-        <footer className="mt-8 flex flex-wrap gap-3 border-t border-warmborder/80 pt-6">
-          {study.links.map((link) =>
+      {exp.links && exp.links.length > 0 ? (
+        <footer className="mt-8 flex flex-wrap gap-x-4 gap-y-2 border-t border-warmborder/80 pt-6">
+          {exp.links.map((link) => (
+            <a
+              key={link.url + link.label}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
+            >
+              {link.label} →
+            </a>
+          ))}
+        </footer>
+      ) : null}
+    </article>
+  )
+}
+
+function FrogCaseStudyCard() {
+  const f = frogCombinedCaseStudy
+  return (
+    <article className="rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/35 hover:shadow-cobalt-glow md:p-8">
+      <header className="border-b border-warmborder/80 pb-6">
+        <h2 className="text-xl font-medium tracking-[-0.5px] text-[#f0e8d8] md:text-2xl">
+          {f.company}
+        </h2>
+        <p className="mt-2 text-base text-cobalt-light">{f.role}</p>
+        <p className="mt-1 text-sm text-ink-secondary">
+          {f.clientLine}
+        </p>
+        <p className="mt-1 text-sm text-ink-secondary">
+          {formatRange(f.start, f.end)} · Remote, USA
+        </p>
+        <div className="mt-4">
+          <DomainTag>{f.domain}</DomainTag>
+        </div>
+      </header>
+
+      <div className="mt-6 space-y-6">
+        <section>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Highlights
+          </h3>
+          <ul className="list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-ink-secondary md:text-base md:leading-[1.7]">
+            {f.highlights.map((h) => (
+              <li key={h}>{h}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Tech stack
+          </h3>
+          <TechPills items={f.stack} />
+        </section>
+      </div>
+    </article>
+  )
+}
+
+const secondBrainHighlights = [
+  'Architected and built the entire stack solo: Postgres with pgvector, FastAPI ingest service, MCP server for IDE integration, OpenClaw agent (Cortex) for Telegram capture, Mission Control dashboard, and a genetic-algorithm trading tournament with Claude-powered strategy bots.',
+  'Ingest, semantic search, and agent orchestration in one system — no off-the-shelf product matched the workflow.',
+  'Tournament runs automatically every 3 hours; Strategy Master proposes new strategies every 12 hours; 13+ strategies tested and evolved.',
+] as const
+
+const secondBrainStack = [
+  'TypeScript',
+  'Python',
+  'FastAPI',
+  'Postgres',
+  'pgvector',
+  'Docker',
+  'Nginx',
+  'OpenClaw',
+  'TanStack Start',
+  'Claude API',
+] as const
+
+const aiContractStack = [
+  'React',
+  'TypeScript',
+  'JSON Schema',
+  'LLM integration',
+] as const
+
+function CustomCaseStudyCard({
+  company,
+  role,
+  dateRange,
+  location,
+  domain,
+  highlights,
+  stack,
+  links,
+}: {
+  company: string
+  role: string
+  dateRange?: string
+  location?: string
+  domain: string
+  highlights: readonly string[]
+  stack: readonly string[]
+  links?: readonly { label: string; href: string; external?: boolean }[]
+}) {
+  return (
+    <article className="rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/35 hover:shadow-cobalt-glow md:p-8">
+      <header className="border-b border-warmborder/80 pb-6">
+        <h2 className="text-xl font-medium tracking-[-0.5px] text-[#f0e8d8] md:text-2xl">
+          {company}
+        </h2>
+        <p className="mt-2 text-base text-cobalt-light">{role}</p>
+        {(dateRange || location) && (
+          <p className="mt-1 text-sm text-ink-secondary">
+            {[dateRange, location].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        <div className="mt-4">
+          <DomainTag>{domain}</DomainTag>
+        </div>
+      </header>
+
+      <div className="mt-6 space-y-6">
+        <section>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Highlights
+          </h3>
+          <ul className="list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-ink-secondary md:text-base md:leading-[1.7]">
+            {highlights.map((h) => (
+              <li key={h}>{h}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-cobalt">
+            Tech stack
+          </h3>
+          <TechPills items={stack} />
+        </section>
+      </div>
+
+      {links && links.length > 0 ? (
+        <footer className="mt-8 flex flex-wrap gap-x-4 gap-y-2 border-t border-warmborder/80 pt-6">
+          {links.map((link) =>
             link.external ? (
               <a
                 key={link.href + link.label}
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
+                className="text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
               >
                 {link.label} →
               </a>
@@ -208,7 +245,7 @@ function CaseStudyCard({ study }: { study: CaseStudy }) {
               <Link
                 key={link.href + link.label}
                 to={link.href}
-                className="inline-flex items-center text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
+                className="text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
               >
                 {link.label} →
               </Link>
@@ -217,5 +254,70 @@ function CaseStudyCard({ study }: { study: CaseStudy }) {
         </footer>
       ) : null}
     </article>
+  )
+}
+
+function WorkPage() {
+  const ai = stories.ai_output_governance
+
+  return (
+    <InnerPageShell>
+      <PageHeader
+        kicker="Work"
+        title="Case studies"
+        description={
+          <p>
+            Selected engagements from my profile — government design systems,
+            enterprise SaaS, consultancy delivery, and personal R&D.
+          </p>
+        }
+      />
+
+      <div className="space-y-10 md:space-y-12">
+        <ProfileCaseStudyCard
+          storyTitle={stories.portland_design_system.title}
+          exp={portlandCaseStudyExperience}
+        />
+        <ProfileCaseStudyCard
+          storyTitle={stories.clear_capital_b2b_saas.title}
+          exp={clearCapitalExperience}
+        />
+        <FrogCaseStudyCard />
+        <CustomCaseStudyCard
+          company="Second Brain"
+          role="Architect & builder (personal project)"
+          domain="Personal OS, AI agents, semantic search, autonomous trading"
+          highlights={secondBrainHighlights}
+          stack={secondBrainStack}
+          links={[
+            {
+              label: 'Mission Control',
+              href: 'https://mission.kendowney.com',
+              external: true,
+            },
+            {
+              label: 'Trading',
+              href: 'https://mission.kendowney.com/trading',
+              external: true,
+            },
+          ]}
+        />
+        <CustomCaseStudyCard
+          company={ai.title}
+          role="Research & prototype"
+          domain="AI output governance, design system contracts, LLM + UI"
+          highlights={[ai.summary, ...ai.takeaways]}
+          stack={aiContractStack}
+          links={[
+            {
+              label: "Ken's AI Experiments (YouTube)",
+              href: 'https://www.youtube.com/results?search_query=Ken%27s+AI+Experiments',
+              external: true,
+            },
+          ]}
+        />
+        <ProfileCaseStudyCard exp={talageExperience} />
+      </div>
+    </InnerPageShell>
   )
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { experience, resumeSkillGroups, siteHeadline } from '@/data/kenProfile'
 import { InnerPageShell } from '@/ui/InnerPageShell'
 import { PageHeader } from '@/ui/PageHeader'
 
@@ -6,62 +7,33 @@ export const Route = createFileRoute('/resume')({
   component: ResumePage,
 })
 
-const skillGroups: { label: string; items: readonly string[] }[] = [
-  {
-    label: 'Frontend',
-    items: [
-      'React',
-      'TypeScript',
-      'Next.js',
-      'TanStack Start',
-      'Tailwind CSS',
-    ],
-  },
-  {
-    label: 'Design Systems',
-    items: ['Storybook', 'Design Tokens', 'Component Libraries'],
-  },
-  {
-    label: 'AI/ML',
-    items: ['Claude API', 'LLM Integration', 'AI Agents', 'OpenClaw'],
-  },
-  {
-    label: 'Infrastructure',
-    items: ['Docker', 'Nginx', 'Postgres', 'DigitalOcean', 'GitHub Actions'],
-  },
-]
+const skillSectionOrder = [
+  { key: 'frontend', label: 'Frontend' },
+  { key: 'designSystems', label: 'Design systems' },
+  { key: 'accessibility', label: 'Accessibility' },
+  { key: 'backendAndApis', label: 'Backend & APIs' },
+  { key: 'aiTools', label: 'AI tools' },
+  { key: 'testing', label: 'Testing' },
+  { key: 'infrastructureAndOps', label: 'Infrastructure & ops' },
+] as const
 
-const experience: {
-  title: string
-  company: string
-  body: string
-}[] = [
-  {
-    title: 'Senior Frontend Engineer',
-    company: 'ICF (City of Portland)',
-    body: 'Published @cityofportland/component-library and @cityofportland/design-tokens. Led design system architecture for city government digital services.',
-  },
-  {
-    title: 'Senior Frontend Engineer',
-    company: 'Headlands Ventures',
-    body: 'Built frontend architecture for venture-backed products.',
-  },
-  {
-    title: 'Frontend Engineer',
-    company: 'Talage',
-    body: 'Insurance tech platform frontend development.',
-  },
-  {
-    title: 'Frontend Engineer',
-    company: 'Clear Capital',
-    body: 'Real estate analytics platform.',
-  },
-  {
-    title: 'UX Engineer',
-    company: 'frog',
-    body: 'Design and technology consultancy. Enterprise UX engineering.',
-  },
-]
+function formatRange(start: string, end: string | null) {
+  return `${start} – ${end ?? 'Present'}`
+}
+
+function TechPills({ items }: { items: readonly string[] }) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <li key={item}>
+          <span className="inline-block rounded-full border border-cobalt bg-transparent px-3 py-1 text-sm text-ink-primary">
+            {item}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 function ResumePage() {
   return (
@@ -70,11 +42,16 @@ function ResumePage() {
         kicker="Resume"
         title="Experience & skills"
         description={
-          <p className="max-w-2xl">
-            Frontend and design-system leadership across public sector, startups,
-            and enterprise — with a growing focus on AI-enabled interfaces and
-            agentic systems.
-          </p>
+          <div className="max-w-2xl space-y-3">
+            <p className="text-[15px] font-medium text-[#e8e0d0] md:text-base">
+              {siteHeadline}
+            </p>
+            <p className="text-ink-secondary">
+              Frontend and design-system leadership across public sector,
+              fintech, insurance, and ecommerce — with growing depth in
+              AI-enabled interfaces and agentic systems.
+            </p>
+          </div>
         }
       />
 
@@ -83,22 +60,18 @@ function ResumePage() {
           Skills
         </h2>
         <div className="grid gap-10 md:grid-cols-2">
-          {skillGroups.map((group) => (
-            <div key={group.label}>
-              <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-ink-secondary">
-                {group.label}
-              </h3>
-              <ul className="flex flex-wrap gap-2">
-                {group.items.map((item) => (
-                  <li key={item}>
-                    <span className="inline-block rounded-full border border-cobalt bg-transparent px-3 py-1 text-sm text-ink-primary">
-                      {item}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {skillSectionOrder.map(({ key, label }) => {
+            const items = resumeSkillGroups[key]
+            if (!items?.length) return null
+            return (
+              <div key={key}>
+                <h3 className="mb-3 text-xs font-medium uppercase tracking-nav text-ink-secondary">
+                  {label}
+                </h3>
+                <TechPills items={items} />
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -108,26 +81,56 @@ function ResumePage() {
         </h2>
         <div className="relative">
           <div
-            className="absolute left-[7px] top-2 bottom-2 w-px bg-warmborder md:left-[9px]"
+            className="absolute bottom-2 left-[7px] top-2 w-px bg-warmborder md:left-[9px]"
             aria-hidden
           />
           <ul className="relative space-y-0">
             {experience.map((job) => (
               <li
-                key={`${job.company}-${job.title}`}
+                key={`${job.company}-${job.role}-${job.start}`}
                 className="relative pb-12 pl-10 md:pb-14 md:pl-12"
               >
                 <span
                   className="absolute left-0 top-2 h-3 w-3 rounded-full bg-cobalt ring-4 ring-void md:top-2.5"
                   aria-hidden
                 />
-                <div className="space-y-2">
-                  <p className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8]">
-                    {job.title}
-                    <span className="text-ink-secondary"> — </span>
-                    <span className="text-cobalt-light">{job.company}</span>
-                  </p>
-                  <p className="max-w-2xl text-ink-secondary">{job.body}</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8]">
+                      {job.role}
+                    </p>
+                    <p className="mt-1 text-cobalt-light">{job.company}</p>
+                    <p className="mt-1 text-sm text-ink-secondary">
+                      {formatRange(job.start, job.end)}
+                      {job.location ? ` · ${job.location}` : ''}
+                    </p>
+                    {job.domain ? (
+                      <p className="mt-3 text-xs font-medium uppercase tracking-nav text-cobalt/90">
+                        {job.domain}
+                      </p>
+                    ) : null}
+                  </div>
+                  <TechPills items={job.stack} />
+                  <ul className="list-disc space-y-2 pl-5 text-ink-secondary">
+                    {job.highlights.map((h) => (
+                      <li key={h}>{h}</li>
+                    ))}
+                  </ul>
+                  {job.links && job.links.length > 0 ? (
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+                      {job.links.map((link) => (
+                        <a
+                          key={link.url + link.label}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-cobalt transition-colors hover:text-cobalt-light"
+                        >
+                          {link.label} →
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </li>
             ))}
