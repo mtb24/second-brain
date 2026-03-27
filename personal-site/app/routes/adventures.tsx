@@ -135,25 +135,22 @@ function placeholderForSlug(slug: string): ReactElement {
 }
 
 function AdventuresPage() {
+  const hasAdventurePhotos = adventureCategoriesBuild.some(
+    (cat) => cat.imageUrls.length > 0,
+  )
+
   return (
     <InnerPageShell>
       <PageHeader
         kicker="Adventures"
         title="Outside the editor"
         description={
-          <p className="max-w-2xl">
-            Desert, dirt, and distance. Photos are served from a public Backblaze B2
-            bucket; URLs are listed in{' '}
-            <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
-              app/data/adventureManifest.files.json
-            </code>{' '}
-            (run{' '}
-            <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
-              npm run sync-adventures
-            </code>{' '}
-            in <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">personal-site/</code>{' '}
-            to upload and refresh the manifest).
-          </p>
+          hasAdventurePhotos ? undefined : (
+            <p className="max-w-2xl">
+              Desert, dirt, and distance. Photo stories will land here soon — for now, a
+              grid of the threads that usually show up in the margins.
+            </p>
+          )
         }
       />
 

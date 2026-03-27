@@ -13,9 +13,19 @@ export const B2_BASE =
   (import.meta.env.VITE_ADVENTURE_B2_BASE as string | undefined) ||
   'https://f004.backblazeb2.com/file/kendowney-assets/adventures'
 
+/** B2 friendly URLs need encoded path segments (spaces, parentheses, etc.). */
+function adventureImageUrl(slug: string, relativePath: string): string {
+  const encodedSlug = encodeURIComponent(slug)
+  const encodedPath = relativePath
+    .split('/')
+    .map((seg) => encodeURIComponent(seg))
+    .join('/')
+  return `${B2_BASE}/${encodedSlug}/${encodedPath}`
+}
+
 export const adventureManifest: Record<string, string[]> = Object.fromEntries(
   Object.entries(files as Record<string, string[]>).map(([slug, names]) => [
     slug,
-    names.map((name) => `${B2_BASE}/${slug}/${name}`),
+    names.map((name) => adventureImageUrl(slug, name)),
   ]),
 )
