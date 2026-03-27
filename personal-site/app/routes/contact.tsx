@@ -7,10 +7,10 @@ export const Route = createFileRoute('/contact')({
   component: ContactPage,
 })
 
-const PLACEHOLDER_LINKEDIN = 'https://www.linkedin.com/'
-const PLACEHOLDER_INSTAGRAM = 'https://www.instagram.com/'
-const YOUTUBE_HREF =
-  'https://www.youtube.com/results?search_query=Ken%27s+AI+Experiments'
+const LINKEDIN_URL = 'https://www.linkedin.com/in/kendowney7/'
+const INSTAGRAM_URL = 'https://www.instagram.com/_._k.2_._/'
+const YOUTUBE_URL =
+  'https://www.youtube.com/@kensaiexperiments'
 
 type SocialRow = {
   label: string
@@ -96,31 +96,31 @@ const socialRows: SocialRow[] = [
   {
     label: 'GitHub',
     href: 'https://github.com/mtb24',
-    sublabel: 'github.com/mtb24',
+    sublabel: 'My GitHub profile',
     icon: <IconGitHub />,
   },
   {
     label: "Ken's AI Experiments",
-    href: YOUTUBE_HREF,
-    sublabel: 'YouTube (search)',
+    href: YOUTUBE_URL,
+    sublabel: 'My YouTube channel for AI experiments',
     icon: <IconYouTube />,
   },
   {
     label: 'LinkedIn',
-    href: PLACEHOLDER_LINKEDIN,
-    sublabel: 'Placeholder profile URL',
+    href: LINKEDIN_URL,
+    sublabel: 'My LinkedIn profile',
     icon: <IconLinkedIn />,
   },
   {
     label: 'Instagram',
-    href: PLACEHOLDER_INSTAGRAM,
-    sublabel: 'Placeholder profile URL',
+    href: INSTAGRAM_URL,
+    sublabel: 'My Instagram profile',
     icon: <IconInstagram />,
   },
   {
     label: 'Email',
     href: 'mailto:ken@kendowney.com',
-    sublabel: 'ken@kendowney.com',
+    sublabel: 'My email address',
     icon: <IconEmail />,
     external: false,
   },

@@ -7,7 +7,7 @@ export const Route = createFileRoute('/adventures')({
   component: AdventuresPage,
 })
 
-const PLACEHOLDER_INSTAGRAM = 'https://www.instagram.com/'
+const INSTAGRAM_URL = 'https://www.instagram.com/_._k.2_._/'
 
 type Adventure = {
   title: string
@@ -196,7 +196,7 @@ function AdventuresPage() {
         <p className="text-ink-secondary">
           Follow the adventures on{' '}
           <a
-            href={PLACEHOLDER_INSTAGRAM}
+            href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-cobalt transition-colors hover:text-cobalt-light"
