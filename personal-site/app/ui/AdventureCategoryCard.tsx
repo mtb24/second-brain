@@ -91,22 +91,31 @@ export function AdventureCategoryCard({
         ) : (
           <>
             <div className="absolute inset-0 overflow-hidden">
-              {imageUrls.map((src, i) => (
-                <img
-                  key={src}
-                  src={src}
-                  alt=""
-                  width={1600}
-                  height={1000}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out"
-                  style={{
-                    opacity: i === safeIndex ? 1 : 0,
-                    zIndex: i === safeIndex ? 1 : 0,
-                  }}
-                />
-              ))}
+              {inView
+                ? imageUrls.map((src, i) => {
+                    if (len > 1) {
+                      const nextIdx = (safeIndex + 1) % len
+                      if (i !== safeIndex && i !== nextIdx) return null
+                    }
+                    return (
+                      <img
+                        key={src}
+                        src={src}
+                        alt=""
+                        width={1600}
+                        height={1000}
+                        fetchPriority={i === safeIndex ? 'high' : 'low'}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out"
+                        style={{
+                          opacity: i === safeIndex ? 1 : 0,
+                          zIndex: i === safeIndex ? 1 : 0,
+                        }}
+                      />
+                    )
+                  })
+                : null}
             </div>
             <div
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,71,171,0.08),transparent_55%)]"

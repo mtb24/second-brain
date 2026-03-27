@@ -6,6 +6,8 @@
 # Optional: B2_BUCKET_NAME (default kendowney-assets), ADVENTURE_STAGING_ROOT.
 # HEIC: before sync, all .heic/.HEIC under staging are converted to .jpg via macOS
 # sips and the HEIC originals are removed locally; b2 sync also excludes *.heic.
+# Images: max edge 1600px + JPEG Q≈70 before upload to cut B2 download bandwidth.
+# (WebP via sips is possible on newer macOS; JPEG/PNG pipeline is the default here.)
 #
 # Usage (from personal-site/):
 #   npm run sync-adventures
@@ -67,6 +69,31 @@ else
     echo "error: staging contains .heic/.HEIC files; sync-adventures.sh needs macOS sips to convert them to JPEG." >&2
     exit 1
   fi
+fi
+
+# Resize + compress raster images before B2 (skip GIF — sips can break animation).
+if command -v sips >/dev/null 2>&1; then
+  while IFS= read -r -d '' img; do
+    ext="${img##*.}"
+    ext_lc=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+    [[ "$ext_lc" == "gif" ]] && continue
+    if ! sips -Z 1600 "$img" >/dev/null 2>&1; then
+      echo "warning: sips -Z 1600 failed, skipping: $img" >&2
+      continue
+    fi
+    case "$ext_lc" in
+      jpg|jpeg)
+        sips -s formatOptions 70 "$img" >/dev/null 2>&1 \
+          || echo "warning: sips formatOptions 70 failed: $img" >&2
+        ;;
+    esac
+  done < <(
+    find "$STAGING" -type f \( \
+      -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \
+    \) -print0 2>/dev/null
+  )
+else
+  echo "warning: sips not found; images are not resized before upload." >&2
 fi
 
 b2 account authorize "$B2_KEY_ID" "$B2_APP_KEY" >/dev/null
