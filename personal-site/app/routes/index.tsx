@@ -42,18 +42,14 @@ function HomePage() {
     <div className="pt-[52px] md:pt-[56px]">
       <section className="relative isolate min-h-[72vh] overflow-hidden bg-void-deep">
         {/* Swap to a full-bleed adventure photo + dark overlay when `/public/images/hero.jpg` exists */}
-        <div className="relative mx-auto flex max-w-6xl flex-col justify-end gap-8 px-4 pb-16 pt-24 md:min-h-[72vh] md:pb-24 md:pt-32">
+        <div className="relative mx-auto flex max-w-6xl flex-col justify-end gap-8 px-6 pb-16 pt-24 md:min-h-[72vh] md:pb-24 md:pt-32">
           <div
-            className="h-1 w-24 max-w-[40%] rounded-full md:w-32"
-            style={{
-              background:
-                'linear-gradient(90deg, #0047AB 0%, rgba(0, 71, 171, 0) 100%)',
-            }}
+            className="h-[3px] w-[72px] shrink-0 rounded-sm bg-cobalt"
             aria-hidden
           />
 
           <div className="max-w-3xl space-y-6">
-            <h1 className="text-4xl font-medium tracking-[-0.5px] text-ink-primary md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-medium tracking-[-0.5px] text-[#f0e8d8] md:text-5xl lg:text-6xl">
               Ken Downey
             </h1>
             <p className="text-lg text-ink-secondary md:text-xl md:leading-relaxed">
@@ -72,13 +68,13 @@ function HomePage() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
                 to="/work"
-                className="inline-flex items-center justify-center rounded-lg bg-cobalt px-5 py-2.5 text-sm font-medium text-white shadow-cobalt-glow transition-colors hover:bg-cobalt-light"
+                className="inline-flex items-center justify-center rounded-lg bg-cobalt px-5 py-2.5 text-sm font-medium text-[#f0e8d8] shadow-cobalt-glow transition-colors hover:bg-cobalt-light"
               >
                 See my work
               </Link>
               <Link
                 to="/contact"
-                className="inline-flex items-center justify-center rounded-lg border-[0.5px] border-cobalt bg-transparent px-5 py-2.5 text-sm font-medium text-cobalt transition-colors hover:border-cobalt-light hover:text-cobalt-light hover:shadow-cobalt-glow"
+                className="inline-flex items-center justify-center rounded-lg border-[0.5px] border-cobalt bg-transparent px-5 py-2.5 text-sm font-medium text-cobalt transition-colors hover:border-cobalt hover:bg-cobalt hover:text-[#f0e8d8]"
               >
                 Get in touch
               </Link>
@@ -88,8 +84,8 @@ function HomePage() {
       </section>
 
       <section className="border-t border-warmborder bg-void-deep py-16 md:py-20">
-        <div className="mx-auto max-w-6xl px-4">
-          <h2 className="mb-10 text-sm font-medium uppercase tracking-nav text-ink-secondary">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="mb-10 text-sm font-medium uppercase tracking-nav text-cobalt">
             Featured work
           </h2>
           <ul className="grid gap-6 md:grid-cols-2">
@@ -99,7 +95,7 @@ function HomePage() {
                   to={project.href}
                   className="group block h-full rounded-lg border-[0.5px] border-warmborder bg-surface p-6 transition-colors hover:border-cobalt/40 hover:shadow-cobalt-glow"
                 >
-                  <h3 className="text-lg font-medium tracking-[-0.5px] text-ink-primary group-hover:text-cobalt-light">
+                  <h3 className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8] group-hover:text-cobalt-light">
                     {project.title}
                   </h3>
                   <p className="mt-2 text-ink-secondary">{project.blurb}</p>
@@ -120,7 +116,7 @@ function HomePage() {
       </section>
 
       <section className="border-t border-warmborder py-16 md:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 md:grid-cols-[1fr_280px] md:items-start md:gap-14">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 md:grid-cols-[1fr_280px] md:items-start md:gap-14">
           <div className="space-y-4">
             <h2 className="text-sm font-medium uppercase tracking-nav text-ink-secondary">
               About

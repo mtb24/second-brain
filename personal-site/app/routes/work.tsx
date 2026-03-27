@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { InnerPageShell } from '@/ui/InnerPageShell'
+import { PageHeader } from '@/ui/PageHeader'
 
 export const Route = createFileRoute('/work')({
   component: WorkPage,
@@ -71,30 +73,26 @@ const projects: Project[] = [
 
 function WorkPage() {
   return (
-    <main className="border-t border-warmborder pt-[52px] md:pt-[56px]">
-      <div className="mx-auto max-w-6xl px-4 py-14 md:py-20">
-        <header className="mb-12 max-w-2xl space-y-4">
-          <p className="text-xs font-medium uppercase tracking-nav text-ink-secondary">
-            Work
+    <InnerPageShell>
+      <PageHeader
+        kicker="Work"
+        title="Projects & experiments"
+        description={
+          <p>
+            A mix of production systems, public design infrastructure, and side
+            quests at the edge of interfaces and AI.
           </p>
-          <h1 className="text-3xl font-medium tracking-[-0.5px] text-ink-primary md:text-4xl">
-            Projects & experiments
-          </h1>
-          <p className="text-ink-secondary">
-            A mix of production systems, public design infrastructure, and
-            side quests at the edge of interfaces and AI.
-          </p>
-        </header>
+        }
+      />
 
-        <ul className="grid gap-6 md:grid-cols-2">
-          {projects.map((p) => (
-            <li key={p.name}>
-              <ProjectCard {...p} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </main>
+      <ul className="grid gap-6 md:grid-cols-2">
+        {projects.map((p) => (
+          <li key={p.name}>
+            <ProjectCard {...p} />
+          </li>
+        ))}
+      </ul>
+    </InnerPageShell>
   )
 }
 
@@ -110,7 +108,7 @@ function ProjectCard({
 
   const inner = (
     <>
-      <h2 className="text-lg font-medium tracking-[-0.5px] text-ink-primary group-hover:text-cobalt-light">
+      <h2 className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8] group-hover:text-cobalt-light">
         {name}
       </h2>
       <p className="mt-2 flex-1 text-ink-secondary">{description}</p>
