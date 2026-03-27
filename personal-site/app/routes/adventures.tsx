@@ -147,11 +147,12 @@ function AdventuresPage() {
             <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
               app/data/adventureManifest.files.json
             </code>{' '}
-            (use{' '}
+            (run{' '}
             <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
-              scripts/upload-adventure-images.sh
+              npm run sync-adventures
             </code>{' '}
-            to upload and update the manifest).
+            in <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">personal-site/</code>{' '}
+            to upload and refresh the manifest).
           </p>
         }
       />

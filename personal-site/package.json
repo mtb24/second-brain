@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "sync-adventures": "bash scripts/sync-adventures.sh"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.95.2",

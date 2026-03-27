@@ -2,7 +2,7 @@
  * Adventure carousel images live in Backblaze B2 under adventures/<slug>/.
  *
  * Filenames per category are maintained in adventureManifest.files.json (updated by
- * scripts/upload-adventure-images.sh). This module turns them into public friendly URLs.
+ * npm run sync-adventures in personal-site/). This module turns them into public friendly URLs.
  *
  * Set VITE_ADVENTURE_B2_BASE locally if your bucket’s friendly URL root differs.
  */
