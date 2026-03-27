@@ -131,15 +131,15 @@ OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
 B2_BUCKET=...
 B2_KEY_ID=...
 B2_APP_KEY=...               ← note: B2_APP_KEY not B2_APPLICATION_KEY
-B2_BUCKET_NAME=...           ← optional: public assets bucket for kendowney.com adventures (default `kendowney-assets`; see `personal-site/scripts/upload-adventure-images.sh`)
-B2_PUBLIC_URL=...            ← optional: friendly URL prefix for that bucket, no trailing slash (e.g. `https://f005.backblazeb2.com/file/kendowney-assets`); images at `{B2_PUBLIC_URL}/adventures/<slug>/<file>`
+B2_BUCKET_NAME=kendowney-assets   ← public assets bucket for kendowney.com adventures (us-west-004; see `personal-site/scripts/upload-adventure-images.sh`)
+B2_PUBLIC_URL=https://f004.backblazeb2.com/file/kendowney-assets   ← friendly URL prefix, no trailing slash; images at `{B2_PUBLIC_URL}/adventures/<slug>/<file>`
 DB_URL=postgresql://brain:...@localhost:5432/brain
 DRY_RUN=true
 ```
 
 **Local Mac:** `/Users/kendowney/Sites/SecondBrain/.env` (same content, never committed)
 
-**Backblaze public buckets:** Creating an **allPublic** bucket via API may return `no_payment_history` until the B2 account has billing on file. After that, create `kendowney-assets` (or your chosen name) as allPublic and set `B2_PUBLIC_URL` / `VITE_ADVENTURE_B2_BASE` to match the friendly URL shown in the B2 UI.
+**Backblaze public buckets:** Creating an **allPublic** bucket via API may return `no_payment_history` until the B2 account has billing on file. After that, create `kendowney-assets` as allPublic (us-west-004 → `f004` host) and keep `B2_PUBLIC_URL` / default `VITE_ADVENTURE_B2_BASE` aligned with the B2 UI friendly URL.
 
 ---
 

@@ -11,7 +11,7 @@ import files from './adventureManifest.files.json'
 /** `${B2_BASE}/<slug>/<filename>` — matches B2 key prefix `adventures/<slug>/`. */
 export const B2_BASE =
   (import.meta.env.VITE_ADVENTURE_B2_BASE as string | undefined) ||
-  'https://f005.backblazeb2.com/file/kendowney-assets/adventures'
+  'https://f004.backblazeb2.com/file/kendowney-assets/adventures'
 
 export const adventureManifest: Record<string, string[]> = Object.fromEntries(
   Object.entries(files as Record<string, string[]>).map(([slug, names]) => [
