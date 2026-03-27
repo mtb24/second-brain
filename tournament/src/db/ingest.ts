@@ -1,3 +1,4 @@
+import type { RegimeSnapshot } from '../bot/regime.js'
 import { TradingDecision, Bot } from '../bot/types.js'
 
 interface LogDecisionPayload {
@@ -54,5 +55,51 @@ export async function logDecisionToOB1(p: LogDecisionPayload): Promise<void> {
     }
   } catch (err) {
     console.warn('[ingest] OB1 log error:', err)
+  }
+}
+
+export async function logRegimeSnapshotToOB1(snapshot: RegimeSnapshot): Promise<void> {
+  const url = process.env.INGEST_URL
+  const token = process.env.INGEST_TOKEN
+  if (!url || !token) {
+    console.warn('[ingest] INGEST_URL or INGEST_TOKEN not set — skipping regime OB1 log')
+    return
+  }
+
+  const total = snapshot.signals.length
+  const wantEnter = snapshot.signals.filter((s) => s.signal !== 'hold').length
+  const summary = snapshot.signals.map((s) => `${s.strategy}:${s.signal}`).join(', ')
+  const content =
+    `Regime snapshot: ${snapshot.regimeLabel}. ${wantEnter}/${total} strategies want to enter. Signals: ${summary}. BTC: $${snapshot.marketPrice.toFixed(2)}`
+
+  const body = {
+    type: 'text',
+    content,
+    source: 'tournament-regime',
+    metadata: {
+      domain_tag: 'trading_research',
+      project_tag: 'second-brain',
+      regime: snapshot.regimeLabel,
+      signals: snapshot.signals,
+      round_id: snapshot.roundId,
+      timestamp: snapshot.timestamp,
+      market_price: snapshot.marketPrice,
+    },
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      console.warn(`[ingest] regime OB1 log failed: ${res.status}`)
+    }
+  } catch (err) {
+    console.warn('[ingest] regime OB1 log error:', err)
   }
 }

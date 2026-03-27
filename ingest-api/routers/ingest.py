@@ -56,12 +56,16 @@ async def ingest(
     content, source = await _normalize_to_text(payload, ollama)
     domain_tag = await ollama.classify_content(content)
 
+    extra_metadata: dict | None = None
+    if isinstance(payload, TextIngestInput) and payload.metadata:
+        extra_metadata = payload.metadata
+
     try:
         row = await insert_thought(
             content=content,
             domain_tag=domain_tag,
             source=source,
-            metadata=None,
+            metadata=extra_metadata,
         )
     except Exception as e:
         logger.exception("Database insert failed")

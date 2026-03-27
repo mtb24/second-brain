@@ -8,6 +8,14 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import type { DecisionContext } from './bot/decision.js'
+import { getStrategySignal } from './bot/decision.js'
+import { buildSharedMarketData } from './bot/marketSnapshot.js'
+import {
+  classifyRegime,
+  formatRegimeConsoleLine,
+  type RegimeSnapshot,
+} from './bot/regime.js'
 import { BotRunner, RunnerOptions } from './bot/runner.js'
 import { Strategy, Bot, BotPerformance } from './bot/types.js'
 import { MockAdapter } from './exchange/mock.js'
@@ -22,7 +30,7 @@ import {
   getStrategiesByStatus,
   updateStrategyStatus,
 } from './db/tournament.js'
-import { logDecisionToOB1 } from './db/ingest.js'
+import { logDecisionToOB1, logRegimeSnapshotToOB1 } from './db/ingest.js'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -103,6 +111,8 @@ export class TournamentOrchestrator {
     const roundId = await createRound(generation, this.config.roundDurationSeconds)
     await updateRoundStatus(roundId, 'running')
     this.log(`[ORCHESTRATOR] Round ${roundId} created (gen ${generation})`)
+
+    await this._pollRegimeBeforeRound(roundId, strategies)
 
     // 4. Spawn bots
     const bots = await this._spawnBots(roundId, strategies)
@@ -366,6 +376,60 @@ Respond with JSON only. Never explain your reasoning.`
       ? strategyName.trim().toLowerCase()
       : 'adaptive-rsi'
     return this._templateDocForStrategy(name)
+  }
+
+  // ── Pre-round regime signals (dry-run, no allocation impact) ────────────
+
+  private async _pollRegimeBeforeRound(roundId: string, strategies: Strategy[]): Promise<void> {
+    const symbols = this.config.symbols
+    const adapter = new MockAdapter()
+    await adapter.initialize(this.config.startingBalance)
+
+    let marketData: DecisionContext['marketData']
+    try {
+      marketData = await buildSharedMarketData(symbols, adapter)
+    } catch (err) {
+      this.log(`[ORCHESTRATOR] Regime poll: market data failed: ${err}`)
+      return
+    }
+
+    if (Object.keys(marketData).length === 0) {
+      this.log('[ORCHESTRATOR] Regime poll: no market data — skipping')
+      return
+    }
+
+    const tasks = strategies.map(async (strategy) => {
+      const ctx: DecisionContext = {
+        strategy,
+        balance: this.config.startingBalance,
+        positions: [],
+        roundTimeRemainingSeconds: this.config.roundDurationSeconds,
+        pnlSoFar: 0,
+        marketData,
+      }
+      return getStrategySignal(ctx, strategy.name)
+    })
+    const signals = await Promise.all(tasks)
+    const regimeLabel = classifyRegime(signals)
+    const primarySym = symbols[0] ?? 'BTC'
+    const firstPrice = Object.values(marketData)[0]?.price
+    const marketPrice = marketData[primarySym]?.price ?? firstPrice ?? 0
+
+    const snapshot: RegimeSnapshot = {
+      roundId,
+      timestamp: new Date().toISOString(),
+      marketPrice,
+      signals,
+      regimeLabel,
+    }
+
+    this.log(formatRegimeConsoleLine(snapshot))
+
+    try {
+      await logRegimeSnapshotToOB1(snapshot)
+    } catch (err) {
+      this.log(`[ORCHESTRATOR] Regime OB1 log failed (non-fatal): ${err}`)
+    }
   }
 
   // ── Bot spawning ──────────────────────────────────────────────────────────

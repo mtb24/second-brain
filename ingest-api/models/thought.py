@@ -13,6 +13,10 @@ class TextIngestInput(BaseModel):
     type: Literal["text"] = "text"
     content: str
     source: str | None = None
+    metadata: dict | None = Field(
+        default=None,
+        description="Optional JSON metadata stored on the thought (e.g. project_tag, regime).",
+    )
 
 
 class URLIngestInput(BaseModel):
