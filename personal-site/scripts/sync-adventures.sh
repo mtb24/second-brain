@@ -4,6 +4,8 @@
 #
 # Prerequisites: b2 CLI (pip install b2), B2_KEY_ID + B2_APP_KEY in env.
 # Optional: B2_BUCKET_NAME (default kendowney-assets), ADVENTURE_STAGING_ROOT.
+# HEIC: before sync, all .heic/.HEIC under staging are converted to .jpg via macOS
+# sips and the HEIC originals are removed locally; b2 sync also excludes *.heic.
 #
 # Usage (from personal-site/):
 #   npm run sync-adventures
@@ -49,12 +51,30 @@ fi
 echo "Staging:  $STAGING"
 echo "B2 target: b2://${BUCKET}/adventures"
 
+# HEIC → JPEG before sync (browsers cannot display HEIC). macOS sips only.
+if command -v sips >/dev/null 2>&1; then
+  while IFS= read -r -d '' heic; do
+    jpg="${heic%.*}.jpg"
+    if sips -s format jpeg "$heic" --out "$jpg" >/dev/null 2>&1; then
+      rm -f "$heic"
+    else
+      echo "error: sips failed to convert HEIC: $heic" >&2
+      exit 1
+    fi
+  done < <(find "$STAGING" -type f \( -iname '*.heic' \) -print0 2>/dev/null)
+else
+  if find "$STAGING" -type f -iname '*.heic' 2>/dev/null | head -1 | grep -q .; then
+    echo "error: staging contains .heic/.HEIC files; sync-adventures.sh needs macOS sips to convert them to JPEG." >&2
+    exit 1
+  fi
+fi
+
 b2 account authorize "$B2_KEY_ID" "$B2_APP_KEY" >/dev/null
 
 # Mirror local categories to B2; --delete removes remote files absent locally.
-# Exclude junk so Finder metadata never lands in the bucket.
+# Exclude junk so Finder metadata never lands in the bucket; exclude HEIC as a safety net.
 b2 sync --delete \
-  --exclude-regex '(.*\.DS_Store)' \
+  --exclude-regex '(.*\.DS_Store|.*\.[Hh][Ee][Ii][Cc])' \
   --allow-empty-source \
   "$STAGING" \
   "b2://${BUCKET}/adventures"

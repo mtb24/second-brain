@@ -1,6 +1,6 @@
 ---
 name: adventure-photo
-description: When Ken sends a photo to Cortex on Telegram, upload it to Backblaze B2 under adventures/<category>/, regenerate adventureManifest.files.json, rebuild personal-site Docker, and confirm with the public B2 URL.
+description: When Ken sends a photo to Cortex on Telegram, upload it to Backblaze B2 under adventures/<category>/ (HEIC is converted to JPEG on the VPS), regenerate adventureManifest.files.json, rebuild personal-site Docker, and confirm with the public B2 URL.
 user-invocable: true
 metadata: {"openclaw":{"emoji":"🏔️"}}
 ---
@@ -20,7 +20,8 @@ Run this workflow on the **VPS** (`brain` user) only — paths and Docker assume
 1. **Photo with no category** — Reply: *“Adventure photo? Which category? (cycling, off-road-moto, outdoors, or type a new one)”* and wait for the next message with the category slug.
 2. **Photo with caption** — Treat the **caption text** (trimmed) as the category slug (e.g. caption `baja-racing` → category `baja-racing`). Normalize: lowercase, trim, collapse internal whitespace to single spaces, then replace spaces with `-`. Allow `a-z`, `0-9`, and `-` only; strip or replace other characters.
 3. **New categories** — Allowed. Create `adventures/<new-slug>/` implicitly by uploading there.
-4. **Confirmation** — After upload + manifest + **Docker rebuild**, send:
+4. **HEIC / HEIF** — If the download is HEIC (iPhone Telegram uploads), convert to **JPEG** on the VPS with `heif-convert` (install `libheif-examples` if needed). Upload **only** the `.jpg` to B2. Ken does not need to choose a format.
+5. **Confirmation** — After upload + manifest + **Docker rebuild**, send:
    - Category name
    - **Full B2 file URL** (path-segment encode slug and filename like the site does — spaces, parens, etc.)
    - That **personal-site was rebuilt** so the Adventures page should show the new photo live (no separate manual “deploy” step for Ken unless something failed).
@@ -49,13 +50,15 @@ If `file_id` is missing (e.g. only text), ask Ken to resend as a photo.
 
 ---
 
-## Step 2 — Download image to a temp file
+## Step 2 — Download image to a temp file (and HEIC → JPEG)
 
 Use the **Telegram Bot API** (same bot token OpenClaw uses for Telegram — read from OpenClaw config / gateway env; **never** print the token).
 
 ```bash
 TMP="$(mktemp -t adventure-XXXXXX)"
-trap 'rm -f "$TMP"' EXIT
+JPG_OUT=""
+cleanup_adventure_tmp() { rm -f "$TMP" "$JPG_OUT" 2>/dev/null; }
+trap cleanup_adventure_tmp EXIT
 
 # Set TOKEN from your Telegram channel credentials (OpenClaw / ~/.openclaw — do not echo).
 # FILE_ID from the message (largest photo).
@@ -68,9 +71,38 @@ if [[ -z "$FILE_PATH" || "$FILE_PATH" == "null" ]]; then
 fi
 
 curl -sS -o "$TMP" "https://api.telegram.org/file/bot${TOKEN}/${FILE_PATH}"
+
+# FILENAME for B2: basename only; no path segments; no leading dot.
+FILENAME=$(basename "$FILE_PATH")
+[[ -z "$FILENAME" || "$FILENAME" == "." || "$FILENAME" == ".." ]] && FILENAME="telegram-$(date -u +%Y%m%dT%H%M%SZ).bin"
+[[ "$FILENAME" =~ ^\. ]] && FILENAME="telegram-$(date -u +%Y%m%dT%H%M%SZ)${FILENAME}"
+
+# HEIC / HEIF → JPEG (silent). Check bytes, not only extension — Telegram may use .jpg for HEIC.
+MIME=$(file -b --mime-type "$TMP" 2>/dev/null || true)
+HEIC=0
+case "${FILENAME,,}" in
+  *.heic) HEIC=1 ;;
+esac
+if [[ "$MIME" == *heif* ]] || [[ "$MIME" == *heic* ]]; then
+  HEIC=1
+fi
+
+if [[ "$HEIC" -eq 1 ]]; then
+  if ! command -v heif-convert >/dev/null 2>&1; then
+    # Same as: which heif-convert || sudo apt-get install -y libheif-examples
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libheif-examples >/dev/null 2>&1
+  fi
+  JPG_OUT="$(mktemp -t adventure-jpg-XXXXXX).jpg"
+  heif-convert "$TMP" "$JPG_OUT" >/dev/null 2>&1 || { echo "heif-convert failed" >&2; exit 1; }
+  rm -f "$TMP"
+  TMP="$JPG_OUT"
+  base="${FILENAME%.*}"
+  [[ -z "$base" ]] && base="telegram-$(date -u +%Y%m%dT%H%M%SZ)"
+  FILENAME="${base}.jpg"
+fi
 ```
 
-**Local filename for B2:** Prefer the original basename from `FILE_PATH` (sanitize: no `/`, no leading `.`). If missing or unsafe, use something like `telegram-$(date -u +%Y%m%dT%H%M%SZ).jpg` (adjust extension from `FILE_PATH` if present).
+If the file was already JPEG/PNG/WebP, `FILENAME` stays as above. **Never** upload `.heic` to B2.
 
 ---
 
@@ -167,3 +199,4 @@ Example message:
 - **Do not** commit `adventureManifest.files.json` from this flow unless Ken asks; the VPS working copy is what Docker build uses.
 - If `b2` or `docker compose` is missing, report that explicitly.
 - **Idempotency:** Re-running manifest generation after upload is safe; it lists the whole `adventures/` tree.
+- **Local bulk sync:** `personal-site/scripts/sync-adventures.sh` (macOS) converts staging HEIC → JPEG with **sips** before `b2 sync`; this skill covers **Telegram** uploads on the VPS with **heif-convert**.
