@@ -1,6 +1,12 @@
 import { type ReactElement } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  adventureCategoryMeta,
+  type AdventureIconKey,
+} from '@/data/adventureCategories'
+import { adventureCategoriesBuild } from '@/data/adventureImages'
 import { InnerPageShell } from '@/ui/InnerPageShell'
+import { AdventureCategoryCard } from '@/ui/AdventureCategoryCard'
 import { PageHeader } from '@/ui/PageHeader'
 
 export const Route = createFileRoute('/adventures')({
@@ -8,12 +14,6 @@ export const Route = createFileRoute('/adventures')({
 })
 
 const INSTAGRAM_URL = 'https://www.instagram.com/_._k.2_._/'
-
-type Adventure = {
-  title: string
-  description: string
-  icon: ReactElement
-}
 
 function IconRacing() {
   return (
@@ -120,39 +120,19 @@ function IconExplore() {
   )
 }
 
-const adventures: Adventure[] = [
-  {
-    title: 'Baja Racing',
-    description:
-      'SCORE SF250, Pro Moto 50, team #527x — desert miles, checkpoints, and race fuel.',
-    icon: <IconRacing />,
-  },
-  {
-    title: 'Gravel Cycling',
-    description: 'Long gravel routes, dust, and big-sky endurance days.',
-    icon: <IconGravel />,
-  },
-  {
-    title: 'Gold & Silver Prospecting',
-    description: 'Pans, creeks, and dry washes — geology as weekend sport.',
-    icon: <IconProspect />,
-  },
-  {
-    title: 'Overlanding',
-    description: 'Self-supported trips, camp setups, and backcountry logistics.',
-    icon: <IconOverland />,
-  },
-  {
-    title: 'Off-Road Motorcycling',
-    description: 'Single track, sand washes, and technical desert riding.',
-    icon: <IconMoto />,
-  },
-  {
-    title: 'Outdoor Exploration',
-    description: 'Maps, peaks, and wherever the trail runs out.',
-    icon: <IconExplore />,
-  },
-]
+const iconByKey: Record<AdventureIconKey, ReactElement> = {
+  racing: <IconRacing />,
+  gravel: <IconGravel />,
+  prospect: <IconProspect />,
+  overland: <IconOverland />,
+  moto: <IconMoto />,
+  explore: <IconExplore />,
+}
+
+function placeholderForSlug(slug: string): ReactElement {
+  const key = adventureCategoryMeta[slug]?.icon ?? 'explore'
+  return iconByKey[key]
+}
 
 function AdventuresPage() {
   return (
@@ -162,32 +142,24 @@ function AdventuresPage() {
         title="Outside the editor"
         description={
           <p className="max-w-2xl">
-            Desert, dirt, and distance. Photo stories will land here soon — for
-            now, a grid of the threads that usually show up in the margins.
+            Desert, dirt, and distance. Each category pulls from{' '}
+            <code className="rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-secondary">
+              public/images/adventures/
+            </code>{' '}
+            at build time — add folders or images, then rebuild.
           </p>
         }
       />
 
       <ul className="grid gap-6 md:grid-cols-2">
-        {adventures.map((a) => (
-          <li key={a.title}>
-            <article className="flex h-full flex-col overflow-hidden rounded-lg border-[0.5px] border-warmborder bg-surface transition-colors hover:border-cobalt/35 hover:shadow-cobalt-glow">
-              <div
-                className="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-br from-surface-muted via-[#252018] to-void-deep"
-                aria-hidden
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(0,71,171,0.12),transparent_50%)]" />
-                {a.icon}
-              </div>
-              <div className="flex flex-1 flex-col p-6">
-                <h2 className="text-lg font-medium tracking-[-0.5px] text-[#f0e8d8]">
-                  {a.title}
-                </h2>
-                <p className="mt-2 flex-1 text-sm text-ink-secondary">
-                  {a.description}
-                </p>
-              </div>
-            </article>
+        {adventureCategoriesBuild.map((cat) => (
+          <li key={cat.slug}>
+            <AdventureCategoryCard
+              title={cat.displayTitle}
+              description={adventureCategoryMeta[cat.slug]?.description}
+              imageUrls={cat.imageUrls}
+              placeholder={placeholderForSlug(cat.slug)}
+            />
           </li>
         ))}
       </ul>
