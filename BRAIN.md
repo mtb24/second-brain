@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-03-26
+Last updated: 2026-03-27
 
 ---
 
@@ -28,6 +28,7 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 |--------|---------|
 | `brain.kendowney.com` | Ingest API + MCP server |
 | `mission.kendowney.com` | Mission Control dashboard + OpenClaw proxy |
+| `honestfit.kendowney.com` | Honest Fit Assessment (TanStack Start, Docker `brain-honest-fit`) |
 
 DNS managed via DigitalOcean.
 
@@ -54,7 +55,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 ```
 ~/brain/
 ├── .env                        ← single source of truth for all credentials
-├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, personal-site)
+├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, personal-site, honest-fit)
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
 ├── BRAIN.md                    ← this file (also mirrored from repo root in git)
 ├── backups/                    ← pg_dump .sql.gz files (7-day retention)
@@ -71,6 +72,8 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 │       └── server/
 │           └── openclawGateway.ts
 ├── personal-site/              ← kendowney.com (TanStack Start)
+│   └── Dockerfile
+├── honest-fit/                 ← honestfit.kendowney.com (HFA; not in this repo — sync from ~/Sites/AI/HonestFitAssessment)
 │   └── Dockerfile
 ├── tournament/                 ← Trading tournament (TypeScript)
 └── archive/                    ← Old compose references
@@ -90,6 +93,9 @@ Env: `~/brain/.env` (real file, not symlink)
 | mcp-server | brain-mcp | 127.0.0.1:3000 | custom (Python 3.12) |
 | mission-control | brain-mission | 127.0.0.1:4173 | custom (Node 22 Alpine) |
 | personal-site | brain-personal-site | 127.0.0.1:4174 | custom (Node 22 Alpine) |
+| honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | custom (Node 22 Alpine, pnpm; `vite preview`) |
+
+**Host 3001** is already used by **tournament** on the host; honest-fit uses **3002** → container **3000**. Compose: `env_file: .env` (shared `~/brain/.env`).
 
 **Removed:** litestream (wrong tool for Postgres — use pg_dump instead)
 
@@ -222,6 +228,10 @@ Retention: 7 backups
 - `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
 - **Nginx:** configured in `/etc/nginx/sites-available/brain` (enabled); apex `server_name kendowney.com` proxies to `4174` — not `sites-available/default` (disabled on VPS).
 
+### honestfit.kendowney.com
+- `/` → `127.0.0.1:3002` (Docker `brain-honest-fit`)
+- **Nginx:** `/etc/nginx/sites-available/honestfit` (enabled); TLS via Let’s Encrypt (certbot `--nginx`).
+
 ---
 
 ## OpenClaw / Cortex
@@ -281,6 +291,16 @@ Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from t
 - **Behavior:** Loads recent tournament results from OB1 (and DB fallback), infers winners/losers, proposes **1–2** new strategies via **Telegram** with **plain-English** explanations (no finance jargon in the user-facing text). Waits for **YES** / **NO** per proposal; on YES inserts into `tournament_strategies` as **`active`** with **`source='master'`**; on NO logs rejection to OB1.
 - **Strategy docs:** Must follow the **declarative doc format** enforced by `_sanitizeStrategyDoc` / `_templateDocForStrategy` in `tournament/src/orchestrator.ts` (prompt-native fields only; dollar PnL exits; ending with `"Respond with JSON only. Never explain your reasoning."`).
 - **Cron payload:** `~/brain/tournament/scripts/openclaw-strategy-master-cron-message.txt`
+
+---
+
+## Honest Fit Assessment (HFA)
+
+URL: https://honestfit.kendowney.com  
+Source repo (local): `/Users/kendowney/Sites/AI/HonestFitAssessment/` — default git branch **`master`** (not `main`).  
+VPS: `~/brain/honest-fit/` — build with `docker compose build honest-fit && docker compose up -d honest-fit`.
+
+**Dockerfile notes:** Multi-stage Node 22 Alpine + pnpm; production serves with **`vite preview`** on port 3000. Runner image must include **`dist` + `src` + `public` + `node_modules`** (TanStack Start preview resolves the router from `src`). In **`vite.config.ts`**, **`preview.allowedHosts: true`** (or an explicit host list) — otherwise Nginx’s `Host: honestfit.kendowney.com` is rejected with **403** by Vite’s host check.
 
 ---
 
@@ -368,6 +388,12 @@ rsync -av --delete --exclude='node_modules' --exclude='.git' \
   --exclude='dist' --exclude='.output' --exclude='.nitro' --exclude='.tanstack' \
   /Users/kendowney/Sites/SecondBrain/personal-site/ \
   brain@147.182.240.24:~/brain/personal-site/
+
+rsync -av --delete \
+  --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='.pnpm-store' \
+  --exclude='.env.local' \
+  /Users/kendowney/Sites/AI/HonestFitAssessment/ \
+  brain@147.182.240.24:~/brain/honest-fit/
 ```
 
 ### Sync from server
