@@ -1,10 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getHealthSnapshot } from 'app/server/openclawGateway'
+import { guardMcApi } from '@/server/requireMcApi'
 
 export const Route = createFileRoute('/api/openclaw/health')({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         try {
           const snapshot = await getHealthSnapshot()
           return Response.json(snapshot)

@@ -13,6 +13,8 @@ import { Route as TradingRouteImport } from './routes/trading'
 import { Route as ThoughtsRouteImport } from './routes/thoughts'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as OpenclawRouteImport } from './routes/openclaw'
+import { Route as LogoutRouteImport } from './routes/logout'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentsIdRouteImport } from './routes/agents.$id'
@@ -46,6 +48,16 @@ const SearchRoute = SearchRouteImport.update({
 const OpenclawRoute = OpenclawRouteImport.update({
   id: '/openclaw',
   path: '/openclaw',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogoutRoute = LogoutRouteImport.update({
+  id: '/logout',
+  path: '/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -124,6 +136,8 @@ const ApiIngestThoughtsActivityRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRouteWithChildren
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
@@ -144,6 +158,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRouteWithChildren
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
@@ -165,6 +181,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRouteWithChildren
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
@@ -187,6 +205,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agents'
+    | '/login'
+    | '/logout'
     | '/openclaw'
     | '/search'
     | '/thoughts'
@@ -207,6 +227,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/agents'
+    | '/login'
+    | '/logout'
     | '/openclaw'
     | '/search'
     | '/thoughts'
@@ -227,6 +249,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/agents'
+    | '/login'
+    | '/logout'
     | '/openclaw'
     | '/search'
     | '/thoughts'
@@ -248,6 +272,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  LogoutRoute: typeof LogoutRoute
   OpenclawRoute: typeof OpenclawRoute
   SearchRoute: typeof SearchRoute
   ThoughtsRoute: typeof ThoughtsRoute
@@ -292,6 +318,20 @@ declare module '@tanstack/react-router' {
       path: '/openclaw'
       fullPath: '/openclaw'
       preLoaderRoute: typeof OpenclawRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -420,6 +460,8 @@ const ApiOpenclawAgentsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRouteWithChildren,
+  LoginRoute: LoginRoute,
+  LogoutRoute: LogoutRoute,
   OpenclawRoute: OpenclawRoute,
   SearchRoute: SearchRoute,
   ThoughtsRoute: ThoughtsRoute,

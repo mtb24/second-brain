@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { guardMcApi } from '@/server/requireMcApi'
 import pg from 'pg'
 const { Pool } = pg
 let pool: InstanceType<typeof Pool> | null = null
@@ -10,7 +11,9 @@ function getPool() {
 export const Route = createFileRoute('/api/tournament/live')({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         const db = getPool()
         // Prefer running round; fall back to most recent complete
         const { rows: roundRows } = await db.query(

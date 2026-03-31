@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { guardMcApi } from '@/server/requireMcApi'
 
 const INGEST_URL = process.env.INGEST_URL
 const INGEST_TOKEN = process.env.INGEST_TOKEN
@@ -10,7 +11,9 @@ if (!INGEST_URL || !INGEST_TOKEN) {
 export const Route = createFileRoute('/api/ingest/thoughts/activity')({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         const upstream = new URL('/thoughts/activity', INGEST_URL)
 
         const res = await fetch(upstream, {

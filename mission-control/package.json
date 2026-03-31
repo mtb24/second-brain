@@ -8,12 +8,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "hash-mc-password": "node scripts/hash-mc-password.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
     "@tanstack/react-router": "^1.70.0",
     "@tanstack/react-start": "^1.70.0",
+    "bcryptjs": "^3.0.3",
     "pg": "^8.11.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

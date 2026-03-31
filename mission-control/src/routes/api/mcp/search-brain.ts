@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { guardMcApi } from '@/server/requireMcApi'
 
 const MCP_URL = process.env.MCP_URL
 const MCP_TOKEN = process.env.MCP_TOKEN
@@ -11,6 +12,8 @@ export const Route = createFileRoute('/api/mcp/search-brain')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         const body = await request.text()
 
         const res = await fetch(MCP_URL, {

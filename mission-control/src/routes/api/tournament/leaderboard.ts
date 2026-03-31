@@ -1,5 +1,6 @@
 // src/routes/api/tournament/leaderboard.ts
 import { createFileRoute } from '@tanstack/react-router'
+import { guardMcApi } from '@/server/requireMcApi'
 import pg from 'pg'
 const { Pool } = pg
 let pool: InstanceType<typeof Pool> | null = null
@@ -10,7 +11,9 @@ function getPool() {
 export const Route = createFileRoute('/api/tournament/leaderboard')({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         const db = getPool()
         const { rows } = await db.query(
           `SELECT ts.id, ts.name, ts.tier, ts.status, ts.generation,

@@ -1,10 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { listAgents } from 'app/server/openclawGateway'
+import { guardMcApi } from '@/server/requireMcApi'
 
 export const Route = createFileRoute('/api/openclaw/agents')({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const denied = guardMcApi(request)
+        if (denied) return denied
         try {
           const agents = await listAgents()
           return Response.json(agents)
