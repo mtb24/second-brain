@@ -1,12 +1,33 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-03-30
+Last updated: 2026-03-31
 
 ---
 
 ## Overview
 
 A personal operating system / second brain running on a DigitalOcean VPS. Ingests thoughts, logs agent activity, runs a trading strategy tournament, and provides a Mission Control dashboard with an embedded AI agent (Cortex).
+
+---
+
+## Repositories
+
+| Repo | What | Local | VPS |
+|------|------|-------|-----|
+| [github.com/mtb24/kendowney.com](https://github.com/mtb24/kendowney.com) | Personal site, **K2DS** design system, **Design Lock** demo (public) | `~/Sites/kendowney.com/` | `~/brain/personal-site/` (Docker, port **4174**) |
+| [github.com/mtb24/second-brain](https://github.com/mtb24/second-brain) | Infrastructure (tournament, ingest, MCP, mission-control) | `~/Sites/SecondBrain/` | `~/brain/` |
+| [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) | HFA app (**`master`** branch) | `~/Sites/AI/HonestFitAssessment/` | `~/brain/honest-fit/` (Docker, port **3002**) |
+
+---
+
+## Sites live
+
+| URL | What | Notes |
+|-----|------|-------|
+| **kendowney.com** | Personal site | Docker **4174**, Nginx reverse proxy |
+| **kendowney.com/design-lock** | Design Lock demo | Contract validation (LLM output → validate → render) |
+| **honestfit.kendowney.com** | HFA | Docker **3002**; Let’s Encrypt cert expires **2026-06-25** |
+| **mission.kendowney.com** | Mission Control | Docker **4173**; **app-level** auth (username + bcrypt + HMAC session cookie — not Nginx basic auth) |
 
 ---
 
@@ -20,6 +41,13 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | Project root | `~/brain/` (`/home/brain/brain/`) |
 | OS | Ubuntu 24.04, 4GB RAM / 2 vCPU |
 
+### SSH keys
+
+| Role | Key / identity |
+|------|----------------|
+| Mac → GitHub | `ssh-ed25519` …`f50n` — `ken@kendowney.com` (added to GitHub account) |
+| VPS → GitHub (deploy) | `ssh-ed25519` …`39er` — **`brain-vps-deploy`** (deploy key on **second-brain** repo) |
+
 ---
 
 ## Domains
@@ -29,9 +57,9 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | `brain.kendowney.com` | Ingest API + MCP server |
 | `mission.kendowney.com` | Mission Control dashboard + OpenClaw proxy |
 | `honestfit.kendowney.com` | Honest Fit Assessment (TanStack Start, Docker `brain-honest-fit`) |
-| `kendowney.com` | Personal site — source repo **https://github.com/mtb24/kendowney.com** (rsync → `~/brain/personal-site/`, container `brain-personal-site`) |
+| `kendowney.com` | Personal site — **https://github.com/mtb24/kendowney.com** (rsync → `~/brain/personal-site/`, container `brain-personal-site`; **Design Lock** at `/design-lock`) |
 
-DNS managed via DigitalOcean.
+DNS managed via DigitalOcean. See **Sites live** for ports, TLS, and auth notes.
 
 ---
 
@@ -43,6 +71,28 @@ Optional paths tracked in git:
 
 - `openclaw/skills/strategy-master/` — mirror of the VPS OpenClaw workspace skill (see **Strategy Master Agent** below)
 - `openclaw/skills/adventure-photo/` — mirror of **adventure-photo** (Telegram → VPS static images → Adventures page; see **Workspace skills** below)
+
+Canonical workspace skills on the VPS (not necessarily mirrored here):
+
+- **`~/.openclaw/workspace/skills/session-close/`** — session close workflow
+- **`~/.openclaw/workspace/skills/adventure-photo/`** — adventure photos (see **Adventure images**)
+
+---
+
+## K2DS design system
+
+Source: **`packages/k2ds/`** in the **kendowney.com** repo (`@kendowney/k2ds`).
+
+| Topic | Detail |
+|-------|--------|
+| Stack | React + TypeScript + Tailwind |
+| Storybook | **10** (ESM-only) — `localhost:6006` |
+| Components | Button, PageHeader, ProjectCard, SkillPill, Nav (5) |
+| Tokens | Desert noir + cobalt blue palette; **`figma-tokens.json`** is the source of truth (token bridge) |
+| Contracts | JSON Schema per component; **Ajv** validation |
+| Pipeline | prompt → parse → validate → render |
+| MUI | Design-system-agnostic integration proof |
+| Modes | **strict**, **lenient**, **report** |
 
 ---
 
@@ -133,6 +183,7 @@ ANTHROPIC_API_KEY=...
 COINGECKO_API_KEY=...
 OPENCLAW_GATEWAY_TOKEN=...   ← operator token from device-auth.json
 OPENCLAW_GATEWAY_URL=wss://mission.kendowney.com/openclaw/
+TOURNAMENT_ANTHROPIC_GAP_MS=5000   ← optional; throttle between Anthropic calls (tournament)
 B2_BUCKET=...
 B2_KEY_ID=...
 B2_APP_KEY=...               ← note: B2_APP_KEY not B2_APPLICATION_KEY (optional — legacy / one-off; **adventure gallery is on-VPS**, not B2)
@@ -144,13 +195,33 @@ DRY_RUN=true
 
 **Local Mac:** `/Users/kendowney/Sites/SecondBrain/.env` (same content, never committed)
 
-**Adventure images (kendowney.com):** Stored at **`/home/brain/adventure-images/adventures/<category>/`** on the VPS (not in git / not in Docker). Nginx **`location /images/adventures/`** → `alias /home/brain/adventure-images/adventures/;` (see **Nginx Config**). Sync from Mac: **`~/Sites/kendowney.com/scripts/sync-adventures.sh`** (`npm run sync-adventures` in the **kendowney.com** repo). Site uses **`IMAGE_BASE` = `/images/adventures`** in `adventureManifest.ts`.
+**Adventure images (kendowney.com):** Stored on the VPS at **`/home/brain/adventure-images/adventures/<category>/`** (not in git / not in Docker). Nginx serves them at **`/images/adventures/`** with **30-day** cache (`expires` / `Cache-Control: public, immutable` — see **Nginx Config**).
+
+| Path / flow | Detail |
+|-------------|--------|
+| VPS tree | `/home/brain/adventure-images/adventures/` |
+| Local staging | `~/Sites/kendowney.com/images/adventures/` |
+| Sync | From kendowney.com repo: **`npm run sync-adventures`** (uses `scripts/sync-adventures.sh`) |
+| Telegram | Cortex **adventure-photo** skill → writes on VPS → regenerates manifest → rebuild **personal-site** |
+| HEIC | **`sips`** on Mac; **`heif-convert`** on VPS for conversion when needed |
+
+Site uses **`IMAGE_BASE` = `/images/adventures`** in `adventureManifest.ts`.
 
 **Nginx must read under `/home/brain/`:** `www-data` needs **`chmod o+x /home/brain`** (traverse only) and readable image tree, e.g. **`chmod -R a+rX /home/brain/adventure-images`**. Without this, `/images/adventures/...` returns **403**.
 
 **Migrating from B2:** If `b2 sync` from the bucket hits **`download_cap_exceeded`**, sync from the Mac staging folder instead (`rsync` to the path above) — API download caps still apply when pulling from B2 to the VPS.
 
-**Backblaze:** Optional for other assets or migration; adventure carousels no longer use B2 download bandwidth.
+**Backblaze B2**
+
+| Item | Value |
+|------|-------|
+| Bucket | **`kendowney-assets`** (public) |
+| Region | **us-west-004**; public URL host **f004** (e.g. `https://f004.backblazeb2.com/file/kendowney-assets/...`) |
+| Images | **Not** used for site images anymore — **bandwidth cap exceeded** |
+| Other assets | Bucket still available for non-image or low-bandwidth use |
+| VPS | **B2 CLI** installed via **pip** |
+
+Adventure carousels are on-VPS static files, not B2.
 
 ---
 
@@ -289,9 +360,9 @@ Retention: 7 backups
 
 | Skill | Path | Status |
 |-------|------|--------|
-| **Session close** | `~/.openclaw/workspace/skills/session-close/SKILL.md` | Deployed and tested — summarizes session, proposes BRAIN.md edits, commits on approval |
-| **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/SKILL.md` | Deployed — see below |
-| **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/SKILL.md` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); writes to **`/home/brain/adventure-images/adventures/<category>/`**, regenerates manifest via **`generate-adventure-manifest.mjs`** (`ADVENTURE_STAGING_ROOT` = that tree), rebuilds `personal-site` Docker; confirms with **`https://kendowney.com/images/adventures/...`** |
+| **Session close** | `~/.openclaw/workspace/skills/session-close/` (`SKILL.md`) | Deployed — summarizes session, proposes BRAIN.md edits, commits on approval |
+| **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/` | Deployed — **12h** cron (currently **paused** with tournament — see **Tournament**) |
+| **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); writes to **`/home/brain/adventure-images/adventures/<category>/`**, regenerates manifest via **`generate-adventure-manifest.mjs`** (`ADVENTURE_STAGING_ROOT` = that tree), rebuilds `personal-site` Docker; confirms with **`https://kendowney.com/images/adventures/...`** |
 
 ### OpenClaw cron (Gateway scheduler)
 
@@ -299,8 +370,8 @@ Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from t
 
 | Job name | Schedule (UTC) | Purpose |
 |----------|----------------|---------|
-| Tournament round (3h) | `0 */3 * * *` | Runs `tournament/scripts/tournament-cron.sh` (isolated agent turn) |
-| Strategy master (12h) | `0 6,18 * * *` | Runs strategy-master skill — **job id:** `c5a4596a-9cc1-4881-b982-dbc441355fa5` |
+| Tournament round (3h) | `0 */3 * * *` | Runs `tournament/scripts/tournament-cron.sh` — **job id `66b7a9fc`** — **`enabled: false`** while paused |
+| Strategy master (12h) | `0 6,18 * * *` | Runs strategy-master skill — **job id:** `c5a4596a-9cc1-4881-b982-dbc441355fa5` — **paused** with tournament |
 
 ### Strategy Master Agent
 
@@ -314,8 +385,15 @@ Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from t
 ## Honest Fit Assessment (HFA)
 
 URL: https://honestfit.kendowney.com  
-Source repo (local): `/Users/kendowney/Sites/AI/HonestFitAssessment/` — default git branch **`master`** (not `main`).  
+Source: [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) — local **`~/Sites/AI/HonestFitAssessment/`** — default branch **`master`** (not `main`).  
 VPS: `~/brain/honest-fit/` — build with `docker compose build honest-fit && docker compose up -d honest-fit`.
+
+| Topic | Detail |
+|-------|--------|
+| **Voice (story interview)** | Web Speech API — **Chrome-first** for mic + TTS |
+| **Auto-speak toggle** | `localStorage` key **`hfa-story-interview-auto-speak`** (voice reply toggle) |
+| **Profile data** | **`candidateProfile.local.ts`** is source of truth in the HFA repo |
+| **Synced copy** | Profile synced to personal site: **`personal-site/app/data/kenProfile.ts`** (kendowney.com repo) |
 
 **Dockerfile notes:** Multi-stage Node 22 Alpine + pnpm; production serves with **`vite preview`** on port 3000. Runner image must include **`dist` + `src` + `public` + `node_modules`** (TanStack Start preview resolves the router from `src`). In **`vite.config.ts`**, **`preview.allowedHosts: true`** (or an explicit host list) — otherwise Nginx’s `Host: honestfit.kendowney.com` is rejected with **403** by Vite’s host check.
 
@@ -328,9 +406,9 @@ Stack: TanStack Start (SSR), Node 22 Alpine, port 4173
 
 Pages: Dashboard · Thoughts · Search · Agents · Trading · OpenClaw
 
-**App auth:** Session cookie `mc_session` (HMAC-SHA256 with `MC_SESSION_SECRET`), bcrypt password via `MC_PASSWORD_HASH`, username `MC_USERNAME`. Public routes: `/login`, `/logout` (POST clears session). All other pages and `/api/*` handlers require a valid session.
+**App-level auth (not Nginx):** Session cookie `mc_session` (HMAC-SHA256 with `MC_SESSION_SECRET`), bcrypt password via `MC_PASSWORD_HASH`, username **`MC_USERNAME`** (e.g. **`ken`**). Public routes: `/login`, `/logout` (POST clears session). All other pages and `/api/*` handlers require a valid session.
 
-Env (also in `docker-compose.yml` for the `mission-control` service): `MC_USERNAME`, `MC_PASSWORD_HASH`, `MC_SESSION_SECRET`, `MC_SESSION_TTL_DAYS` (default 7 days in app if unset). **Docker Compose interpolates `$` in `.env`:** bcrypt hashes must escape each `$` as `$$` in `~/brain/.env` (e.g. `MC_PASSWORD_HASH=$$2b$$10$$...`). Hash helper: `npm run hash-mc-password --workspace=mission-control -- 'password'`.
+Env (also in `docker-compose.yml` for the `mission-control` service): **`MC_USERNAME`**, **`MC_PASSWORD_HASH`**, **`MC_SESSION_SECRET`**, **`MC_SESSION_TTL_DAYS`** (default 7 days in app if unset). **Docker Compose interpolates `$` in `.env`:** bcrypt hashes must escape each `$` as **`$$`** in `~/brain/.env` (e.g. `MC_PASSWORD_HASH=$$2b$$10$$...`). Hash helper: `npm run hash-mc-password --workspace=mission-control -- 'password'`.
 
 ---
 
@@ -360,7 +438,18 @@ Server: `~/brain/tournament/`
 ### Phase 3 (complete)
 
 - **3-hour tournament rounds via OpenClaw** — isolated cron job runs `tournament/scripts/tournament-cron.sh` (see `openclaw-cron-message.txt` pattern in `tournament/scripts/`)
-- **Strategy Master** — 12h cron for proposed strategies (see **Strategy Master Agent** above)
+- **Strategy Master** — 12h cron for proposed strategies (see **Strategy Master Agent** below)
+
+### Cron & runtime (current)
+
+| Item | Status / detail |
+|------|-----------------|
+| **Tournament cron** | **PAUSED** — OpenClaw job id **`66b7a9fc`** in **`~/.openclaw/cron/jobs.json`** has **`enabled: false`** |
+| **Strategy master cron** | **Paused** together with tournament (same gateway scheduler) |
+| **Anthropic API throttle** | Env **`TOURNAMENT_ANTHROPIC_GAP_MS`** (default **5000** ms) — implementation: `tournament/src/bot/anthropicThrottle.ts` |
+| **Regime detector (Phase 1)** | **`getStrategySignal()`** runs before each round; logs to OB1 with **`source: tournament-regime`** |
+
+**Re-enable tournament rounds:** set **`enabled: true`** for the tournament job in **`jobs.json`**, then restart **`openclaw-gateway`** (systemd user service).
 
 ### Active strategies
 
@@ -438,6 +527,8 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **`docker compose down` wipes named volumes** — backup first
 - **`~/brain/.env` is a real file** — not a symlink
 - **Adventure static files under `/home/brain/adventure-images/`** — Nginx serves them; **`chmod o+x /home/brain`** (and `a+rX` on the image tree) required or browsers get **403**
+- **Tournament + Strategy Master crons** — **paused** in `~/.openclaw/cron/jobs.json` (`enabled: false`); re-enable only after intentional review
+- **Honest Fit TLS** — cert for **honestfit.kendowney.com** expires **2026-06-25** (renew before)
 - **kendowney.com** — lives in **`~/Sites/kendowney.com/`** / **github.com/mtb24/kendowney.com**, not under SecondBrain; **`docker compose`** in SecondBrain no longer defines `personal-site`
 - **Cortex refuses unsupervised action** — correct per AGENTS.md
 - **`routeTree.gen.ts`** — generated by TanStack Router Vite plugin at build time. If you see `createFileRoute arg not assignable to undefined`, run `npm run build` inside `mission-control/` to regenerate it. Commit the result.
