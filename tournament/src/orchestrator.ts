@@ -31,6 +31,7 @@ import {
   updateStrategyStatus,
 } from './db/tournament.js'
 import { logDecisionToOB1, logRegimeSnapshotToOB1 } from './db/ingest.js'
+import { runWithAnthropicSpacing } from './bot/anthropicThrottle.js'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -224,11 +225,13 @@ When writing the doc value, follow these RULES (do NOT output the RULES list its
 
 Return a JSON array of ${count} strategy objects. No markdown fences, just raw JSON. Ensure each strategy's doc is a valid JSON string (use \\n for new lines).`
 
-    const response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }],
-    })
+    const response = await runWithAnthropicSpacing(() =>
+      this.anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    )
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
 
@@ -248,11 +251,13 @@ Return a JSON array of ${count} strategy objects. No markdown fences, just raw J
       this.log(`[ORCHESTRATOR] Failed to parse researched strategies: ${err}`)
       // Fallback: ask Claude for a single named strategy rather than using a timestamp
       try {
-        const fallback = await this.anthropic.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 100,
-          messages: [{ role: 'user', content: 'Give me a short kebab-case trading strategy name (2-3 words, no numbers). Reply with only the name, nothing else.' }],
-        })
+        const fallback = await runWithAnthropicSpacing(() =>
+          this.anthropic.messages.create({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 100,
+            messages: [{ role: 'user', content: 'Give me a short kebab-case trading strategy name (2-3 words, no numbers). Reply with only the name, nothing else.' }],
+          }),
+        )
         const fallbackName = fallback.content[0].type === 'text'
           ? fallback.content[0].text.trim().toLowerCase().replace(/[^a-z-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
           : 'adaptive-rsi'

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Candle, Position } from '../exchange/adapter.js'
+import { runWithAnthropicSpacing } from './anthropicThrottle.js'
 import { Strategy, TradingDecision } from './types.js'
 
 const HOLD: TradingDecision = { action: 'hold', reasoning: 'parse error', confidence: 0 }
@@ -169,12 +170,14 @@ export async function getStrategySignal(
   botName: string,
 ): Promise<StrategySignal> {
   try {
-    const msg = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 200,
-      temperature: 0,
-      messages: [{ role: 'user', content: buildSignalPrompt(ctx) }],
-    })
+    const msg = await runWithAnthropicSpacing(() =>
+      getClient().messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 200,
+        temperature: 0,
+        messages: [{ role: 'user', content: buildSignalPrompt(ctx) }],
+      }),
+    )
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
     const cleaned = text.replace(/```json|```/g, '').trim()
@@ -200,12 +203,14 @@ export async function getStrategySignal(
 
 export async function makeDecision(ctx: DecisionContext, botName: string): Promise<TradingDecision> {
   try {
-    const msg = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 300,
-      temperature: 0,
-      messages: [{ role: 'user', content: buildPrompt(ctx) }],
-    })
+    const msg = await runWithAnthropicSpacing(() =>
+      getClient().messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        temperature: 0,
+        messages: [{ role: 'user', content: buildPrompt(ctx) }],
+      }),
+    )
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
     const cleaned = text.replace(/```json|```/g, '').trim()
