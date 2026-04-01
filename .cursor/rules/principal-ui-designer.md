@@ -1,1 +1,1 @@
-/Users/kendowney/Sites/SecondBrain/agents/personas/principal-ui-designer.md
+../../agents/personas/principal-ui-designer.md
