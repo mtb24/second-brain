@@ -117,6 +117,38 @@ Requires the `brain` user to own `/home/brain/adventure-images/` (see BRAIN.md).
 
 ---
 
+## Step 3b — Optimize image on VPS
+
+Resize to max 1600px on longest edge and compress JPEG to quality 75. This keeps
+file sizes web-friendly without any quality perceptible at typical screen sizes.
+
+```bash
+FILE_PATH="${DEST_DIR}/${FILENAME}"
+
+# Ensure ImageMagick is installed
+if ! command -v convert >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick >/dev/null 2>&1
+fi
+
+# Resize only if an edge exceeds 1600px; recompress JPEG to Q=75
+ext_lc=$(printf '%s' "${FILENAME##*.}" | tr '[:upper:]' '[:lower:]')
+case "$ext_lc" in
+  jpg|jpeg)
+    convert "$FILE_PATH" -resize '1600x1600>' -quality 75 "$FILE_PATH" 2>/dev/null \
+      || echo "warning: ImageMagick optimize failed for $FILE_PATH" >&2
+    ;;
+  png|webp)
+    convert "$FILE_PATH" -resize '1600x1600>' "$FILE_PATH" 2>/dev/null \
+      || echo "warning: ImageMagick resize failed for $FILE_PATH" >&2
+    ;;
+esac
+```
+
+GIFs are skipped (ImageMagick can break animation). If `convert` still fails after
+install, log a warning and continue — the unoptimized original is already on disk.
+
+---
+
 ## Step 4 — Regenerate `adventureManifest.files.json`
 
 ```bash
