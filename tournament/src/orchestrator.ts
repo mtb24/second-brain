@@ -16,6 +16,7 @@ import {
   formatRegimeConsoleLine,
   type RegimeSnapshot,
 } from './bot/regime.js'
+import { MarketDataService } from './bot/marketDataService.js'
 import { BotRunner, RunnerOptions } from './bot/runner.js'
 import { Strategy, Bot, BotPerformance } from './bot/types.js'
 import { MockAdapter } from './exchange/mock.js'
@@ -470,7 +471,7 @@ Respond with JSON only. Never explain your reasoning.`
     strategies: Strategy[],
     roundId: string
   ): Promise<BotPerformance[]> {
-    this.log(`\n[ORCHESTRATOR] Running ${bots.length} bots in parallel...`)
+    this.log(`\n[ORCHESTRATOR] Running ${bots.length} bots in parallel (shared CoinGecko per tick)...`)
 
     const runnerOptions: Partial<RunnerOptions> = {
       roundDurationSeconds: this.config.roundDurationSeconds,
@@ -479,19 +480,60 @@ Respond with JSON only. Never explain your reasoning.`
       verbose: this.config.verbose,
     }
 
-    // Each bot gets its own MockAdapter so portfolio state is isolated
-    // All bots see the same real market data (fetched independently per tick)
-    const tasks = bots.map((bot) => {
+    const adapters = bots.map(() => new MockAdapter())
+    const runners = bots.map((bot, i) => {
       const strategy = strategies.find((s) => s.id === bot.strategyId)!
-      const adapter = new MockAdapter()
-      const runner = new BotRunner(bot, strategy, adapter, runnerOptions)
-      return runner.start().then(async (perf) => {
+      return new BotRunner(bot, strategy, adapters[i]!, runnerOptions)
+    })
+
+    await Promise.all(runners.map((r) => r.beginRound()))
+
+    const marketSvc = new MarketDataService()
+    const startTime = Date.now()
+    const { roundDurationSeconds: roundDuration, decisionIntervalSeconds: interval, symbols } = this.config
+
+    while (true) {
+      const elapsed = (Date.now() - startTime) / 1000
+      if (elapsed >= roundDuration) break
+
+      const shared = await marketSvc.fetchSharedMarketData(symbols)
+      if (Object.keys(shared).length === 0) {
+        this.log('[ORCHESTRATOR] No market data this tick — waiting for next interval')
+        const remainingWait = roundDuration - (Date.now() - startTime) / 1000
+        if (remainingWait <= 0) break
+        await sleepTick(Math.min(interval * 1000, remainingWait * 1000))
+        continue
+      }
+
+      const anchors: Record<string, number> = {}
+      for (const sym of Object.keys(shared)) {
+        anchors[sym] = shared[sym]!.price
+      }
+      for (const adapter of adapters) {
+        adapter.setSharedTickPrices(anchors)
+      }
+
+      const timeRem = roundDuration - (Date.now() - startTime) / 1000
+      await Promise.all(runners.map((r) => r.runOneTick(shared, timeRem)))
+
+      for (const adapter of adapters) {
+        adapter.clearSharedTickPrices()
+      }
+
+      const remaining = roundDuration - (Date.now() - startTime) / 1000
+      if (remaining <= 0) break
+      await sleepTick(Math.min(interval * 1000, remaining * 1000))
+    }
+
+    const tasks = runners.map(async (runner, i) => {
+      const bot = bots[i]!
+      try {
+        const perf = await runner.completeRound()
         await updateBotStatus(bot.id, 'finished', perf.finalBalance)
         return perf
-      }).catch(async (err) => {
+      } catch (err) {
         this.log(`[ORCHESTRATOR] Bot ${bot.name} failed: ${err}`)
         await updateBotStatus(bot.id, 'finished', bot.startingBalance)
-        // Return a zero-performance record so the round still completes
         return {
           botId: bot.id,
           roundId,
@@ -507,7 +549,7 @@ Respond with JSON only. Never explain your reasoning.`
           sharpeRatio: 0,
           fitnessScore: 0,
         } as BotPerformance
-      })
+      }
     })
 
     return Promise.all(tasks)
@@ -587,4 +629,8 @@ Respond with JSON only. Never explain your reasoning.`
   private log(msg: string): void {
     if (this.config.verbose) console.log(msg)
   }
+}
+
+function sleepTick(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

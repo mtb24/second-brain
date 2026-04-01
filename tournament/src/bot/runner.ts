@@ -1,15 +1,14 @@
 import { ExchangeAdapter } from '../exchange/adapter.js'
-import { fetchPrices, fetchCandles } from '../exchange/prices.js'
 import { makeDecision, DecisionContext } from './decision.js'
 import { logDecisionToOB1 } from '../db/ingest.js'
 import { saveTick } from '../db/tournament.js'
 import { Bot, Strategy, TradingDecision, BotPerformance } from './types.js'
 
 export interface RunnerOptions {
-  decisionIntervalSeconds: number   // default: 60
-  roundDurationSeconds: number      // default: 600
-  symbols: string[]                 // default: ['BTC']
-  verbose: boolean                  // default: true
+  decisionIntervalSeconds: number // default: 60
+  roundDurationSeconds: number // default: 600
+  symbols: string[] // default: ['BTC']
+  verbose: boolean // default: true
 }
 
 const DEFAULT_OPTIONS: RunnerOptions = {
@@ -25,6 +24,7 @@ export class BotRunner {
   private totalDecisions = 0
   private actionsTaken = 0
   private holdDecisions = 0
+  private roundStartTime = 0
 
   constructor(
     private bot: Bot,
@@ -35,7 +35,7 @@ export class BotRunner {
     this.options = { ...DEFAULT_OPTIONS, ...options }
   }
 
-  async start(): Promise<BotPerformance> {
+  async beginRound(): Promise<void> {
     const { roundDurationSeconds, decisionIntervalSeconds, symbols, verbose } = this.options
 
     if (this.adapter.isLive) {
@@ -43,33 +43,25 @@ export class BotRunner {
     }
 
     await this.adapter.initialize(this.bot.startingBalance)
-    const startTime = Date.now()
+    this.roundStartTime = Date.now()
 
     if (verbose) {
       console.log(`\n[BOT:${this.bot.name}] Starting round. Strategy: ${this.strategy.name}`)
-      console.log(`[BOT:${this.bot.name}] Duration: ${roundDurationSeconds}s | Interval: ${decisionIntervalSeconds}s`)
+      console.log(
+        `[BOT:${this.bot.name}] Duration: ${roundDurationSeconds}s | Interval: ${decisionIntervalSeconds}s`
+      )
     }
-
-    while (!this.stopped) {
-      const elapsed = (Date.now() - startTime) / 1000
-      if (elapsed >= roundDurationSeconds) break
-
-      await this._tick(symbols, roundDurationSeconds - elapsed)
-
-      const remaining = roundDurationSeconds - (Date.now() - startTime) / 1000
-      if (remaining <= 0) break
-
-      await sleep(Math.min(decisionIntervalSeconds * 1000, remaining * 1000))
-    }
-
-    return this._finish(startTime)
   }
 
-  async stop(): Promise<void> {
-    this.stopped = true
-  }
+  /**
+   * One decision tick using pre-fetched shared market data (CoinGecko fetched once in orchestrator).
+   */
+  async runOneTick(
+    shared: DecisionContext['marketData'],
+    timeRemaining: number
+  ): Promise<void> {
+    if (this.stopped) return
 
-  private async _tick(symbols: string[], timeRemaining: number): Promise<void> {
     try {
       const [balance, positions] = await Promise.all([
         this.adapter.getBalance(),
@@ -78,36 +70,20 @@ export class BotRunner {
       const pnl = await this.adapter.getPnL()
 
       const marketData: DecisionContext['marketData'] = {}
-      // Fetch all prices in one batched API call, then fetch candles per symbol
-      let prices: Record<string, number> = {}
-      try {
-        prices = await fetchPrices(symbols)
-      } catch (err) {
-        console.error(`[runner] price batch fetch failed:`, err)
-      }
-      for (const sym of symbols) {
-        const price = prices[sym]
-        if (price == null) {
-          console.error(`[runner] no price for ${sym} — skipping symbol this tick`)
-          continue
-        }
+      for (const sym of Object.keys(shared)) {
+        const slice = shared[sym]
+        if (!slice) continue
         try {
-          const [candles, book, fundingRate] = await Promise.all([
-            fetchCandles(sym, '1h', 24),
-            this.adapter.getOrderBook(sym),
-            this.adapter.getFundingRate(sym),
-          ])
-          const change1h = candles.length >= 2
-            ? ((candles[candles.length - 1].close - candles[candles.length - 2].close) /
-               candles[candles.length - 2].close) * 100
-            : 0
-          const change24h = candles.length >= 24
-            ? ((candles[candles.length - 1].close - candles[0].close) / candles[0].close) * 100
-            : 0
+          const book = await this.adapter.getOrderBook(sym)
+          const fundingRate = await this.adapter.getFundingRate(sym)
           marketData[sym] = {
-            price, candles, fundingRate, change1h, change24h,
-            topBid: book.bids[0]?.[0] ?? price,
-            topAsk: book.asks[0]?.[0] ?? price,
+            price: slice.price,
+            candles: slice.candles,
+            fundingRate,
+            change1h: slice.change1h,
+            change24h: slice.change24h,
+            topBid: book.bids[0]?.[0] ?? slice.price,
+            topAsk: book.asks[0]?.[0] ?? slice.price,
           }
         } catch (err) {
           console.error(`[runner] market data error for ${sym}:`, err)
@@ -135,8 +111,11 @@ export class BotRunner {
       }
 
       await logDecisionToOB1({
-        decision, bot: this.bot, strategyName: this.strategy.name,
-        balance, pnl: pnl.total,
+        decision,
+        bot: this.bot,
+        strategyName: this.strategy.name,
+        balance,
+        pnl: pnl.total,
       })
 
       const pnlPct = pnl.startingBalance > 0 ? (pnl.total / pnl.startingBalance) * 100 : 0
@@ -148,15 +127,27 @@ export class BotRunner {
         balance: pnl.currentBalance,
         pnl: pnl.total,
         pnlPercent: pnlPct,
-      }).catch((err) => console.error(`[runner] saveTick FAILED — no tick data will appear: ${err.message}`))
+      }).catch((err) =>
+        console.error(`[runner] saveTick FAILED — no tick data will appear: ${err.message}`)
+      )
     } catch (err) {
       console.error(`[BOT:${this.bot.name}] tick error:`, err)
     }
   }
 
+  async completeRound(): Promise<BotPerformance> {
+    return this._finish(this.roundStartTime)
+  }
+
+  async stop(): Promise<void> {
+    this.stopped = true
+  }
+
   private async _execute(d: TradingDecision): Promise<void> {
     if (this.adapter.isLive && process.env.DRY_RUN === 'true') {
-      console.log(`[DRY_RUN] Would execute: ${d.action}${d.symbol ? ' ' + d.symbol : ''}${d.size ? ' $' + d.size : ''}`)
+      console.log(
+        `[DRY_RUN] Would execute: ${d.action}${d.symbol ? ' ' + d.symbol : ''}${d.size ? ' $' + d.size : ''}`
+      )
       this.actionsTaken++
       return
     }
@@ -171,14 +162,18 @@ export class BotRunner {
         }
       } else if ((d.action === 'buy' || d.action === 'sell') && d.symbol && d.size) {
         await this.adapter.placeOrder({
-          symbol: d.symbol, side: d.action,
-          size: d.size, leverage: d.leverage ?? 1,
+          symbol: d.symbol,
+          side: d.action,
+          size: d.size,
+          leverage: d.leverage ?? 1,
           orderType: d.orderType ?? 'market',
           limitPrice: d.limitPrice,
         })
         this.actionsTaken++
       } else if (d.action === 'buy' || d.action === 'sell') {
-        console.warn(`[runner:${this.bot.name}] ${d.action} skipped — missing symbol or size (symbol=${d.symbol}, size=${d.size})`)
+        console.warn(
+          `[runner:${this.bot.name}] ${d.action} skipped — missing symbol or size (symbol=${d.symbol}, size=${d.size})`
+        )
       }
     } catch (err) {
       console.error(`[runner] execute error:`, err)
@@ -218,8 +213,4 @@ export class BotRunner {
       _meta: { totalDecisions: this.totalDecisions, holdDecisions: this.holdDecisions, durationMs },
     } as BotPerformance & { _meta: unknown }
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

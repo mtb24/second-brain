@@ -9,15 +9,33 @@ const SYMBOL_MAP: Record<string, string> = {
 }
 
 const BASE = 'https://api.coingecko.com/api/v3'
-// 55s TTL ensures cache survives any decision interval ≤60s, so all bots
-// share a single fetch per tick regardless of minor timing differences.
-const CACHE_TTL_MS = 55_000
+// Spot / batch price: refresh at least every decision tick (~60s), shared across callers.
+const PRICE_CACHE_TTL_MS = 55_000
+// OHLC: 5-minute freshness — candles do not need 60s refresh.
+const CANDLE_CACHE_TTL_MS = 300_000
 
-interface CacheEntry { value: unknown; expiresAt: number }
+interface CacheEntry {
+  value: unknown
+  expiresAt: number
+}
 const cache = new Map<string, CacheEntry>()
 
-// Stores in-flight Promises so parallel calls for the same key share one request
 const inflight = new Map<string, Promise<unknown>>()
+
+class CoinGecko429Error extends Error {
+  constructor(message = 'CoinGecko rate limited') {
+    super(message)
+    this.name = 'CoinGecko429Error'
+  }
+}
+
+/** Wall time before we issue another HTTP request to CoinGecko after a 429. */
+let geckoBackoffUntil = 0
+
+function cacheTtlForKey(key: string): number {
+  if (key.startsWith('candles:')) return CANDLE_CACHE_TTL_MS
+  return PRICE_CACHE_TTL_MS
+}
 
 function fromCache<T>(key: string): T | null {
   const entry = cache.get(key)
@@ -28,8 +46,13 @@ function fromCache<T>(key: string): T | null {
   return null
 }
 
+function peekStale<T>(key: string): T | null {
+  const entry = cache.get(key)
+  return entry ? (entry.value as T) : null
+}
+
 function toCache(key: string, value: unknown): void {
-  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS })
+  cache.set(key, { value, expiresAt: Date.now() + cacheTtlForKey(key) })
 }
 
 function geckoId(symbol: string): string {
@@ -39,36 +62,59 @@ function geckoId(symbol: string): string {
 }
 
 async function geckoGet<T>(path: string): Promise<T> {
+  const now = Date.now()
+  if (now < geckoBackoffUntil) {
+    throw new CoinGecko429Error('in backoff window')
+  }
+
   const headers: Record<string, string> = {}
   if (process.env.COINGECKO_API_KEY) {
     headers['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY
   }
   const url = `${BASE}${path}`
   const res = await fetch(url, { headers })
+
+  if (res.status === 429) {
+    geckoBackoffUntil = Date.now() + 60_000
+    console.warn('[prices] CoinGecko rate limited, backing off 60s')
+    throw new CoinGecko429Error()
+  }
+
   if (!res.ok) throw new Error(`CoinGecko ${res.status}: ${path}`)
   return res.json() as Promise<T>
 }
 
-// Cache check and inflight deduplication happen before any fetch is initiated.
-// A second caller arriving while the first is in-flight gets the same Promise.
 async function fetchWithCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const cached = fromCache<T>(key)
   if (cached !== null) return cached
+
+  if (Date.now() < geckoBackoffUntil) {
+    const stale = peekStale<T>(key)
+    if (stale !== null) {
+      console.warn('[prices] in CoinGecko backoff window, returning stale cache')
+      return stale
+    }
+  }
 
   if (inflight.has(key)) {
     return inflight.get(key) as Promise<T>
   }
 
-  const promise = fetcher()
-    .then((value) => {
+  const promise = (async () => {
+    try {
+      const value = await fetcher()
       toCache(key, value)
-      inflight.delete(key)
       return value
-    })
-    .catch((err) => {
-      inflight.delete(key)
+    } catch (err) {
+      if (err instanceof CoinGecko429Error) {
+        const stale = peekStale<T>(key)
+        if (stale !== null) return stale
+      }
       throw err
-    })
+    } finally {
+      inflight.delete(key)
+    }
+  })()
 
   inflight.set(key, promise)
   return promise
@@ -91,8 +137,6 @@ export async function fetchPrice(symbol: string): Promise<number> {
   }
 }
 
-// Batch-fetch prices for multiple symbols in a single API call.
-// Returns a map of symbol → price; missing symbols are omitted.
 export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
   const key = `prices:${[...symbols].sort().join(',')}`
   try {
@@ -106,7 +150,7 @@ export async function fetchPrices(symbols: string[]): Promise<Record<string, num
         const id = geckoId(sym)
         if (data[id]?.usd != null) {
           result[sym] = data[id].usd
-          console.log(`[prices] fetch ${sym}: $${data[id].usd}`)
+          console.log(`[prices] fetch ${sym}: $${data[id]!.usd}`)
         }
       }
       return result

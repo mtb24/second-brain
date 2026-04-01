@@ -22,7 +22,28 @@ export class MockAdapter implements ExchangeAdapter {
   // Simulated prices — seeded from real CoinGecko on first fetch, then random-walked
   private priceCache = new Map<string, number>()
 
+  /**
+   * When set, getOrderBook / marks use this mid for the current tick (no extra CoinGecko).
+   * Orchestrator sets this from the shared snapshot before each coordinated tick.
+   */
+  private sharedTickMids: Map<string, number> | null = null
+
+  /** Anchor mock marks to shared exchange mids for this tick (uppercase symbols). */
+  setSharedTickPrices(prices: Record<string, number>): void {
+    this.sharedTickMids = new Map(
+      Object.entries(prices).map(([s, p]) => [s.toUpperCase(), p])
+    )
+  }
+
+  clearSharedTickPrices(): void {
+    this.sharedTickMids = null
+  }
+
   private async _getSimulatedPrice(symbol: string): Promise<number> {
+    const symU = symbol.toUpperCase()
+    if (this.sharedTickMids?.has(symU)) {
+      return this.sharedTickMids.get(symU)!
+    }
     if (!this.priceCache.has(symbol)) {
       this.priceCache.set(symbol, await fetchPrice(symbol))
     }
