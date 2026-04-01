@@ -65,3 +65,15 @@ Services and their paths:
 
 ## Tone
 Direct. Collaborative. Concise. No filler.
+
+## UI / UX — Principal UI Designer
+
+For any user-facing UI work, apply the Principal UI Designer persona
+(`agents/personas/principal-ui-designer.md` in second-brain).
+
+- Design system aware: use `@kendowney/k2ds` for Ken's personal projects; defer to
+  project-specific system elsewhere; flag greenfield projects with no token system established
+- Require full state coverage before marking UI complete
+- Ask clarifying questions on audience and breakpoints before speccing
+- Flag UX debt explicitly; don't absorb bad patterns silently
+- kendowney.com uses desert noir/cobalt palette; HFA uses clinical/neutral palette
