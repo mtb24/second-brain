@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-03
+Last updated: 2026-04-02
 
 ---
 
@@ -25,7 +25,7 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | URL | What | Notes |
 |-----|------|-------|
 | **kendowney.com** | Personal site | Docker **4174**, Nginx reverse proxy |
-| **kendowney.com/design-lock** | Design Lock demo | Contract validation (LLM output → validate → render) |
+| **kendowney.com/design-lock** | Design Lock demo | Contract validation (LLM → validate → render); **5** stacked steps — design system first, then prompt, JSON, validation, render |
 | **storybook.kendowney.com** | K2DS Storybook | Static/component library; Nginx upstream as configured on VPS |
 | **mission.kendowney.com** | Mission Control | Docker **4173**; **app-level** auth (username + bcrypt + HMAC session cookie — not Nginx basic auth) |
 | **brain.kendowney.com** | Ingest API + MCP | If still enabled — see **Nginx Config** |
@@ -80,7 +80,7 @@ DNS and TLS: see **DNS & TLS (Cloudflare)** above. See **Sites live** for ports 
 
 ## Repo root (git workspace)
 
-The GitHub repo root (local: `/Users/kendowney/Sites/SecondBrain/`) includes **`CLAUDE.md`** — instructions for the Dev Partner (Cursor/Claude) on workflow, deploy pipeline, and conventions. It is not deployed as a runtime artifact; it exists for humans and agents working in the repo.
+**Agent / dev-partner docs:** The **SecondBrain** repo root (`~/Sites/SecondBrain/`) includes **`CLAUDE.md`** (ingest, tournament, deploy, conventions). The **kendowney.com** repo has its own **`CLAUDE.md`** at **`~/Sites/kendowney.com/CLAUDE.md`** — personal-site pipeline (rsync, Docker, adventures), **K2DS** usage, **Design Lock** behavior, footer/layout, and token/Figma notes. Neither file is a deployed runtime artifact.
 
 Optional paths tracked in git:
 
@@ -103,11 +103,22 @@ Source: **`packages/k2ds/`** in the **kendowney.com** repo (`@kendowney/k2ds`).
 | Stack | React + TypeScript + Tailwind |
 | Storybook | **10** (ESM-only) — `localhost:6006` |
 | Components | Button, PageHeader, ProjectCard, SkillPill, Nav (5) |
-| Tokens | Desert noir + cobalt blue palette; **`figma-tokens.json`** is the source of truth (token bridge) |
+| Tokens | Desert noir + cobalt blue palette; **`figma-tokens.json`** is the code-side token bridge (kebab-case keys → Tailwind via `tailwind-from-figma.ts`) |
 | Contracts | JSON Schema per component; **Ajv** validation |
 | Pipeline | prompt → parse → validate → render |
 | MUI | Design-system-agnostic integration proof |
 | Modes | **strict**, **lenient**, **report** |
+
+### Personal site (kendowney.com) — UI notes
+
+- **Global footer:** `app/components/SiteFooter.tsx` — copyright, Resume/Work, social icons; mounted in `app/routes/__root.tsx` with a flex column + `flex-1` main so the footer stays at the bottom on short pages. Contact page no longer duplicates the social column (links live in the footer).
+- **Design Lock** (`/design-lock`): **Five** numbered steps, each label **above** its card (not a vertical rail). (1) Design system (K2DS vs MUI) + short explanation in the card; (2) prompt; (3) raw JSON; (4) contract validation; (5) rendered preview. After **Generate**, steps 3–5 appear in a staggered sequence (`revealedAfterGenerate` 0→3); switching **design system** or starting a new run resets downstream state.
+
+### Tokens, readability, Figma
+
+- **`ink-secondary`** in JSON is **`#b5aea6`** (improved contrast on warm **`surface`** `#25201c`). **`nav.ink.muted`** in Tailwind follows **`ink-secondary`**.
+- **Nav** uses **`text-sm`** for link labels; **PageHeader** description uses **`text-base`** for secondary intro copy; site **body** is **17px** / line-height **1.7** (`app/styles/globals.css`).
+- **Learnings:** There is **no** automated push from repo → Figma. To keep design files aligned, set the matching Figma variable/style to the same hex, or re-export into `figma-tokens.json` when design leads. Validate with **`pnpm validate-tokens`** in `packages/k2ds`.
 
 ---
 
