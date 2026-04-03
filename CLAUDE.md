@@ -21,6 +21,12 @@ something is wrong.
 - Merge to main only after confirming the build passes on the server
 - Never leave uncommitted changes for Ken to deal with
 
+## Infrastructure (brain VPS)
+- **DNS:** **`kendowney.com`** is authoritative in **Cloudflare** (migrated from DigitalOcean). The DigitalOcean DNS zone for that domain is obsolete and can be deleted.
+- **TLS:** Cloudflare **origin** certificate (wildcard **`*.kendowney.com`**) on the VPS at **`/etc/ssl/cloudflare/kendowney.com.pem`** and **`/etc/ssl/cloudflare/kendowney.com.key`**. Edge SSL mode **Full (Strict)**; **no Certbot** on the brain server.
+- **Honest Fit (current product):** **https://honestfit.ai** on **64.23.165.78** — not on the brain VPS. **`honestfit.kendowney.com` is decommissioned**; do not treat it as a live site or deployment target.
+- **Email:** **`ken@kendowney.com`** can be forwarded via Cloudflare Email Routing to Gmail when configured.
+
 ## Deploy Pipeline
 After ANY code change, run the full loop automatically:
 1. Commit and push (to the feature branch)
