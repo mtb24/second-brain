@@ -340,8 +340,10 @@ Retention: 7 backups
 
 ### kendowney.com
 - `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
+- **`location /` proxy timeouts:** **`proxy_connect_timeout` / `proxy_send_timeout` / `proxy_read_timeout` / `send_timeout`** should be **600s** (or similar) so **role fit** and **design-lock** LLM calls are not killed at Nginx’s default ~60s — otherwise browsers see **504** / raw Cloudflare HTML.
 - `/images/adventures/` → static **`alias /home/brain/adventure-images/adventures/`** (long cache: `expires 30d`, `Cache-Control: public, immutable`)
 - **Nginx:** configured in `/etc/nginx/sites-available/brain` (enabled); apex `server_name kendowney.com` proxies to `4174` — not `sites-available/default` (disabled on VPS).
+- **Cloudflare:** proxied records still hit an **~100s** origin response ceiling on typical plans; Nginx alone cannot extend that.
 
 ### storybook.kendowney.com
 - K2DS Storybook — Nginx `server_name` + upstream as defined on the VPS (static build or local port per deploy).
