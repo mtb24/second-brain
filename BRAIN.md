@@ -339,6 +339,7 @@ Retention: 7 backups
 - `/openclaw/` → `127.0.0.1:18789` with `proxy_set_header X-Forwarded-User "iframeuser"`
 
 ### kendowney.com
+- **`/api/role-fit/start`** (POST JSON) and **`/api/role-fit/status`** (GET, `jobId` query) — Nitro handlers on the same **`4174`** app; role fit UI polls these (Honest Fit–style `/api/*`), not `/_serverFn/*` alone.
 - `/` → `127.0.0.1:4174` (personal site — Docker `brain-personal-site`)
 - **`location /` proxy timeouts:** **`proxy_connect_timeout` / `proxy_send_timeout` / `proxy_read_timeout` / `send_timeout`** should be **600s** (or similar) so **role fit** and **design-lock** LLM calls are not killed at Nginx’s default ~60s — otherwise browsers see **504** / raw Cloudflare HTML.
 - `/images/adventures/` → static **`alias /home/brain/adventure-images/adventures/`** (long cache: `expires 30d`, `Cache-Control: public, immutable`)
