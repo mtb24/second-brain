@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-03-31
+Last updated: 2026-04-02
 
 ---
 
@@ -16,7 +16,7 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 |------|------|-------|-----|
 | [github.com/mtb24/kendowney.com](https://github.com/mtb24/kendowney.com) | Personal site, **K2DS** design system, **Design Lock** demo (public) | `~/Sites/kendowney.com/` | `~/brain/personal-site/` (Docker, port **4174**) |
 | [github.com/mtb24/second-brain](https://github.com/mtb24/second-brain) | Infrastructure (tournament, ingest, MCP, mission-control) | `~/Sites/SecondBrain/` | `~/brain/` |
-| [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) | HFA app (**`master`** branch) | `~/Sites/AI/HonestFitAssessment/` | `~/brain/honest-fit/` (Docker, port **3002**) |
+| [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) | Legacy HFA prototype (**`master`** branch) | `~/Sites/AI/HonestFitAssessment/` | `~/brain/honest-fit/` optional; **not** served publicly — product is **[honestfit.ai](https://honestfit.ai)** on **64.23.165.78** |
 
 ---
 
@@ -26,8 +26,11 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 |-----|------|-------|
 | **kendowney.com** | Personal site | Docker **4174**, Nginx reverse proxy |
 | **kendowney.com/design-lock** | Design Lock demo | Contract validation (LLM output → validate → render) |
-| **honestfit.kendowney.com** | HFA | Docker **3002**; Let’s Encrypt cert expires **2026-06-25** |
+| **storybook.kendowney.com** | K2DS Storybook | Static/component library; Nginx upstream as configured on VPS |
 | **mission.kendowney.com** | Mission Control | Docker **4173**; **app-level** auth (username + bcrypt + HMAC session cookie — not Nginx basic auth) |
+| **brain.kendowney.com** | Ingest API + MCP | If still enabled — see **Nginx Config** |
+
+**Decommissioned:** **`honestfit.kendowney.com`** — Nginx vhost removed; not a live site. **Honest Fit** (current product) is **https://honestfit.ai** on dedicated VPS **64.23.165.78** (see **github.com/mtb24/honestfit**).
 
 ---
 
@@ -40,6 +43,16 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | User | `brain` |
 | Project root | `~/brain/` (`/home/brain/brain/`) |
 | OS | Ubuntu 24.04, 4GB RAM / 2 vCPU |
+
+### DNS & TLS (Cloudflare)
+
+| Item | Detail |
+|------|--------|
+| **DNS** | **`kendowney.com`** is authoritative in **Cloudflare** (zone migrated from DigitalOcean). The **DigitalOcean DNS zone for kendowney.com can be deleted** — it is no longer authoritative. |
+| **Proxy** | **Orange cloud** (proxied) on records that should pass through Cloudflare. |
+| **SSL mode** | **Full (Strict)** in the Cloudflare SSL/TLS settings. |
+| **Origin cert** | Wildcard **`*.kendowney.com`** (covers subdomains) — PEM/key on the brain VPS: **`/etc/ssl/cloudflare/kendowney.com.pem`** and **`/etc/ssl/cloudflare/kendowney.com.key`**. **No Certbot** on this server (removed). |
+| **Email** | **Cloudflare Email Routing:** **`ken@kendowney.com`** → Gmail when configured. |
 
 ### SSH keys
 
@@ -54,12 +67,12 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 
 | Domain | Purpose |
 |--------|---------|
-| `brain.kendowney.com` | Ingest API + MCP server |
+| `brain.kendowney.com` | Ingest API + MCP server (if still enabled) |
 | `mission.kendowney.com` | Mission Control dashboard + OpenClaw proxy |
-| `honestfit.kendowney.com` | Honest Fit Assessment (TanStack Start, Docker `brain-honest-fit`) |
+| `storybook.kendowney.com` | K2DS Storybook |
 | `kendowney.com` | Personal site — **https://github.com/mtb24/kendowney.com** (rsync → `~/brain/personal-site/`, container `brain-personal-site`; **Design Lock** at `/design-lock`) |
 
-DNS managed via DigitalOcean. See **Sites live** for ports, TLS, and auth notes.
+DNS and TLS: see **DNS & TLS (Cloudflare)** above. See **Sites live** for ports and auth notes.
 
 ---
 
@@ -110,7 +123,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 
 ~/brain/   (git checkout: /home/brain/brain/)
 ├── .env                        ← single source of truth for all credentials
-├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, honest-fit); kendowney.com is a separate repo (rsync → personal-site/)
+├── docker-compose.yml          ← stack definition (db, ingest, mcp, tournament, mission, optional honest-fit); kendowney.com is a separate repo (rsync → personal-site/)
 ├── backup-db.sh                ← pg_dump backup script (cron 3am daily)
 ├── BRAIN.md                    ← this file (also mirrored from repo root in git)
 ├── backups/                    ← pg_dump .sql.gz files (7-day retention)
@@ -127,7 +140,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 │       └── server/
 │           └── openclawGateway.ts
 ├── personal-site/              ← kendowney.com **content only** (rsync from ~/Sites/kendowney.com/ — not in SecondBrain git)
-├── honest-fit/                 ← honestfit.kendowney.com (HFA; not in this repo — sync from ~/Sites/AI/HonestFitAssessment)
+├── honest-fit/                 ← legacy HFA tree (optional); not served at honestfit.kendowney.com (decommissioned)
 │   └── Dockerfile
 ├── tournament/                 ← Trading tournament (TypeScript)
 └── archive/                    ← Old compose references
@@ -146,11 +159,11 @@ Env: `~/brain/.env` (real file, not symlink)
 | ingest-api | brain-ingest | 127.0.0.1:8000 | custom (Python 3.12) |
 | mcp-server | brain-mcp | 127.0.0.1:3000 | custom (Python 3.12) |
 | mission-control | brain-mission | 127.0.0.1:4173 | custom (Node 22 Alpine) |
-| honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | custom (Node 22 Alpine, pnpm; `vite preview`) |
+| honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | **Legacy:** still in compose if the tree exists; **honestfit.kendowney.com** vhost removed — not a public URL. Current Honest Fit app: **honestfit.ai** (dedicated VPS). |
 
 **kendowney.com (`brain-personal-site`, port 4174):** Source is **https://github.com/mtb24/kendowney.com** → rsync to `~/brain/personal-site/`. It is **not** a service in SecondBrain’s `docker-compose.yml`; build with `docker compose` from **`~/brain/personal-site/`** using **`docker-compose.yml`** in the kendowney.com repo (external `brain_default` network), or maintain an equivalent stanza on the VPS.
 
-**Host 3001** is already used by **tournament** on the host; honest-fit uses **3002** → container **3000**. Compose: `env_file: .env` (shared `~/brain/.env`).
+**Host 3001** is already used by **tournament** on the host; legacy **honest-fit** (if running) uses **3002** → container **3000**. Compose: `env_file: .env` (shared `~/brain/.env`).
 
 **Removed:** litestream (wrong tool for Postgres — use pg_dump instead)
 
@@ -302,6 +315,8 @@ Retention: 7 backups
 
 ## Nginx Config
 
+**TLS:** Nginx uses the **Cloudflare origin** certificate **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`** (wildcard). Public HTTPS is terminated at Cloudflare (**Full (Strict)**); no Certbot on this VPS.
+
 ### brain.kendowney.com
 - `/ingest/` → `127.0.0.1:8000`
 - `/mcp/` → `127.0.0.1:3000`
@@ -315,9 +330,11 @@ Retention: 7 backups
 - `/images/adventures/` → static **`alias /home/brain/adventure-images/adventures/`** (long cache: `expires 30d`, `Cache-Control: public, immutable`)
 - **Nginx:** configured in `/etc/nginx/sites-available/brain` (enabled); apex `server_name kendowney.com` proxies to `4174` — not `sites-available/default` (disabled on VPS).
 
-### honestfit.kendowney.com
-- `/` → `127.0.0.1:3002` (Docker `brain-honest-fit`)
-- **Nginx:** `/etc/nginx/sites-available/honestfit` (enabled); TLS via Let’s Encrypt (certbot `--nginx`).
+### storybook.kendowney.com
+- K2DS Storybook — Nginx `server_name` + upstream as defined on the VPS (static build or local port per deploy).
+
+### honestfit.kendowney.com (removed)
+- **Decommissioned** — site config removed from the brain VPS. Do not use this hostname for the current product.
 
 ---
 
@@ -382,11 +399,13 @@ Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from t
 
 ---
 
-## Honest Fit Assessment (HFA)
+## Honest Fit Assessment (HFA) — legacy prototype
 
-URL: https://honestfit.kendowney.com  
-Source: [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) — local **`~/Sites/AI/HonestFitAssessment/`** — default branch **`master`** (not `main`).  
-VPS: `~/brain/honest-fit/` — build with `docker compose build honest-fit && docker compose up -d honest-fit`.
+**Public URL was** `https://honestfit.kendowney.com` — **decommissioned** (Nginx removed on brain VPS).
+
+**Current Honest Fit product:** **[https://honestfit.ai](https://honestfit.ai)** on dedicated VPS **64.23.165.78** — repo **[github.com/mtb24/honestfit](https://github.com/mtb24/honestfit)**.
+
+**Legacy prototype repo:** [github.com/mtb24/honest-fit-assessment](https://github.com/mtb24/honest-fit-assessment) — local **`~/Sites/AI/HonestFitAssessment/`** — default branch **`master`** (not `main`). Optional checkout on brain: `~/brain/honest-fit/` (no longer exposed on a public hostname from this server).
 
 | Topic | Detail |
 |-------|--------|
@@ -395,7 +414,7 @@ VPS: `~/brain/honest-fit/` — build with `docker compose build honest-fit && do
 | **Profile data** | **`candidateProfile.local.ts`** is source of truth in the HFA repo |
 | **Synced copy** | Profile synced to personal site: **`personal-site/app/data/kenProfile.ts`** (kendowney.com repo) |
 
-**Dockerfile notes:** Multi-stage Node 22 Alpine + pnpm; production serves with **`vite preview`** on port 3000. Runner image must include **`dist` + `src` + `public` + `node_modules`** (TanStack Start preview resolves the router from `src`). In **`vite.config.ts`**, **`preview.allowedHosts: true`** (or an explicit host list) — otherwise Nginx’s `Host: honestfit.kendowney.com` is rejected with **403** by Vite’s host check.
+**Dockerfile notes (if you still build the legacy container):** Multi-stage Node 22 Alpine + pnpm; production serves with **`vite preview`** on port 3000. Runner image must include **`dist` + `src` + `public` + `node_modules`**. In **`vite.config.ts`**, set **`preview.allowedHosts`** appropriately for whatever host you test against — a strict host check causes **403** if the `Host` header does not match.
 
 ---
 
@@ -499,6 +518,7 @@ rsync -av --delete --exclude='node_modules' --exclude='.git' \
   /Users/kendowney/Sites/kendowney.com/ \
   brain@147.182.240.24:~/brain/personal-site/
 
+# Legacy HFA only — honestfit.kendowney.com is not served from the brain VPS
 rsync -av --delete \
   --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='.pnpm-store' \
   --exclude='.env.local' \
@@ -528,7 +548,7 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **`~/brain/.env` is a real file** — not a symlink
 - **Adventure static files under `/home/brain/adventure-images/`** — Nginx serves them; **`chmod o+x /home/brain`** (and `a+rX` on the image tree) required or browsers get **403**
 - **Tournament + Strategy Master crons** — **paused** in `~/.openclaw/cron/jobs.json` (`enabled: false`); re-enable only after intentional review
-- **Honest Fit TLS** — cert for **honestfit.kendowney.com** expires **2026-06-25** (renew before)
+- **TLS on brain VPS** — **Cloudflare origin** cert at **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`**; **Full (Strict)** at Cloudflare; **no Certbot**
 - **kendowney.com** — lives in **`~/Sites/kendowney.com/`** / **github.com/mtb24/kendowney.com**, not under SecondBrain; **`docker compose`** in SecondBrain no longer defines `personal-site`
 - **Cortex refuses unsupervised action** — correct per AGENTS.md
 - **`routeTree.gen.ts`** — generated by TanStack Router Vite plugin at build time. If you see `createFileRoute arg not assignable to undefined`, run `npm run build` inside `mission-control/` to regenerate it. Commit the result.
