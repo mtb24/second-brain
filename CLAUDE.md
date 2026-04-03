@@ -23,8 +23,8 @@ something is wrong.
 
 ## Infrastructure (brain VPS)
 - **DNS:** **`kendowney.com`** is authoritative in **Cloudflare** (migrated from DigitalOcean). The DigitalOcean DNS zone for that domain is obsolete and can be deleted.
-- **TLS:** Cloudflare **origin** certificate (wildcard **`*.kendowney.com`**) on the VPS at **`/etc/ssl/cloudflare/kendowney.com.pem`** and **`/etc/ssl/cloudflare/kendowney.com.key`**. Edge SSL mode **Full (Strict)**; **no Certbot** on the brain server.
-- **Honest Fit (current product):** **https://honestfit.ai** on **64.23.165.78** — not on the brain VPS. **`honestfit.kendowney.com` is decommissioned**; do not treat it as a live site or deployment target.
+- **TLS (brain VPS, split):** **`kendowney.com`** and **`www.kendowney.com`** → Cloudflare **Origin CA** at **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`** (for origin ↔ Cloudflare **Full (Strict)**). **`storybook.kendowney.com`**, **`mission.kendowney.com`**, **`brain.kendowney.com`** → **Let's Encrypt** via Certbot (**`/etc/letsencrypt/live/<hostname>/`**). **Never** point those three Nginx vhosts at the origin PEM — browsers will not trust it. If that mistake happens, revert **`ssl_certificate`** / **`ssl_certificate_key`** to the Let's Encrypt paths and reload Nginx (see **BRAIN.md** → DNS & TLS / Nginx Config).
+- **Honest Fit (current product):** **https://honestfit.ai** on **64.23.165.78** — not routed through the brain VPS; treat only **honestfit.ai** as the live product URL.
 - **Email:** **`ken@kendowney.com`** can be forwarded via Cloudflare Email Routing to Gmail when configured.
 
 ## Deploy Pipeline

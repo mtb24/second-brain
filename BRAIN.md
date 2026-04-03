@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-02
+Last updated: 2026-04-03
 
 ---
 
@@ -30,7 +30,7 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | **mission.kendowney.com** | Mission Control | Docker **4173**; **app-level** auth (username + bcrypt + HMAC session cookie — not Nginx basic auth) |
 | **brain.kendowney.com** | Ingest API + MCP | If still enabled — see **Nginx Config** |
 
-**Decommissioned:** **`honestfit.kendowney.com`** — Nginx vhost removed; not a live site. **Honest Fit** (current product) is **https://honestfit.ai** on dedicated VPS **64.23.165.78** (see **github.com/mtb24/honestfit**).
+**Honest Fit** (current product) is **https://honestfit.ai** on dedicated VPS **64.23.165.78** (see **github.com/mtb24/honestfit**). It is not served from the brain VPS.
 
 ---
 
@@ -51,7 +51,9 @@ A personal operating system / second brain running on a DigitalOcean VPS. Ingest
 | **DNS** | **`kendowney.com`** is authoritative in **Cloudflare** (zone migrated from DigitalOcean). The **DigitalOcean DNS zone for kendowney.com can be deleted** — it is no longer authoritative. |
 | **Proxy** | **Orange cloud** (proxied) on records that should pass through Cloudflare. |
 | **SSL mode** | **Full (Strict)** in the Cloudflare SSL/TLS settings. |
-| **Origin cert** | Wildcard **`*.kendowney.com`** (covers subdomains) — PEM/key on the brain VPS: **`/etc/ssl/cloudflare/kendowney.com.pem`** and **`/etc/ssl/cloudflare/kendowney.com.key`**. **No Certbot** on this server (removed). |
+| **Origin cert (apex + www only)** | Cloudflare **Origin CA** PEM/key on the brain VPS: **`/etc/ssl/cloudflare/kendowney.com.pem`** and **`/etc/ssl/cloudflare/kendowney.com.key`**. Use these **only** for Nginx `server_name` **`kendowney.com`** and **`www.kendowney.com`** in **`/etc/nginx/sites-available/brain`**. They are **not** trusted by browsers if a client hits the origin directly. |
+| **Public certs (subdomains)** | **`storybook.kendowney.com`**, **`mission.kendowney.com`**, and **`brain.kendowney.com`** must use **Let's Encrypt** in Nginx: **`/etc/letsencrypt/live/<hostname>/fullchain.pem`** and **`privkey.pem`** (Certbot **`nginx`** authenticator). Browsers and tools connect to these hostnames on the origin; the Cloudflare origin cert **must not** be wired to those vhosts. |
+| **If someone reverts wrongly** | If **`ssl_certificate`** on storybook/mission/brain points at **`/etc/ssl/cloudflare/kendowney.com.pem`**, browsers show **Not secure** (untrusted issuer, wrong chain). **Fix:** set those three vhosts back to the Let's Encrypt paths above, then **`sudo nginx -t && sudo systemctl reload nginx`**. Renewals: **`sudo certbot renew`** (systemd timer usually installed). |
 | **Email** | **Cloudflare Email Routing:** **`ken@kendowney.com`** → Gmail when configured. |
 
 ### SSH keys
@@ -140,7 +142,7 @@ The server checkout uses a **deploy key**; **`main`** is the default branch (his
 │       └── server/
 │           └── openclawGateway.ts
 ├── personal-site/              ← kendowney.com **content only** (rsync from ~/Sites/kendowney.com/ — not in SecondBrain git)
-├── honest-fit/                 ← legacy HFA tree (optional); not served at honestfit.kendowney.com (decommissioned)
+├── honest-fit/                 ← legacy HFA tree (optional); not exposed publicly from this server
 │   └── Dockerfile
 ├── tournament/                 ← Trading tournament (TypeScript)
 └── archive/                    ← Old compose references
@@ -159,7 +161,7 @@ Env: `~/brain/.env` (real file, not symlink)
 | ingest-api | brain-ingest | 127.0.0.1:8000 | custom (Python 3.12) |
 | mcp-server | brain-mcp | 127.0.0.1:3000 | custom (Python 3.12) |
 | mission-control | brain-mission | 127.0.0.1:4173 | custom (Node 22 Alpine) |
-| honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | **Legacy:** still in compose if the tree exists; **honestfit.kendowney.com** vhost removed — not a public URL. Current Honest Fit app: **honestfit.ai** (dedicated VPS). |
+| honest-fit | brain-honest-fit | 127.0.0.1:3002→3000 | **Legacy:** still in compose if the tree exists — not a public URL from this VPS. Current Honest Fit app: **honestfit.ai** (dedicated VPS). |
 
 **kendowney.com (`brain-personal-site`, port 4174):** Source is **https://github.com/mtb24/kendowney.com** → rsync to `~/brain/personal-site/`. It is **not** a service in SecondBrain’s `docker-compose.yml`; build with `docker compose` from **`~/brain/personal-site/`** using **`docker-compose.yml`** in the kendowney.com repo (external `brain_default` network), or maintain an equivalent stanza on the VPS.
 
@@ -315,7 +317,7 @@ Retention: 7 backups
 
 ## Nginx Config
 
-**TLS:** Nginx uses the **Cloudflare origin** certificate **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`** (wildcard). Public HTTPS is terminated at Cloudflare (**Full (Strict)**); no Certbot on this VPS.
+**TLS (split):** **`kendowney.com`** and **`www.kendowney.com`** use the Cloudflare **origin** cert at **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`**. **`brain.kendowney.com`**, **`mission.kendowney.com`**, and **`storybook.kendowney.com`** use **Let's Encrypt** under **`/etc/letsencrypt/live/<hostname>/`**. Do **not** point the three subdomains at the origin PEM; see **DNS & TLS (Cloudflare)** for the revert note if they break.
 
 ### brain.kendowney.com
 - `/ingest/` → `127.0.0.1:8000`
@@ -333,8 +335,8 @@ Retention: 7 backups
 ### storybook.kendowney.com
 - K2DS Storybook — Nginx `server_name` + upstream as defined on the VPS (static build or local port per deploy).
 
-### honestfit.kendowney.com (removed)
-- **Decommissioned** — site config removed from the brain VPS. Do not use this hostname for the current product.
+### Honest Fit (not on brain VPS)
+- **honestfit.ai** is on the dedicated Honest Fit VPS. No Nginx vhost for that product on the brain server.
 
 ---
 
@@ -400,8 +402,6 @@ Persisted at `~/.openclaw/cron/jobs.json`. **Note:** `openclaw cron list` from t
 ---
 
 ## Honest Fit Assessment (HFA) — legacy prototype
-
-**Public URL was** `https://honestfit.kendowney.com` — **decommissioned** (Nginx removed on brain VPS).
 
 **Current Honest Fit product:** **[https://honestfit.ai](https://honestfit.ai)** on dedicated VPS **64.23.165.78** — repo **[github.com/mtb24/honestfit](https://github.com/mtb24/honestfit)**.
 
@@ -520,7 +520,7 @@ rsync -av --delete --exclude='node_modules' --exclude='.git' \
   /Users/kendowney/Sites/kendowney.com/ \
   brain@147.182.240.24:~/brain/personal-site/
 
-# Legacy HFA only — honestfit.kendowney.com is not served from the brain VPS
+# Legacy HFA only — not served publicly from the brain VPS
 rsync -av --delete \
   --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='.pnpm-store' \
   --exclude='.env.local' \
@@ -550,7 +550,7 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **`~/brain/.env` is a real file** — not a symlink
 - **Adventure static files under `/home/brain/adventure-images/`** — Nginx serves them; **`chmod o+x /home/brain`** (and `a+rX` on the image tree) required or browsers get **403**
 - **Tournament + Strategy Master crons** — **paused** in `~/.openclaw/cron/jobs.json` (`enabled: false`); re-enable only after intentional review
-- **TLS on brain VPS** — **Cloudflare origin** cert at **`/etc/ssl/cloudflare/kendowney.com.pem`** / **`.key`**; **Full (Strict)** at Cloudflare; **no Certbot**
+- **TLS on brain VPS** — **Split:** apex/www → Cloudflare **origin** **`/etc/ssl/cloudflare/kendowney.com.{pem,key}`**; **storybook** / **mission** / **brain** → **Let's Encrypt** only. Re-pointing those subdomains at the origin cert breaks browser trust; revert to **`/etc/letsencrypt/live/<host>/fullchain.pem`** (see **DNS & TLS** and **Nginx Config**)
 - **kendowney.com** — lives in **`~/Sites/kendowney.com/`** / **github.com/mtb24/kendowney.com**, not under SecondBrain; **`docker compose`** in SecondBrain no longer defines `personal-site`
 - **Cortex refuses unsupervised action** — correct per AGENTS.md
 - **`routeTree.gen.ts`** — generated by TanStack Router Vite plugin at build time. If you see `createFileRoute arg not assignable to undefined`, run `npm run build` inside `mission-control/` to regenerate it. Commit the result.
