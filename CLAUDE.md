@@ -50,6 +50,25 @@ Services and their paths:
   flagging the conflict first
 - Prefer explicit over clever — this codebase needs to be readable in 6 months
 
+## Coding agents
+
+## Claude Code
+
+This repo is used with Claude Code (CLI). On session start,
+read BRAIN.md for implementation details and gotchas. Key
+commands:
+
+- `pnpm run dev` — local dev server
+- `pnpm run build` — verify production build before committing
+- `pnpm run typecheck` — must pass before any PR
+- `pnpm run test` — unit tests
+- `pnpm run test:storybook` — component tests
+
+Deploy to production: `HF_VPS_HOST=root@64.23.165.78 ./deploy/deploy.sh`
+
+Follow the git workflow in this file — feature branches,
+PRs, no direct pushes to main.
+
 ## When searching the brain
 - Always scope queries to the current project_tag
 - Surface relevant past decisions before suggesting new approaches
