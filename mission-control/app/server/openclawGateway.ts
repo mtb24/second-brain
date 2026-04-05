@@ -217,7 +217,7 @@ async function withGateway<T>(
             client: {
               id: 'webchat-ui',
               mode: 'webchat',
-              version: '2026.3.13',
+              version: '2026.4.2',
               platform: process.platform,
             },
           },

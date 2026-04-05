@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-02
+Last updated: 2026-04-05
 
 ---
 
@@ -555,6 +555,7 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **Docker bridge IP** for `brain_default` is `172.19.0.1` (not 172.18.0.1)
 - **OpenClaw is trusted-proxy only** — must go through Nginx, never direct ws://
 - **`openclaw cron list`** (CLI on the VPS) may **fail with a WebSocket handshake error** to `127.0.0.1:18789` — **`~/.openclaw/cron/jobs.json` on disk** is the reliable source for scheduled jobs
+- **OpenClaw gateway down → 502** — If **`openclaw-gateway`** (systemd **user** service for **`brain`**) is **inactive**, nothing listens on **18789** and Nginx returns **502** for **`/openclaw/`**; Mission Control’s OpenClaw APIs fail the same way. Typical after an npm upgrade if the service was stopped and not restarted. Fix: **`systemctl --user start openclaw-gateway`**, then confirm **`ss -tlnp | grep 18789`**
 - **Git default branch on the VPS** is **`main`** (repo was historically `master` — **do not recreate `master`**)
 - **Auto-researched / hand-authored strategy docs** must use the **declarative doc format** enforced by `_sanitizeStrategyDoc` in `tournament/src/orchestrator.ts` (prompt-native fields only; dollar PnL exits; closing line `Respond with JSON only. Never explain your reasoning.`)
 - **`B2_APP_KEY`** — never `B2_APPLICATION_KEY`
@@ -572,4 +573,4 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **Mission Control `MC_PASSWORD_HASH` in `~/brain/.env`** — Docker Compose treats `$` as variable interpolation; use `$$` per dollar sign in the bcrypt string or the hash is corrupted at container start.
 - **`COINGECKO_API_KEY` missing from container** — tournament silently falls back to anonymous CoinGecko tier → 429 errors. Verify: `docker exec brain-tournament env | grep COINGECKO`. Restart with env: `set -a && source ~/brain/.env && set +a && docker compose up -d --force-recreate tournament`. TODO: add `env_file: .env` to tournament service in docker-compose.yml.
 - **OB1 `project_tag: off-road-moto`** — used for personal moto/Baja photo captures via Telegram.
-- **OpenClaw updated** 2026-04-01: `2026.3.13` → `2026.3.28`.
+- **OpenClaw** on VPS: **`2026.4.2`** (2026-04-05). Keep Mission Control’s gateway **`connect` `client.version`** in [mission-control/app/server/openclawGateway.ts](mission-control/app/server/openclawGateway.ts) aligned with **`/usr/bin/openclaw --version`**. History: 2026-04-01 `2026.3.13` → `2026.3.28`, then `2026.4.2`.
