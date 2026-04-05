@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-05
+Last updated: 2026-04-04
 
 ---
 
@@ -386,7 +386,7 @@ Retention: 7 backups
 - **Never use `ws://172.19.0.1:18789` directly** — trusted-proxy only works via Nginx
 - Docker bridge IP for `brain_default` network: `172.19.0.1`
 - OpenClaw runs as systemd user service, port 18789
-- Agent: **Cortex 🧠**, model: `claude-sonnet-4-6`
+- Agent: **Cortex 🧠** — default model is set in **`agents.defaults.model.primary`** in `openclaw.json` (currently **Google Gemini** via `GEMINI_API_KEY`). The id must exist in the **bundled model catalog** for the installed OpenClaw version (e.g. **`google/gemini-2.5-flash`**); preview aliases can disappear on upgrade and cause Telegram’s generic *“Something went wrong…”* while **`journalctl --user -u openclaw-gateway`** shows **`Unknown model: …`**.
 - Telegram bot: `@kensbrainbot`, Ken telegramUserId: `7221971575`
 
 ### Workspace skills (VPS)
@@ -574,3 +574,4 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **`COINGECKO_API_KEY` missing from container** — tournament silently falls back to anonymous CoinGecko tier → 429 errors. Verify: `docker exec brain-tournament env | grep COINGECKO`. Restart with env: `set -a && source ~/brain/.env && set +a && docker compose up -d --force-recreate tournament`. TODO: add `env_file: .env` to tournament service in docker-compose.yml.
 - **OB1 `project_tag: off-road-moto`** — used for personal moto/Baja photo captures via Telegram.
 - **OpenClaw** on VPS: **`2026.4.2`** (2026-04-05). Keep Mission Control’s gateway **`connect` `client.version`** in [mission-control/app/server/openclawGateway.ts](mission-control/app/server/openclawGateway.ts) aligned with **`/usr/bin/openclaw --version`**. History: 2026-04-01 `2026.3.13` → `2026.3.28`, then `2026.4.2`.
+- **Cortex Telegram “Something went wrong…” after OpenClaw upgrade** — Check **`journalctl --user -u openclaw-gateway`** for **`Unknown model:`** or **`Embedded agent failed before reply`**. **`google/gemini-2.5-flash-preview`** is not in the **2026.4.2** catalog; use **`google/gemini-2.5-flash`** (or another id from the install’s registry). **2026-04-05:** fixed on VPS by updating **`agents.defaults.model.primary`** in **`~/.openclaw/openclaw.json`** and **`systemctl --user restart openclaw-gateway`**. (Separately, npm **2026.4.2** predates upstream Telegram media fix [#59971](https://github.com/openclaw/openclaw/pull/59971); **`openclaw update`** when a newer release ships if photo/link turns fail on legacy dir layouts.)
