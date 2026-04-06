@@ -1,0 +1,4 @@
+# OpenClaw rejects Ollama models with context < 16000 (embedded/gateway failover).
+# Base image: same family as prior fallback (llama3.2).
+FROM llama3.2
+PARAMETER num_ctx 16384

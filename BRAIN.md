@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-04
+Last updated: 2026-04-06
 
 ---
 
@@ -575,3 +575,4 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 - **OB1 `project_tag: off-road-moto`** — used for personal moto/Baja photo captures via Telegram.
 - **OpenClaw** on VPS: **`2026.4.2`** (2026-04-05). Keep Mission Control’s gateway **`connect` `client.version`** in [mission-control/app/server/openclawGateway.ts](mission-control/app/server/openclawGateway.ts) aligned with **`/usr/bin/openclaw --version`**. History: 2026-04-01 `2026.3.13` → `2026.3.28`, then `2026.4.2`.
 - **Cortex Telegram “Something went wrong…” after OpenClaw upgrade** — Check **`journalctl --user -u openclaw-gateway`** for **`Unknown model:`** or **`Embedded agent failed before reply`**. **`google/gemini-2.5-flash-preview`** is not in the **2026.4.2** catalog; use **`google/gemini-2.5-flash`** (or another id from the install’s registry). **2026-04-05:** fixed on VPS by updating **`agents.defaults.model.primary`** in **`~/.openclaw/openclaw.json`** and **`systemctl --user restart openclaw-gateway`**. (Separately, npm **2026.4.2** predates upstream Telegram media fix [#59971](https://github.com/openclaw/openclaw/pull/59971); **`openclaw update`** when a newer release ships if photo/link turns fail on legacy dir layouts.)
+- **OpenClaw Ollama fallback: context window too small (2048 vs min 16000)** — After a **Gemini rate limit**, failover to stock **`ollama/llama3.2:latest`** fails because OpenClaw requires **≥16000** tokens. Fix on VPS: create **`llama3.2-16k`** from [openclaw/skills/_shared/Modelfile.llama3.2-16k](openclaw/skills/_shared/Modelfile.llama3.2-16k) (`ollama pull llama3.2` then **`ollama create llama3.2-16k -f ~/brain/openclaw/skills/_shared/Modelfile.llama3.2-16k`**). Point **Telegram/gateway** fallbacks at **`ollama/llama3.2-16k:latest`** (`openclaw models --agent main fallbacks …` and/or **`openclaw.json`**), then **`systemctl --user restart openclaw-gateway`**. Repo wrapper **`model-fallback-runner.sh`** defaults to the same id for cron/script runs.

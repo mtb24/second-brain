@@ -1,1 +1,6 @@
-Execute the strategy-master skill (scheduled automation — authorized). Follow ~/.openclaw/workspace/skills/strategy-master/SKILL.md completely: query OB1 (and DB fallback) for the last 24h of tournament data, analyze winners/losers, generate 1–2 new declarative strategy candidates, message Ken on Telegram with plain-English proposals and wait for YES/NO per strategy, INSERT on YES or log rejections to OB1 on NO. Use bash, curl, docker exec to brain-db, and /usr/bin/openclaw as the skill specifies. Reply with one line: done, or failed + reason.
+Run this command on the VPS and return exactly one line: `done` or `failed: <reason>`.
+
+Command:
+bash ~/brain/tournament/scripts/strategy-master-cron.sh
+
+Do not run the strategy workflow directly in this cron turn; delegate to the script above so model fallback policy is enforced.

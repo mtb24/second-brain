@@ -15,6 +15,10 @@ Tournament rounds run **every 3 hours** (see `Tournament round (3h)` cron). This
 skill runs **every 12 hours** at **06:00 and 18:00 UTC** — between round times so
 you are not competing with the orchestrator.
 
+This skill should be launched through the fallback-aware runner:
+`tournament/scripts/strategy-master-cron.sh` → `openclaw/skills/_shared/model-fallback-runner.sh`.
+That wrapper enforces Google primary, Ollama fallback (`llama3.2-16k`, 16k+ context required by OpenClaw), 60s cooldown after rate limits, and Telegram notification on fallback status.
+
 ## Constants
 
 - **Telegram DM (Ken):** `7221971575` — same as `TELEGRAM_TARGET` in `~/brain/.env`
