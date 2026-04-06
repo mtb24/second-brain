@@ -79,3 +79,7 @@ Two prompt files are used intentionally:
   the real strategy-master task prompt passed by `strategy-master-cron.sh` into `openclaw agent`.
 
 This split avoids recursive self-invocation and keeps fallback policy centralized in the wrapper script.
+
+## Repo → VPS
+
+Rsync **`openclaw/skills/_shared/`** to **`~/brain/openclaw/skills/_shared/`** on the VPS (same as the rest of **`~/brain/openclaw/`**). This folder is **not** an OpenClaw workspace skill — only **`../strategy-master/`** (and similar) need an extra copy under **`~/.openclaw/workspace/skills/`**; see **BRAIN.md** → OpenClaw → workspace skills, and **`tournament/scripts/cron-update-strategy-master.md`** § **1b**.

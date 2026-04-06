@@ -86,6 +86,7 @@ Optional paths tracked in git:
 
 - `openclaw/skills/strategy-master/` — mirror of the VPS OpenClaw workspace skill (see **Strategy Master Agent** below)
 - `openclaw/skills/adventure-photo/` — mirror of **adventure-photo** (Telegram → VPS static images → Adventures page; see **Workspace skills** below)
+- `openclaw/skills/_shared/` — **model-fallback-runner.sh**, **Modelfile.llama3.2-16k**, README (rsync to **`~/brain/openclaw/`** on the VPS; Ollama **`create`** uses the Modelfile there)
 
 Canonical workspace skills on the VPS (not necessarily mirrored here):
 
@@ -396,6 +397,8 @@ Retention: 7 backups
 | **Session close** | `~/.openclaw/workspace/skills/session-close/` (`SKILL.md`) | Deployed — summarizes session, proposes BRAIN.md edits, commits on approval |
 | **Strategy master** | `~/.openclaw/workspace/skills/strategy-master/` | Deployed — **12h** cron (currently **paused** with tournament — see **Tournament**) |
 | **Adventure photo** | `~/.openclaw/workspace/skills/adventure-photo/` | Deployed — Ken sends a photo on Telegram; Cortex asks for category (or uses caption); writes to **`/home/brain/adventure-images/adventures/<category>/`**, regenerates manifest via **`generate-adventure-manifest.mjs`** (`ADVENTURE_STAGING_ROOT` = that tree), rebuilds `personal-site` Docker; confirms with **`https://kendowney.com/images/adventures/...`** |
+
+**Git mirror vs runtime path:** OpenClaw reads skills from **`~/.openclaw/workspace/skills/<name>/`** on the VPS. Mirrored trees under **`~/brain/openclaw/skills/`** (from this repo) are **not** automatically the same copy. After editing **`SKILL.md`** (or other skill files) in git, **rsync** the skill directory to **`~/.openclaw/workspace/skills/<name>/`** on the server, then **`systemctl --user restart openclaw-gateway`** so Telegram / embedded Cortex load the update. Step-by-step for strategy-master: [tournament/scripts/cron-update-strategy-master.md](tournament/scripts/cron-update-strategy-master.md).
 
 ### OpenClaw cron (Gateway scheduler)
 
