@@ -1,6 +1,6 @@
 # BRAIN.md — Ken's Second Brain System
 
-Last updated: 2026-04-07
+Last updated: 2026-04-06
 
 ---
 
@@ -443,6 +443,8 @@ URL: https://mission.kendowney.com
 Stack: TanStack Start (SSR), Node 22 Alpine, port 4173
 
 Pages: Dashboard · Thoughts · Search · Agents · Trading · OpenClaw
+
+**OpenClaw health in the UI:** The dashboard **system health** card shows gateway **`channels.telegram.lastError`** when the **`health`** payload includes it (helps diagnose Telegram channel failures without SSH).
 
 **App-level auth (not Nginx):** Session cookie `mc_session` (HMAC-SHA256 with `MC_SESSION_SECRET`), bcrypt password via `MC_PASSWORD_HASH`, username **`MC_USERNAME`** (e.g. **`ken`**). Public routes: `/login`, `/logout` (POST clears session). All other pages and `/api/*` handlers require a valid session.
 

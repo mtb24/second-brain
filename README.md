@@ -9,7 +9,7 @@ A personal operating system running on a VPS. Captures thoughts, runs an AI agen
 Second Brain is a self-hosted system with four main capabilities:
 
 - **Thought ingestion** — capture notes, ideas, and context via Telegram or API. Stored with vector embeddings for semantic search.
-- **AI agent (Cortex)** — a persistent Claude-powered agent accessible via Telegram and a web dashboard. Reads project context, executes commands, and can make changes to the system autonomously.
+- **AI agent (Cortex)** — OpenClaw agent on the VPS (Telegram + Mission Control). Model routing is configured in OpenClaw (e.g. Google / Groq / local Ollama); see **BRAIN.md** → OpenClaw. Tournament bots may still use Anthropic separately.
 - **Trading tournament** — multiple Claude-powered bots compete in timed rounds using real CoinGecko market data. Each bot follows a different strategy (momentum, mean-reversion, breakout, etc.) and makes independent buy/sell/hold decisions. Results are tracked on a live leaderboard.
 - **Mission Control** — a web dashboard at `mission.kendowney.com` that shows system health, thought history, semantic search, agent status, and the tournament.
 
@@ -132,7 +132,7 @@ Live dashboard at `https://mission.kendowney.com`
 
 ## Cortex (AI Agent)
 
-Cortex is a Claude Sonnet agent running inside OpenClaw on the VPS. Accessible via:
+Cortex runs inside **OpenClaw** on the VPS. Primary/fallback models are configured in **`~/.openclaw/openclaw.json`** (see **BRAIN.md** → OpenClaw). Accessible via:
 - Telegram bot `@kensbrainbot`
 - Mission Control → OpenClaw page
 - Direct WebSocket connection
