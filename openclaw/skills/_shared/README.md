@@ -5,32 +5,44 @@ This folder contains launcher helpers that enforce model routing policy for Open
 ## Policy
 
 - Primary model: `google/gemini-2.5-flash`
-- Automatic fallback model: `ollama/llama3.2-16k:latest` (custom Ollama image with **num_ctx 16384**)
-- Anthropic: not configured by this wrapper
+- **Gateway / Telegram (Cortex):** On a **4GB RAM** VPS, **Ollama + OpenClaw’s 16k minimum** often cannot run when Gemini fails (see **BRAIN.md** gotcha). Configure fallbacks with **`openclaw models --agent main …`** so a **cloud** model (e.g. **`anthropic/claude-3-5-haiku-20241022`**) comes **before** any **`ollama/…`** id.
+- **Cron / scripted runs:** This repo’s **`model-fallback-runner.sh`** still uses **Ollama-only** fallback by default (no Anthropic) — override with env if you change policy.
 - Cooldown: 60 seconds after a primary rate-limit before trying primary again
 
 **Why not plain `llama3.2`?** OpenClaw’s gateway/embedded path requires an Ollama model whose context window is at least **16000** tokens. Stock `llama3.2` is often **2048**, which produces `FailoverError: Model context window too small` and Telegram’s generic failure message.
 
-## Ollama model on the VPS (one-time)
+## Ollama models on the VPS (one-time)
 
 After `rsync` of this repo to `~/brain/openclaw/`:
+
+**3B + 16k context** (heavier — may OOM on 4GB):
 
 ```bash
 ollama pull llama3.2
 ollama create llama3.2-16k -f ~/brain/openclaw/skills/_shared/Modelfile.llama3.2-16k
 ```
 
+**1B + 16k context** (recommended fallback on 4GB RAM):
+
+```bash
+ollama pull llama3.2:1b
+ollama create llama3.2-1b-16k -f ~/brain/openclaw/skills/_shared/Modelfile.llama3.2-1b-16k
+```
+
+Point **`agents.defaults.model.fallbacks`** in **`~/.openclaw/openclaw.json`** at **`ollama/llama3.2-1b-16k:latest`** first; register the same id under **`models.providers.ollama.models`** with **`contextWindow`: 16384**, then **`systemctl --user restart openclaw-gateway`**.
+
 Verify:
 
 ```bash
 curl -sf http://127.0.0.1:11434/api/show -d '{"name":"llama3.2-16k:latest"}' | jq '.model_info["llama.context_length"], .parameters'
+curl -sf http://127.0.0.1:11434/api/show -d '{"name":"llama3.2-1b-16k:latest"}' | jq '.model_info["llama.context_length"], .parameters'
 ```
 
 You should see context **16384** (or equivalent in `parameters`).
 
 ## Cortex / Telegram (gateway) fallback
 
-The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram** failover, `~/.openclaw/openclaw.json` must list the same Ollama id (or run `openclaw models --agent main fallbacks clear && openclaw models --agent main fallbacks add ollama/llama3.2-16k:latest`), then restart `openclaw-gateway`.
+The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram** failover, `~/.openclaw/openclaw.json` must list the Ollama id(s) (e.g. **`ollama/llama3.2-1b-16k:latest`** first on 4GB RAM), then restart `openclaw-gateway`.
 
 ## Script
 

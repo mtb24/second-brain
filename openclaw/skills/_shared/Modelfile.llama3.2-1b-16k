@@ -1,0 +1,4 @@
+# Same OpenClaw min context (16000) as llama3.2-16k, but base weights are 1B — fits ~4GB VPS RAM.
+# Use when llama3.2 (3B) + 16k KV exceeds available memory (Ollama: "model requires more system memory …").
+FROM llama3.2:1b
+PARAMETER num_ctx 16384

@@ -6,6 +6,7 @@ type HealthSnapshot = {
     telegram?: {
       configured: boolean
       running: boolean
+      lastError?: string | null
       probe?: { bot?: { username?: string } }
     }
   }
@@ -63,6 +64,17 @@ export function SystemHealthPanel() {
                 @{data.channels.telegram.probe.bot.username}
               </div>
             )}
+            {data.channels?.telegram?.lastError ? (
+              <div
+                className="mt-2 rounded border border-amber-900/80 bg-amber-950/40 p-2 text-[11px] leading-snug text-amber-100/90"
+                title={data.channels.telegram.lastError}
+              >
+                <span className="font-medium text-amber-200/90">last channel error</span>
+                <div className="mt-1 break-words font-mono text-amber-100/80">
+                  {data.channels.telegram.lastError}
+                </div>
+              </div>
+            ) : null}
           </div>
           <div>
             <div className="text-slate-400">Agents</div>
