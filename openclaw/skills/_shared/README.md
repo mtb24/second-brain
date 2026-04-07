@@ -5,8 +5,8 @@ This folder contains launcher helpers that enforce model routing policy for Open
 ## Policy
 
 - Primary model: `google/gemini-2.5-flash`
-- **Gateway / Telegram (Cortex):** On a **4GB RAM** VPS, **Ollama + OpenClaw’s 16k minimum** often cannot run when Gemini fails (see **BRAIN.md** gotcha). Configure fallbacks with **`openclaw models --agent main …`** so a **cloud** model (e.g. **`anthropic/claude-3-5-haiku-20241022`**) comes **before** any **`ollama/…`** id.
-- **Cron / scripted runs:** This repo’s **`model-fallback-runner.sh`** still uses **Ollama-only** fallback by default (no Anthropic) — override with env if you change policy.
+- **Gateway / Telegram (Cortex):** Use **Groq** as cloud fallback (**`GROQ_API_KEY`** in **`~/.openclaw/.env`**, gateway systemd **`EnvironmentFile`** recommended — see **BRAIN.md** → OpenClaw). Example fallbacks: **`groq/llama-3.1-8b-instant`**, **`groq/llama-3.3-70b-versatile`**, then **`ollama/…`** last. **No Anthropic** on the Cortex path.
+- **Cron / scripted runs:** **`model-fallback-runner.sh`** uses **Ollama-only** fallback by default — override **`OPENCLAW_FALLBACK_MODEL`** if you add another provider to scripted runs.
 - Cooldown: 60 seconds after a primary rate-limit before trying primary again
 
 **Why not plain `llama3.2`?** OpenClaw’s gateway/embedded path requires an Ollama model whose context window is at least **16000** tokens. Stock `llama3.2` is often **2048**, which produces `FailoverError: Model context window too small` and Telegram’s generic failure message.
@@ -29,7 +29,7 @@ ollama pull llama3.2:1b
 ollama create llama3.2-1b-16k -f ~/brain/openclaw/skills/_shared/Modelfile.llama3.2-1b-16k
 ```
 
-Point **`agents.defaults.model.fallbacks`** in **`~/.openclaw/openclaw.json`** at **`ollama/llama3.2-1b-16k:latest`** first; register the same id under **`models.providers.ollama.models`** with **`contextWindow`: 16384**, then **`systemctl --user restart openclaw-gateway`**.
+Register custom Ollama ids under **`models.providers.ollama.models`** with **`contextWindow`: 16384** when using merge mode, then **`systemctl --user restart openclaw-gateway`**.
 
 Verify:
 
@@ -42,7 +42,7 @@ You should see context **16384** (or equivalent in `parameters`).
 
 ## Cortex / Telegram (gateway) fallback
 
-The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram** failover, `~/.openclaw/openclaw.json` must list the Ollama id(s) (e.g. **`ollama/llama3.2-1b-16k:latest`** first on 4GB RAM), then restart `openclaw-gateway`.
+The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram** failover, use **`openclaw models --agent main fallbacks …`** (Groq before Ollama), ensure **`~/.openclaw/.env`** has **`GROQ_API_KEY`** + **`GEMINI_API_KEY`**, then restart **`openclaw-gateway`**.
 
 ## Script
 

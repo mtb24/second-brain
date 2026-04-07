@@ -2,7 +2,7 @@
 # OpenClaw model routing wrapper:
 # - Primary model: google/gemini-2.5-flash
 # - Local fallback: llama3.2-16k (Ollama) — OpenClaw requires >= 16k ctx; plain llama3.2 is 2048
-# - Avoid Anthropic routing entirely
+# - Cron path is Ollama-only (gateway/Telegram Cortex uses Groq + Ollama per BRAIN.md)
 # - On primary rate-limit, set 60s cooldown and retry once on local fallback
 
 set -euo pipefail
