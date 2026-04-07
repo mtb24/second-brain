@@ -11,6 +11,12 @@ This folder contains launcher helpers that enforce model routing policy for Open
 
 **Why not plain `llama3.2`?** OpenClaw’s gateway/embedded path requires an Ollama model whose context window is at least **16000** tokens. Stock `llama3.2` is often **2048**, which produces `FailoverError: Model context window too small` and Telegram’s generic failure message.
 
+## Gemma 4 on Ollama (Google partnership)
+
+- **Pull:** `ollama pull gemma4:e2b` (smallest **edge** build in the library; ~**7.2 GB**). **Requires a recent Ollama** (e.g. **≥0.20** — **0.18** returns **412** on pull).
+- **OpenClaw:** Register **`ollama/gemma4:e2b`** under **`models.providers.ollama.models`** with **`contextWindow`: 131072** (or rely on Ollama’s reported length) — **no Modelfile** needed for the 16k minimum.
+- **RAM:** The **4GB** brain VPS is **too small** for **`gemma4:e2b`** in practice: Ollama reported **~7.3 GiB** required vs **~3.9 GiB** available on a live **`/api/generate`** probe (**2026-04-07**). Use Gemma 4 when the host has **~8GB+ RAM** (or Ollama runs on a larger machine). Until then, **`llama3.2-1b-16k`** remains the realistic local fallback if it fits.
+
 ## Ollama models on the VPS (one-time)
 
 After `rsync` of this repo to `~/brain/openclaw/`:
