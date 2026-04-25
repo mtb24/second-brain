@@ -137,6 +137,12 @@ Cortex runs inside **OpenClaw** on the VPS. Primary/fallback models are configur
 - Mission Control → OpenClaw page
 - Direct WebSocket connection
 
+Current live routing on the VPS, as of **2026-04-24**:
+- Primary: `digitalocean/anthropic-claude-4.6-sonnet`
+- Fallbacks: `ollama/qwen2.5:0.5b`, then `ollama/llama3.2-1b-16k:latest`
+
+The DigitalOcean primary uses Serverless Inference's OpenAI-compatible API at `https://inference.do-ai.run/v1` with `DIGITALOCEAN_MODEL_ACCESS_KEY` loaded from `~/.openclaw/.env`. The local Ollama fallbacks remain available for degraded mode, but the primary no longer burns Gemini quota or hits Groq TPM limits on long Telegram sessions.
+
 Cortex can read and write files, run shell commands, query the DB, and push to GitHub. It follows strict rules in `AGENTS.md` — it refuses unsupervised autonomous action and will not push credentials.
 
 ---
@@ -186,6 +192,7 @@ Key variables:
 | `API_SECRET` | Ingest API authentication |
 | `MCP_SECRET` | MCP server authentication |
 | `ANTHROPIC_API_KEY` | Claude API (used by Cortex and tournament bots) |
+| `DIGITALOCEAN_MODEL_ACCESS_KEY` | DigitalOcean Serverless Inference model access key for OpenClaw/Cortex |
 | `COINGECKO_API_KEY` | Market data for tournament |
 | `OPENCLAW_GATEWAY_URL` | WebSocket endpoint for Cortex |
 | `TOURNAMENT_BOT_COUNT` | Number of bots per round (default: 3) |
@@ -207,7 +214,7 @@ Postgres is backed up daily via `pg_dump`:
 
 ## Known gotchas
 
-- **OpenClaw auth** — uses trusted-proxy mode. Mission Control must connect via `wss://mission.kendowney.com/openclaw/` through Nginx, not directly. Direct connections will be rejected.
+- **OpenClaw auth** — the repo's intended architecture is still trusted-proxy mode through `wss://mission.kendowney.com/openclaw/`, but the live VPS had drifted by **2026-04-17** to token-auth + loopback bind. Telegram works against that runtime, but Mission Control's embedded OpenClaw websocket currently fails with `device identity required` until the gateway auth setup is realigned.
 - **Docker bridge IP** — `brain_default` network gateway is `172.19.0.1`
 - **Vector extension** — `initdb/01-init.sql` auto-installs on fresh DB. If DB already exists: `docker exec brain-db psql -U brain -d brain -c "CREATE EXTENSION IF NOT EXISTS vector;"`
 - **Tournament tables** — not in `initdb/01-init.sql`. Must be created via migration after a fresh DB wipe.

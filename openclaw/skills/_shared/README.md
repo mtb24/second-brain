@@ -4,8 +4,8 @@ This folder contains launcher helpers that enforce model routing policy for Open
 
 ## Policy
 
-- Primary model: `google/gemini-2.5-flash`
-- **Gateway / Telegram (Cortex):** Use **Groq** as cloud fallback (**`GROQ_API_KEY`** in **`~/.openclaw/.env`**, gateway systemd **`EnvironmentFile`** recommended — see **BRAIN.md** → OpenClaw). Example fallbacks: **`groq/llama-3.1-8b-instant`**, **`groq/llama-3.3-70b-versatile`**, then **`ollama/…`** last. **No Anthropic** on the Cortex path.
+- **Live VPS routing (2026-04-24):** `digitalocean/anthropic-claude-4.6-sonnet` primary, `ollama/qwen2.5:0.5b` first fallback, `ollama/llama3.2-1b-16k:latest` second fallback.
+- **Gateway / Telegram (Cortex):** Prefer **DigitalOcean Serverless Inference** as the cloud primary, using OpenClaw's OpenAI-compatible provider config (`baseUrl: https://inference.do-ai.run/v1`, `api: openai-completions`, key from `DIGITALOCEAN_MODEL_ACCESS_KEY`). Keep small local Ollama models as degraded fallbacks on the 4GB VPS.
 - **Cron / scripted runs:** **`model-fallback-runner.sh`** uses **Ollama-only** fallback by default — override **`OPENCLAW_FALLBACK_MODEL`** if you add another provider to scripted runs.
 - Cooldown: 60 seconds after a primary rate-limit before trying primary again
 
@@ -21,6 +21,12 @@ This folder contains launcher helpers that enforce model routing policy for Open
 
 After `rsync` of this repo to `~/brain/openclaw/`:
 
+**0.5B Qwen primary** (current live default on the 4GB VPS):
+
+```bash
+ollama pull qwen2.5:0.5b
+```
+
 **3B + 16k context** (heavier — may OOM on 4GB):
 
 ```bash
@@ -35,20 +41,33 @@ ollama pull llama3.2:1b
 ollama create llama3.2-1b-16k -f ~/brain/openclaw/skills/_shared/Modelfile.llama3.2-1b-16k
 ```
 
-Register custom Ollama ids under **`models.providers.ollama.models`** with **`contextWindow`: 16384** when using merge mode, then **`systemctl --user restart openclaw-gateway`**.
+Register custom Ollama ids under **`models.providers.ollama.models`** when using merge mode, then **`systemctl --user restart openclaw-gateway`**.
+
+Current live tuning on the VPS:
+
+- `qwen2.5:0.5b` is kept warm via Ollama systemd keepalive
+- OpenClaw constrains both Telegram chat models to an **8k effective context budget**
+- Bootstrap and compaction limits are tightened to reduce local-model timeout risk on the VPS CPU
 
 Verify:
 
 ```bash
+curl -sf http://127.0.0.1:11434/api/show -d '{"name":"qwen2.5:0.5b"}' | jq '.model_info["qwen2.context_length"]'
 curl -sf http://127.0.0.1:11434/api/show -d '{"name":"llama3.2-16k:latest"}' | jq '.model_info["llama.context_length"], .parameters'
 curl -sf http://127.0.0.1:11434/api/show -d '{"name":"llama3.2-1b-16k:latest"}' | jq '.model_info["llama.context_length"], .parameters'
 ```
 
-You should see context **16384** (or equivalent in `parameters`).
+You should see Qwen report **32768** and the custom Llama variants report **16384** (or equivalent in `parameters`).
 
 ## Cortex / Telegram (gateway) fallback
 
-The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram** failover, use **`openclaw models --agent main fallbacks …`** (Groq before Ollama), ensure **`~/.openclaw/.env`** has **`GROQ_API_KEY`** + **`GEMINI_API_KEY`**, then restart **`openclaw-gateway`**.
+The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram**, the live VPS routing is currently maintained directly in **`~/.openclaw/openclaw.json`** with a DigitalOcean-first chain:
+
+1. `digitalocean/anthropic-claude-4.6-sonnet`
+2. `ollama/qwen2.5:0.5b`
+3. `ollama/llama3.2-1b-16k:latest`
+
+If Telegram starts timing out again, first inspect prompt size / compaction and the DigitalOcean response status before reintroducing Groq. The recent failure mode on the VPS was not provider unavailability alone; it was large Telegram sessions causing local timeouts, Groq TPM rejection, and then Gemini quota errors in sequence.
 
 ## Script
 
@@ -75,7 +94,8 @@ curl -sf http://127.0.0.1:11434/api/tags | jq .
 
 Expected:
 - HTTP success
-- a model name starting with `llama3.2-16k`
+- a model list including `qwen2.5:0.5b`
+- a model name starting with `llama3.2-1b-16k`
 
 Optional service check:
 

@@ -217,7 +217,7 @@ async function withGateway<T>(
             client: {
               id: 'webchat-ui',
               mode: 'webchat',
-              version: '2026.4.2',
+              version: '2026.4.23',
               platform: process.platform,
             },
           },
@@ -552,5 +552,4 @@ export async function getAgentDetail(agentId: string): Promise<AgentDetail> {
     }
   })
 }
-
 
