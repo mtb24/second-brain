@@ -4,8 +4,8 @@ This folder contains launcher helpers that enforce model routing policy for Open
 
 ## Policy
 
-- **Live VPS routing (2026-04-24):** `digitalocean/anthropic-claude-4.6-sonnet` primary, `ollama/qwen2.5:0.5b` first fallback, `ollama/llama3.2-1b-16k:latest` second fallback.
-- **Gateway / Telegram (Cortex):** Prefer **DigitalOcean Serverless Inference** as the cloud primary, using OpenClaw's OpenAI-compatible provider config (`baseUrl: https://inference.do-ai.run/v1`, `api: openai-completions`, key from `DIGITALOCEAN_MODEL_ACCESS_KEY`). Keep small local Ollama models as degraded fallbacks on the 4GB VPS.
+- **Live VPS routing (2026-04-25):** `digitalocean/openai-gpt-5.4-mini` primary, `ollama/qwen2.5:0.5b` first fallback, `ollama/llama3.2-1b-16k:latest` second fallback.
+- **Gateway / Telegram (Cortex):** Prefer **DigitalOcean Serverless Inference** as the cloud primary, using OpenClaw's OpenAI-compatible provider config (`baseUrl: https://inference.do-ai.run/v1`, `api: openai-completions`, key from `DIGITALOCEAN_MODEL_ACCESS_KEY`). The current default is DigitalOcean's `openai-gpt-5.4-mini` model so Cortex stays off Anthropic while preserving the DO route. Keep small local Ollama models as degraded fallbacks on the 4GB VPS.
 - **Cron / scripted runs:** **`model-fallback-runner.sh`** uses **Ollama-only** fallback by default — override **`OPENCLAW_FALLBACK_MODEL`** if you add another provider to scripted runs.
 - Cooldown: 60 seconds after a primary rate-limit before trying primary again
 
@@ -63,7 +63,7 @@ You should see Qwen report **32768** and the custom Llama variants report **1638
 
 The wrapper only affects commands it wraps (e.g. strategy-master cron). For **Telegram**, the live VPS routing is currently maintained directly in **`~/.openclaw/openclaw.json`** with a DigitalOcean-first chain:
 
-1. `digitalocean/anthropic-claude-4.6-sonnet`
+1. `digitalocean/openai-gpt-5.4-mini`
 2. `ollama/qwen2.5:0.5b`
 3. `ollama/llama3.2-1b-16k:latest`
 

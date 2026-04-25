@@ -137,8 +137,8 @@ Cortex runs inside **OpenClaw** on the VPS. Primary/fallback models are configur
 - Mission Control → OpenClaw page
 - Direct WebSocket connection
 
-Current live routing on the VPS, as of **2026-04-24**:
-- Primary: `digitalocean/anthropic-claude-4.6-sonnet`
+Current live routing on the VPS, as of **2026-04-25**:
+- Primary: `digitalocean/openai-gpt-5.4-mini`
 - Fallbacks: `ollama/qwen2.5:0.5b`, then `ollama/llama3.2-1b-16k:latest`
 
 The DigitalOcean primary uses Serverless Inference's OpenAI-compatible API at `https://inference.do-ai.run/v1` with `DIGITALOCEAN_MODEL_ACCESS_KEY` loaded from `~/.openclaw/.env`. The local Ollama fallbacks remain available for degraded mode, but the primary no longer burns Gemini quota or hits Groq TPM limits on long Telegram sessions.
