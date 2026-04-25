@@ -46,7 +46,7 @@ Register custom Ollama ids under **`models.providers.ollama.models`** when using
 Current live tuning on the VPS:
 
 - `qwen2.5:0.5b` is kept warm via Ollama systemd keepalive
-- OpenClaw constrains both Telegram chat models to an **8k effective context budget**
+- OpenClaw keeps local Telegram fallbacks at **16k+ effective context** so the gateway does not reject them before inference
 - Bootstrap and compaction limits are tightened to reduce local-model timeout risk on the VPS CPU
 
 Verify:
