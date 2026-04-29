@@ -7,6 +7,14 @@ import {
   MC_SESSION_COOKIE,
 } from './mcSession'
 
+function redirectToInvalidLogin(): never {
+  throw redirect({
+    to: '/login',
+    search: { error: 'invalid' as const },
+    statusCode: 303,
+  })
+}
+
 export async function handleMcLoginPost(request: Request): Promise<never> {
   const usernameEnv = process.env.MC_USERNAME
   const hashEnv = process.env.MC_PASSWORD_HASH
@@ -14,7 +22,13 @@ export async function handleMcLoginPost(request: Request): Promise<never> {
     throw new Error('MC_USERNAME and MC_PASSWORD_HASH must be set')
   }
 
-  const form = await request.formData()
+  let form: FormData
+  try {
+    form = await request.formData()
+  } catch {
+    redirectToInvalidLogin()
+  }
+
   const username = String(form.get('username') ?? '').trim()
   const password = String(form.get('password') ?? '')
 
@@ -23,11 +37,7 @@ export async function handleMcLoginPost(request: Request): Promise<never> {
     validUser && (await bcrypt.compare(password, hashEnv))
 
   if (!validPass) {
-    throw redirect({
-      to: '/login',
-      search: { error: 'invalid' as const },
-      statusCode: 303,
-    })
+    redirectToInvalidLogin()
   }
 
   const token = issueMcSessionValue(usernameEnv)
