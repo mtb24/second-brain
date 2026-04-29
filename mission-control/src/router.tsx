@@ -1,5 +1,6 @@
 import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
+import './index.css'
 
 export function getRouter() {
   return createRouter({
@@ -7,4 +8,3 @@ export function getRouter() {
     scrollRestoration: true,
   })
 }
-
