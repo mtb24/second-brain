@@ -26,10 +26,11 @@ export async function handleMcLoginPost(request: Request): Promise<never> {
     throw redirect({
       to: '/login',
       search: { error: 'invalid' as const },
+      statusCode: 303,
     })
   }
 
   const token = issueMcSessionValue(usernameEnv)
   setCookie(MC_SESSION_COOKIE, token, mcSessionCookieSerializeOptions())
-  throw redirect({ to: '/' })
+  throw redirect({ to: '/', statusCode: 303 })
 }

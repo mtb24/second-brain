@@ -68,6 +68,9 @@ function RootComponent() {
                     <Link to="/trading" className="[&.active]:text-emerald-400">
                       Trading
                     </Link>
+                    <Link to="/workout" className="[&.active]:text-emerald-400">
+                      Workout
+                    </Link>
                     <Link to="/openclaw" className="[&.active]:text-emerald-400">
                       OpenClaw
                     </Link>
@@ -106,4 +109,3 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
     </html>
   )
 }
-

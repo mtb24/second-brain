@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkoutRouteImport } from './routes/workout'
 import { Route as TradingRouteImport } from './routes/trading'
 import { Route as ThoughtsRouteImport } from './routes/thoughts'
 import { Route as SearchRouteImport } from './routes/search'
@@ -18,6 +19,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentsIdRouteImport } from './routes/agents.$id'
+import { Route as ApiWorkoutSessionsRouteImport } from './routes/api/workout/sessions'
+import { Route as ApiWorkoutProfileRouteImport } from './routes/api/workout/profile'
+import { Route as ApiWorkoutExercisesRouteImport } from './routes/api/workout/exercises'
+import { Route as ApiWorkoutDashboardRouteImport } from './routes/api/workout/dashboard'
+import { Route as ApiWorkoutBodyMetricsRouteImport } from './routes/api/workout/body-metrics'
+import { Route as ApiWorkoutAuditRouteImport } from './routes/api/workout/audit'
+import { Route as ApiWorkoutAnalyticsRouteImport } from './routes/api/workout/analytics'
 import { Route as ApiTournamentStartRouteImport } from './routes/api/tournament/start'
 import { Route as ApiTournamentRoundsRouteImport } from './routes/api/tournament/rounds'
 import { Route as ApiTournamentLiveRouteImport } from './routes/api/tournament/live'
@@ -25,11 +33,26 @@ import { Route as ApiTournamentLeaderboardRouteImport } from './routes/api/tourn
 import { Route as ApiOpenclawHealthRouteImport } from './routes/api/openclaw/health'
 import { Route as ApiOpenclawAgentsRouteImport } from './routes/api/openclaw/agents'
 import { Route as ApiMcpSearchBrainRouteImport } from './routes/api/mcp/search-brain'
+import { Route as ApiWorkoutSessionsIdRouteImport } from './routes/api/workout/sessions.$id'
+import { Route as ApiWorkoutPlanTodayRouteImport } from './routes/api/workout/plan.today'
+import { Route as ApiWorkoutPlanNextRouteImport } from './routes/api/workout/plan.next'
+import { Route as ApiWorkoutPlanGenerateRouteImport } from './routes/api/workout/plan.generate'
+import { Route as ApiWorkoutChatHelpRouteImport } from './routes/api/workout/chat.help'
+import { Route as ApiWorkoutChatCommandRouteImport } from './routes/api/workout/chat.command'
 import { Route as ApiOpenclawAgentsIdRouteImport } from './routes/api/openclaw/agents.$id'
 import { Route as ApiIngestTradingBracketRouteImport } from './routes/api/ingest/trading.bracket'
 import { Route as ApiIngestThoughtsRecentRouteImport } from './routes/api/ingest/thoughts.recent'
 import { Route as ApiIngestThoughtsActivityRouteImport } from './routes/api/ingest/thoughts.activity'
+import { Route as ApiWorkoutSessionsIdStartRouteImport } from './routes/api/workout/sessions.$id.start'
+import { Route as ApiWorkoutSessionsIdSkipRouteImport } from './routes/api/workout/sessions.$id.skip'
+import { Route as ApiWorkoutSessionsIdCompleteRouteImport } from './routes/api/workout/sessions.$id.complete'
+import { Route as ApiWorkoutExercisePerformancesIdSetsRouteImport } from './routes/api/workout/exercise-performances.$id.sets'
 
+const WorkoutRoute = WorkoutRouteImport.update({
+  id: '/workout',
+  path: '/workout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TradingRoute = TradingRouteImport.update({
   id: '/trading',
   path: '/trading',
@@ -75,6 +98,41 @@ const AgentsIdRoute = AgentsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AgentsRoute,
 } as any)
+const ApiWorkoutSessionsRoute = ApiWorkoutSessionsRouteImport.update({
+  id: '/api/workout/sessions',
+  path: '/api/workout/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutProfileRoute = ApiWorkoutProfileRouteImport.update({
+  id: '/api/workout/profile',
+  path: '/api/workout/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutExercisesRoute = ApiWorkoutExercisesRouteImport.update({
+  id: '/api/workout/exercises',
+  path: '/api/workout/exercises',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutDashboardRoute = ApiWorkoutDashboardRouteImport.update({
+  id: '/api/workout/dashboard',
+  path: '/api/workout/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutBodyMetricsRoute = ApiWorkoutBodyMetricsRouteImport.update({
+  id: '/api/workout/body-metrics',
+  path: '/api/workout/body-metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutAuditRoute = ApiWorkoutAuditRouteImport.update({
+  id: '/api/workout/audit',
+  path: '/api/workout/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutAnalyticsRoute = ApiWorkoutAnalyticsRouteImport.update({
+  id: '/api/workout/analytics',
+  path: '/api/workout/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTournamentStartRoute = ApiTournamentStartRouteImport.update({
   id: '/api/tournament/start',
   path: '/api/tournament/start',
@@ -111,6 +169,36 @@ const ApiMcpSearchBrainRoute = ApiMcpSearchBrainRouteImport.update({
   path: '/api/mcp/search-brain',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWorkoutSessionsIdRoute = ApiWorkoutSessionsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiWorkoutSessionsRoute,
+} as any)
+const ApiWorkoutPlanTodayRoute = ApiWorkoutPlanTodayRouteImport.update({
+  id: '/api/workout/plan/today',
+  path: '/api/workout/plan/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutPlanNextRoute = ApiWorkoutPlanNextRouteImport.update({
+  id: '/api/workout/plan/next',
+  path: '/api/workout/plan/next',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutPlanGenerateRoute = ApiWorkoutPlanGenerateRouteImport.update({
+  id: '/api/workout/plan/generate',
+  path: '/api/workout/plan/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutChatHelpRoute = ApiWorkoutChatHelpRouteImport.update({
+  id: '/api/workout/chat/help',
+  path: '/api/workout/chat/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutChatCommandRoute = ApiWorkoutChatCommandRouteImport.update({
+  id: '/api/workout/chat/command',
+  path: '/api/workout/chat/command',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOpenclawAgentsIdRoute = ApiOpenclawAgentsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -132,6 +220,30 @@ const ApiIngestThoughtsActivityRoute =
     path: '/api/ingest/thoughts/activity',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiWorkoutSessionsIdStartRoute =
+  ApiWorkoutSessionsIdStartRouteImport.update({
+    id: '/start',
+    path: '/start',
+    getParentRoute: () => ApiWorkoutSessionsIdRoute,
+  } as any)
+const ApiWorkoutSessionsIdSkipRoute =
+  ApiWorkoutSessionsIdSkipRouteImport.update({
+    id: '/skip',
+    path: '/skip',
+    getParentRoute: () => ApiWorkoutSessionsIdRoute,
+  } as any)
+const ApiWorkoutSessionsIdCompleteRoute =
+  ApiWorkoutSessionsIdCompleteRouteImport.update({
+    id: '/complete',
+    path: '/complete',
+    getParentRoute: () => ApiWorkoutSessionsIdRoute,
+  } as any)
+const ApiWorkoutExercisePerformancesIdSetsRoute =
+  ApiWorkoutExercisePerformancesIdSetsRouteImport.update({
+    id: '/api/workout/exercise-performances/$id/sets',
+    path: '/api/workout/exercise-performances/$id/sets',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -142,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
+  '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
@@ -150,10 +263,27 @@ export interface FileRoutesByFullPath {
   '/api/tournament/live': typeof ApiTournamentLiveRoute
   '/api/tournament/rounds': typeof ApiTournamentRoundsRoute
   '/api/tournament/start': typeof ApiTournamentStartRoute
+  '/api/workout/analytics': typeof ApiWorkoutAnalyticsRoute
+  '/api/workout/audit': typeof ApiWorkoutAuditRoute
+  '/api/workout/body-metrics': typeof ApiWorkoutBodyMetricsRoute
+  '/api/workout/dashboard': typeof ApiWorkoutDashboardRoute
+  '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
+  '/api/workout/profile': typeof ApiWorkoutProfileRoute
+  '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
   '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
+  '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
+  '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
+  '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
+  '/api/workout/plan/next': typeof ApiWorkoutPlanNextRoute
+  '/api/workout/plan/today': typeof ApiWorkoutPlanTodayRoute
+  '/api/workout/sessions/$id': typeof ApiWorkoutSessionsIdRouteWithChildren
+  '/api/workout/exercise-performances/$id/sets': typeof ApiWorkoutExercisePerformancesIdSetsRoute
+  '/api/workout/sessions/$id/complete': typeof ApiWorkoutSessionsIdCompleteRoute
+  '/api/workout/sessions/$id/skip': typeof ApiWorkoutSessionsIdSkipRoute
+  '/api/workout/sessions/$id/start': typeof ApiWorkoutSessionsIdStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,6 +294,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
+  '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
@@ -172,10 +303,27 @@ export interface FileRoutesByTo {
   '/api/tournament/live': typeof ApiTournamentLiveRoute
   '/api/tournament/rounds': typeof ApiTournamentRoundsRoute
   '/api/tournament/start': typeof ApiTournamentStartRoute
+  '/api/workout/analytics': typeof ApiWorkoutAnalyticsRoute
+  '/api/workout/audit': typeof ApiWorkoutAuditRoute
+  '/api/workout/body-metrics': typeof ApiWorkoutBodyMetricsRoute
+  '/api/workout/dashboard': typeof ApiWorkoutDashboardRoute
+  '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
+  '/api/workout/profile': typeof ApiWorkoutProfileRoute
+  '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
   '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
+  '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
+  '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
+  '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
+  '/api/workout/plan/next': typeof ApiWorkoutPlanNextRoute
+  '/api/workout/plan/today': typeof ApiWorkoutPlanTodayRoute
+  '/api/workout/sessions/$id': typeof ApiWorkoutSessionsIdRouteWithChildren
+  '/api/workout/exercise-performances/$id/sets': typeof ApiWorkoutExercisePerformancesIdSetsRoute
+  '/api/workout/sessions/$id/complete': typeof ApiWorkoutSessionsIdCompleteRoute
+  '/api/workout/sessions/$id/skip': typeof ApiWorkoutSessionsIdSkipRoute
+  '/api/workout/sessions/$id/start': typeof ApiWorkoutSessionsIdStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -187,6 +335,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
+  '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
@@ -195,10 +344,27 @@ export interface FileRoutesById {
   '/api/tournament/live': typeof ApiTournamentLiveRoute
   '/api/tournament/rounds': typeof ApiTournamentRoundsRoute
   '/api/tournament/start': typeof ApiTournamentStartRoute
+  '/api/workout/analytics': typeof ApiWorkoutAnalyticsRoute
+  '/api/workout/audit': typeof ApiWorkoutAuditRoute
+  '/api/workout/body-metrics': typeof ApiWorkoutBodyMetricsRoute
+  '/api/workout/dashboard': typeof ApiWorkoutDashboardRoute
+  '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
+  '/api/workout/profile': typeof ApiWorkoutProfileRoute
+  '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
   '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
+  '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
+  '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
+  '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
+  '/api/workout/plan/next': typeof ApiWorkoutPlanNextRoute
+  '/api/workout/plan/today': typeof ApiWorkoutPlanTodayRoute
+  '/api/workout/sessions/$id': typeof ApiWorkoutSessionsIdRouteWithChildren
+  '/api/workout/exercise-performances/$id/sets': typeof ApiWorkoutExercisePerformancesIdSetsRoute
+  '/api/workout/sessions/$id/complete': typeof ApiWorkoutSessionsIdCompleteRoute
+  '/api/workout/sessions/$id/skip': typeof ApiWorkoutSessionsIdSkipRoute
+  '/api/workout/sessions/$id/start': typeof ApiWorkoutSessionsIdStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -211,6 +377,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/thoughts'
     | '/trading'
+    | '/workout'
     | '/agents/$id'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
@@ -219,10 +386,27 @@ export interface FileRouteTypes {
     | '/api/tournament/live'
     | '/api/tournament/rounds'
     | '/api/tournament/start'
+    | '/api/workout/analytics'
+    | '/api/workout/audit'
+    | '/api/workout/body-metrics'
+    | '/api/workout/dashboard'
+    | '/api/workout/exercises'
+    | '/api/workout/profile'
+    | '/api/workout/sessions'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
     | '/api/openclaw/agents/$id'
+    | '/api/workout/chat/command'
+    | '/api/workout/chat/help'
+    | '/api/workout/plan/generate'
+    | '/api/workout/plan/next'
+    | '/api/workout/plan/today'
+    | '/api/workout/sessions/$id'
+    | '/api/workout/exercise-performances/$id/sets'
+    | '/api/workout/sessions/$id/complete'
+    | '/api/workout/sessions/$id/skip'
+    | '/api/workout/sessions/$id/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -233,6 +417,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/thoughts'
     | '/trading'
+    | '/workout'
     | '/agents/$id'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
@@ -241,10 +426,27 @@ export interface FileRouteTypes {
     | '/api/tournament/live'
     | '/api/tournament/rounds'
     | '/api/tournament/start'
+    | '/api/workout/analytics'
+    | '/api/workout/audit'
+    | '/api/workout/body-metrics'
+    | '/api/workout/dashboard'
+    | '/api/workout/exercises'
+    | '/api/workout/profile'
+    | '/api/workout/sessions'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
     | '/api/openclaw/agents/$id'
+    | '/api/workout/chat/command'
+    | '/api/workout/chat/help'
+    | '/api/workout/plan/generate'
+    | '/api/workout/plan/next'
+    | '/api/workout/plan/today'
+    | '/api/workout/sessions/$id'
+    | '/api/workout/exercise-performances/$id/sets'
+    | '/api/workout/sessions/$id/complete'
+    | '/api/workout/sessions/$id/skip'
+    | '/api/workout/sessions/$id/start'
   id:
     | '__root__'
     | '/'
@@ -255,6 +457,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/thoughts'
     | '/trading'
+    | '/workout'
     | '/agents/$id'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
@@ -263,10 +466,27 @@ export interface FileRouteTypes {
     | '/api/tournament/live'
     | '/api/tournament/rounds'
     | '/api/tournament/start'
+    | '/api/workout/analytics'
+    | '/api/workout/audit'
+    | '/api/workout/body-metrics'
+    | '/api/workout/dashboard'
+    | '/api/workout/exercises'
+    | '/api/workout/profile'
+    | '/api/workout/sessions'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
     | '/api/openclaw/agents/$id'
+    | '/api/workout/chat/command'
+    | '/api/workout/chat/help'
+    | '/api/workout/plan/generate'
+    | '/api/workout/plan/next'
+    | '/api/workout/plan/today'
+    | '/api/workout/sessions/$id'
+    | '/api/workout/exercise-performances/$id/sets'
+    | '/api/workout/sessions/$id/complete'
+    | '/api/workout/sessions/$id/skip'
+    | '/api/workout/sessions/$id/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -278,6 +498,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   ThoughtsRoute: typeof ThoughtsRoute
   TradingRoute: typeof TradingRoute
+  WorkoutRoute: typeof WorkoutRoute
   ApiMcpSearchBrainRoute: typeof ApiMcpSearchBrainRoute
   ApiOpenclawAgentsRoute: typeof ApiOpenclawAgentsRouteWithChildren
   ApiOpenclawHealthRoute: typeof ApiOpenclawHealthRoute
@@ -285,13 +506,33 @@ export interface RootRouteChildren {
   ApiTournamentLiveRoute: typeof ApiTournamentLiveRoute
   ApiTournamentRoundsRoute: typeof ApiTournamentRoundsRoute
   ApiTournamentStartRoute: typeof ApiTournamentStartRoute
+  ApiWorkoutAnalyticsRoute: typeof ApiWorkoutAnalyticsRoute
+  ApiWorkoutAuditRoute: typeof ApiWorkoutAuditRoute
+  ApiWorkoutBodyMetricsRoute: typeof ApiWorkoutBodyMetricsRoute
+  ApiWorkoutDashboardRoute: typeof ApiWorkoutDashboardRoute
+  ApiWorkoutExercisesRoute: typeof ApiWorkoutExercisesRoute
+  ApiWorkoutProfileRoute: typeof ApiWorkoutProfileRoute
+  ApiWorkoutSessionsRoute: typeof ApiWorkoutSessionsRouteWithChildren
   ApiIngestThoughtsActivityRoute: typeof ApiIngestThoughtsActivityRoute
   ApiIngestThoughtsRecentRoute: typeof ApiIngestThoughtsRecentRoute
   ApiIngestTradingBracketRoute: typeof ApiIngestTradingBracketRoute
+  ApiWorkoutChatCommandRoute: typeof ApiWorkoutChatCommandRoute
+  ApiWorkoutChatHelpRoute: typeof ApiWorkoutChatHelpRoute
+  ApiWorkoutPlanGenerateRoute: typeof ApiWorkoutPlanGenerateRoute
+  ApiWorkoutPlanNextRoute: typeof ApiWorkoutPlanNextRoute
+  ApiWorkoutPlanTodayRoute: typeof ApiWorkoutPlanTodayRoute
+  ApiWorkoutExercisePerformancesIdSetsRoute: typeof ApiWorkoutExercisePerformancesIdSetsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workout': {
+      id: '/workout'
+      path: '/workout'
+      fullPath: '/workout'
+      preLoaderRoute: typeof WorkoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trading': {
       id: '/trading'
       path: '/trading'
@@ -355,6 +596,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentsIdRouteImport
       parentRoute: typeof AgentsRoute
     }
+    '/api/workout/sessions': {
+      id: '/api/workout/sessions'
+      path: '/api/workout/sessions'
+      fullPath: '/api/workout/sessions'
+      preLoaderRoute: typeof ApiWorkoutSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/profile': {
+      id: '/api/workout/profile'
+      path: '/api/workout/profile'
+      fullPath: '/api/workout/profile'
+      preLoaderRoute: typeof ApiWorkoutProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/exercises': {
+      id: '/api/workout/exercises'
+      path: '/api/workout/exercises'
+      fullPath: '/api/workout/exercises'
+      preLoaderRoute: typeof ApiWorkoutExercisesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/dashboard': {
+      id: '/api/workout/dashboard'
+      path: '/api/workout/dashboard'
+      fullPath: '/api/workout/dashboard'
+      preLoaderRoute: typeof ApiWorkoutDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/body-metrics': {
+      id: '/api/workout/body-metrics'
+      path: '/api/workout/body-metrics'
+      fullPath: '/api/workout/body-metrics'
+      preLoaderRoute: typeof ApiWorkoutBodyMetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/audit': {
+      id: '/api/workout/audit'
+      path: '/api/workout/audit'
+      fullPath: '/api/workout/audit'
+      preLoaderRoute: typeof ApiWorkoutAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/analytics': {
+      id: '/api/workout/analytics'
+      path: '/api/workout/analytics'
+      fullPath: '/api/workout/analytics'
+      preLoaderRoute: typeof ApiWorkoutAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tournament/start': {
       id: '/api/tournament/start'
       path: '/api/tournament/start'
@@ -404,6 +694,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpSearchBrainRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/workout/sessions/$id': {
+      id: '/api/workout/sessions/$id'
+      path: '/$id'
+      fullPath: '/api/workout/sessions/$id'
+      preLoaderRoute: typeof ApiWorkoutSessionsIdRouteImport
+      parentRoute: typeof ApiWorkoutSessionsRoute
+    }
+    '/api/workout/plan/today': {
+      id: '/api/workout/plan/today'
+      path: '/api/workout/plan/today'
+      fullPath: '/api/workout/plan/today'
+      preLoaderRoute: typeof ApiWorkoutPlanTodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/plan/next': {
+      id: '/api/workout/plan/next'
+      path: '/api/workout/plan/next'
+      fullPath: '/api/workout/plan/next'
+      preLoaderRoute: typeof ApiWorkoutPlanNextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/plan/generate': {
+      id: '/api/workout/plan/generate'
+      path: '/api/workout/plan/generate'
+      fullPath: '/api/workout/plan/generate'
+      preLoaderRoute: typeof ApiWorkoutPlanGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/chat/help': {
+      id: '/api/workout/chat/help'
+      path: '/api/workout/chat/help'
+      fullPath: '/api/workout/chat/help'
+      preLoaderRoute: typeof ApiWorkoutChatHelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/chat/command': {
+      id: '/api/workout/chat/command'
+      path: '/api/workout/chat/command'
+      fullPath: '/api/workout/chat/command'
+      preLoaderRoute: typeof ApiWorkoutChatCommandRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/openclaw/agents/$id': {
       id: '/api/openclaw/agents/$id'
       path: '/$id'
@@ -432,6 +764,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIngestThoughtsActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/workout/sessions/$id/start': {
+      id: '/api/workout/sessions/$id/start'
+      path: '/start'
+      fullPath: '/api/workout/sessions/$id/start'
+      preLoaderRoute: typeof ApiWorkoutSessionsIdStartRouteImport
+      parentRoute: typeof ApiWorkoutSessionsIdRoute
+    }
+    '/api/workout/sessions/$id/skip': {
+      id: '/api/workout/sessions/$id/skip'
+      path: '/skip'
+      fullPath: '/api/workout/sessions/$id/skip'
+      preLoaderRoute: typeof ApiWorkoutSessionsIdSkipRouteImport
+      parentRoute: typeof ApiWorkoutSessionsIdRoute
+    }
+    '/api/workout/sessions/$id/complete': {
+      id: '/api/workout/sessions/$id/complete'
+      path: '/complete'
+      fullPath: '/api/workout/sessions/$id/complete'
+      preLoaderRoute: typeof ApiWorkoutSessionsIdCompleteRouteImport
+      parentRoute: typeof ApiWorkoutSessionsIdRoute
+    }
+    '/api/workout/exercise-performances/$id/sets': {
+      id: '/api/workout/exercise-performances/$id/sets'
+      path: '/api/workout/exercise-performances/$id/sets'
+      fullPath: '/api/workout/exercise-performances/$id/sets'
+      preLoaderRoute: typeof ApiWorkoutExercisePerformancesIdSetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -457,6 +817,32 @@ const ApiOpenclawAgentsRouteChildren: ApiOpenclawAgentsRouteChildren = {
 const ApiOpenclawAgentsRouteWithChildren =
   ApiOpenclawAgentsRoute._addFileChildren(ApiOpenclawAgentsRouteChildren)
 
+interface ApiWorkoutSessionsIdRouteChildren {
+  ApiWorkoutSessionsIdCompleteRoute: typeof ApiWorkoutSessionsIdCompleteRoute
+  ApiWorkoutSessionsIdSkipRoute: typeof ApiWorkoutSessionsIdSkipRoute
+  ApiWorkoutSessionsIdStartRoute: typeof ApiWorkoutSessionsIdStartRoute
+}
+
+const ApiWorkoutSessionsIdRouteChildren: ApiWorkoutSessionsIdRouteChildren = {
+  ApiWorkoutSessionsIdCompleteRoute: ApiWorkoutSessionsIdCompleteRoute,
+  ApiWorkoutSessionsIdSkipRoute: ApiWorkoutSessionsIdSkipRoute,
+  ApiWorkoutSessionsIdStartRoute: ApiWorkoutSessionsIdStartRoute,
+}
+
+const ApiWorkoutSessionsIdRouteWithChildren =
+  ApiWorkoutSessionsIdRoute._addFileChildren(ApiWorkoutSessionsIdRouteChildren)
+
+interface ApiWorkoutSessionsRouteChildren {
+  ApiWorkoutSessionsIdRoute: typeof ApiWorkoutSessionsIdRouteWithChildren
+}
+
+const ApiWorkoutSessionsRouteChildren: ApiWorkoutSessionsRouteChildren = {
+  ApiWorkoutSessionsIdRoute: ApiWorkoutSessionsIdRouteWithChildren,
+}
+
+const ApiWorkoutSessionsRouteWithChildren =
+  ApiWorkoutSessionsRoute._addFileChildren(ApiWorkoutSessionsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRouteWithChildren,
@@ -466,6 +852,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   ThoughtsRoute: ThoughtsRoute,
   TradingRoute: TradingRoute,
+  WorkoutRoute: WorkoutRoute,
   ApiMcpSearchBrainRoute: ApiMcpSearchBrainRoute,
   ApiOpenclawAgentsRoute: ApiOpenclawAgentsRouteWithChildren,
   ApiOpenclawHealthRoute: ApiOpenclawHealthRoute,
@@ -473,9 +860,23 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTournamentLiveRoute: ApiTournamentLiveRoute,
   ApiTournamentRoundsRoute: ApiTournamentRoundsRoute,
   ApiTournamentStartRoute: ApiTournamentStartRoute,
+  ApiWorkoutAnalyticsRoute: ApiWorkoutAnalyticsRoute,
+  ApiWorkoutAuditRoute: ApiWorkoutAuditRoute,
+  ApiWorkoutBodyMetricsRoute: ApiWorkoutBodyMetricsRoute,
+  ApiWorkoutDashboardRoute: ApiWorkoutDashboardRoute,
+  ApiWorkoutExercisesRoute: ApiWorkoutExercisesRoute,
+  ApiWorkoutProfileRoute: ApiWorkoutProfileRoute,
+  ApiWorkoutSessionsRoute: ApiWorkoutSessionsRouteWithChildren,
   ApiIngestThoughtsActivityRoute: ApiIngestThoughtsActivityRoute,
   ApiIngestThoughtsRecentRoute: ApiIngestThoughtsRecentRoute,
   ApiIngestTradingBracketRoute: ApiIngestTradingBracketRoute,
+  ApiWorkoutChatCommandRoute: ApiWorkoutChatCommandRoute,
+  ApiWorkoutChatHelpRoute: ApiWorkoutChatHelpRoute,
+  ApiWorkoutPlanGenerateRoute: ApiWorkoutPlanGenerateRoute,
+  ApiWorkoutPlanNextRoute: ApiWorkoutPlanNextRoute,
+  ApiWorkoutPlanTodayRoute: ApiWorkoutPlanTodayRoute,
+  ApiWorkoutExercisePerformancesIdSetsRoute:
+    ApiWorkoutExercisePerformancesIdSetsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

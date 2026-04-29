@@ -4,5 +4,9 @@ import { mcSessionCookieSerializeOptions, MC_SESSION_COOKIE } from './mcSession'
 
 export async function handleMcLogoutPost(): Promise<never> {
   deleteCookie(MC_SESSION_COOKIE, mcSessionCookieSerializeOptions())
-  throw redirect({ to: '/login', search: { error: undefined } })
+  throw redirect({
+    to: '/login',
+    search: { error: undefined },
+    statusCode: 303,
+  })
 }
