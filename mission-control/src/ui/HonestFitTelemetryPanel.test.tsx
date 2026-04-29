@@ -57,6 +57,10 @@ const summary = honestFitMissionSummarySchema.parse({
   },
 })
 
+function visibleText(html: string) {
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ')
+}
+
 describe('HonestFitTelemetryPanelView', () => {
   it('renders core launch telemetry metrics', () => {
     const html = renderToStaticMarkup(
@@ -64,6 +68,16 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('HonestFit Launch Telemetry')
+    expect(html).toContain('HonestFit Launch Funnel')
+    expect(html).toContain('Last 24 hours')
+    expect(html).toContain('Site visits')
+    expect(html).toContain('Sign-in started')
+    expect(html).toContain('Signed in')
+    expect(html).toContain('Profile viewed')
+    expect(html).toContain('Capture started')
+    expect(html).toContain('Capture saved')
+    expect(html).toContain('Fit viewed')
+    expect(html).toContain('Fit/report action')
     expect(html).toContain('blocked')
     expect(html).toContain('1,234')
     expect(html).toContain('linkedin.com')
@@ -71,6 +85,102 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Magic requested')
     expect(html).toContain('/api/fit/reports')
     expect(html).toContain('Webhook failures')
+  })
+
+  it('renders funnel conversions from the previous step', () => {
+    const conversionSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      traffic: {
+        ...summary.traffic,
+        pageViews24h: 20,
+      },
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 10,
+        magicLinksConsumed24h: 8,
+        profileViews24h: 4,
+        captureStarted24h: 4,
+        captureSaved24h: 2,
+        fitViewed24h: 2,
+        fitReportsRequested24h: 1,
+        resumeGenerated24h: 1,
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: conversionSummary }}
+      />,
+    )
+    const text = visibleText(html)
+
+    expect(text).toContain('10 sign-in started')
+    expect(text).toContain('50% from site visits')
+    expect(text).toContain('8 signed in')
+    expect(text).toContain('80% from sign-in started')
+    expect(text).toContain('2 fit/report action')
+    expect(text).toContain('100% from fit viewed')
+  })
+
+  it('renders a dash when the previous funnel step is zero', () => {
+    const zeroPreviousSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      traffic: {
+        ...summary.traffic,
+        pageViews24h: 0,
+      },
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 2,
+        magicLinksConsumed24h: 1,
+        profileViews24h: 1,
+        captureStarted24h: 0,
+        captureSaved24h: 0,
+        fitViewed24h: 0,
+        fitReportsRequested24h: 0,
+        resumeGenerated24h: 0,
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: zeroPreviousSummary }}
+      />,
+    )
+    const text = visibleText(html)
+
+    expect(text).toContain('0 site visits')
+    expect(text).toContain('2 sign-in started')
+    expect(text).toContain('—')
+  })
+
+  it('renders the biggest drop-off funnel insight', () => {
+    const dropOffSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      traffic: {
+        ...summary.traffic,
+        pageViews24h: 10,
+      },
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 10,
+        magicLinksConsumed24h: 3,
+        profileViews24h: 3,
+        captureStarted24h: 3,
+        captureSaved24h: 3,
+        fitViewed24h: 3,
+        fitReportsRequested24h: 2,
+        resumeGenerated24h: 1,
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: dropOffSummary }}
+      />,
+    )
+
+    expect(html).toContain('Biggest drop-off: Sign-in started -&gt; Signed in')
   })
 
   it('renders unavailable and upstream error states', () => {
