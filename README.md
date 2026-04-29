@@ -193,6 +193,8 @@ Key variables:
 | `MCP_SECRET` | MCP server authentication |
 | `ANTHROPIC_API_KEY` | Claude API (used by Cortex and tournament bots) |
 | `DIGITALOCEAN_MODEL_ACCESS_KEY` | DigitalOcean Serverless Inference model access key for OpenClaw/Cortex |
+| `HONESTFIT_MISSION_SUMMARY_URL` | Server-only HonestFit launch telemetry endpoint for Mission dashboard, defaults operationally to `https://honestfit.ai/api/admin/mission/summary` |
+| `HONESTFIT_MISSION_API_SECRET` | Server-only bearer token matching HonestFit `HF_MISSION_DASHBOARD_API_SECRET`; never expose with a client/public prefix |
 | `COINGECKO_API_KEY` | Market data for tournament |
 | `OPENCLAW_GATEWAY_URL` | WebSocket endpoint for Cortex |
 | `TOURNAMENT_BOT_COUNT` | Number of bots per round (default: 3) |

@@ -33,6 +33,7 @@ import { Route as ApiTournamentLeaderboardRouteImport } from './routes/api/tourn
 import { Route as ApiOpenclawHealthRouteImport } from './routes/api/openclaw/health'
 import { Route as ApiOpenclawAgentsRouteImport } from './routes/api/openclaw/agents'
 import { Route as ApiMcpSearchBrainRouteImport } from './routes/api/mcp/search-brain'
+import { Route as ApiHonestfitMissionSummaryRouteImport } from './routes/api/honestfit/mission-summary'
 import { Route as ApiWorkoutSessionsIdRouteImport } from './routes/api/workout/sessions.$id'
 import { Route as ApiWorkoutPlanTodayRouteImport } from './routes/api/workout/plan.today'
 import { Route as ApiWorkoutPlanNextRouteImport } from './routes/api/workout/plan.next'
@@ -169,6 +170,12 @@ const ApiMcpSearchBrainRoute = ApiMcpSearchBrainRouteImport.update({
   path: '/api/mcp/search-brain',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHonestfitMissionSummaryRoute =
+  ApiHonestfitMissionSummaryRouteImport.update({
+    id: '/api/honestfit/mission-summary',
+    path: '/api/honestfit/mission-summary',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWorkoutSessionsIdRoute = ApiWorkoutSessionsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -256,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
+  '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
@@ -296,6 +304,7 @@ export interface FileRoutesByTo {
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
+  '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
@@ -337,6 +346,7 @@ export interface FileRoutesById {
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
   '/agents/$id': typeof AgentsIdRoute
+  '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
   '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/trading'
     | '/workout'
     | '/agents/$id'
+    | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
     | '/api/openclaw/health'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/trading'
     | '/workout'
     | '/agents/$id'
+    | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
     | '/api/openclaw/health'
@@ -459,6 +471,7 @@ export interface FileRouteTypes {
     | '/trading'
     | '/workout'
     | '/agents/$id'
+    | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
     | '/api/openclaw/agents'
     | '/api/openclaw/health'
@@ -499,6 +512,7 @@ export interface RootRouteChildren {
   ThoughtsRoute: typeof ThoughtsRoute
   TradingRoute: typeof TradingRoute
   WorkoutRoute: typeof WorkoutRoute
+  ApiHonestfitMissionSummaryRoute: typeof ApiHonestfitMissionSummaryRoute
   ApiMcpSearchBrainRoute: typeof ApiMcpSearchBrainRoute
   ApiOpenclawAgentsRoute: typeof ApiOpenclawAgentsRouteWithChildren
   ApiOpenclawHealthRoute: typeof ApiOpenclawHealthRoute
@@ -694,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpSearchBrainRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/honestfit/mission-summary': {
+      id: '/api/honestfit/mission-summary'
+      path: '/api/honestfit/mission-summary'
+      fullPath: '/api/honestfit/mission-summary'
+      preLoaderRoute: typeof ApiHonestfitMissionSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/workout/sessions/$id': {
       id: '/api/workout/sessions/$id'
       path: '/$id'
@@ -853,6 +874,7 @@ const rootRouteChildren: RootRouteChildren = {
   ThoughtsRoute: ThoughtsRoute,
   TradingRoute: TradingRoute,
   WorkoutRoute: WorkoutRoute,
+  ApiHonestfitMissionSummaryRoute: ApiHonestfitMissionSummaryRoute,
   ApiMcpSearchBrainRoute: ApiMcpSearchBrainRoute,
   ApiOpenclawAgentsRoute: ApiOpenclawAgentsRouteWithChildren,
   ApiOpenclawHealthRoute: ApiOpenclawHealthRoute,
