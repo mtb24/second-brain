@@ -68,6 +68,13 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('HonestFit Launch Telemetry')
+    expect(html).toContain('Operator Briefing')
+    expect(html).toContain('HonestFit launch status · Last 24 hours')
+    expect(html).toContain('What happened')
+    expect(html).toContain('What changed')
+    expect(html).toContain('Where people got stuck')
+    expect(html).toContain('What needs attention')
+    expect(html).toContain('What can be ignored')
     expect(html).toContain('HonestFit Launch Funnel')
     expect(html).toContain('Last 24 hours')
     expect(html).toContain('Site visits')
@@ -245,5 +252,32 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).not.toContain('203.0.113.5')
     expect(html).not.toContain('long transcript content')
     expect(html).not.toContain('raw JD content')
+    expect(html).not.toContain('user_123')
+    expect(html).not.toContain('profile_123')
+  })
+
+  it('uses future briefing fields without rendering private action text', () => {
+    const futureSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      funnelGraph: {
+        insight: 'Sign-in requested, but not consumed.',
+      },
+      ops: {
+        actionItems: [
+          'Check email delivery for ken@example.com from 203.0.113.5.',
+        ],
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: futureSummary }}
+      />,
+    )
+
+    expect(html).toContain('Sign-in requested, but not consumed.')
+    expect(html).toContain('Check email delivery for [redacted] from [redacted].')
+    expect(html).not.toContain('ken@example.com')
+    expect(html).not.toContain('203.0.113.5')
   })
 })
