@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import {
+  buildHonestFitOperatorBriefing,
+  type HonestFitOperatorBriefingStatus,
+} from '@/server/honestFitOperatorBriefing'
 import type {
   HonestFitMissionSummary,
   HonestFitMissionSummaryResult,
@@ -37,6 +41,20 @@ function statusTone(status: HonestFitMissionSummary['health']['status']) {
   if (status === 'blocked')
     return 'border-red-500/40 bg-red-500/10 text-red-200'
   return 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+}
+
+function briefingTone(status: HonestFitOperatorBriefingStatus) {
+  if (status === 'ok')
+    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+  if (status === 'needs_attention')
+    return 'border-red-500/40 bg-red-500/10 text-red-200'
+  return 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+}
+
+function briefingLabel(status: HonestFitOperatorBriefingStatus) {
+  if (status === 'needs_attention') return 'Needs attention'
+  if (status === 'watch') return 'Watch'
+  return 'OK'
 }
 
 type FunnelStep = {
@@ -257,6 +275,66 @@ function Section({
   )
 }
 
+function BriefingList({
+  title,
+  items,
+}: Readonly<{ title: string; items: string[] }>) {
+  return (
+    <section className="min-w-0">
+      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+      </h4>
+      <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-200">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-[0.45rem] h-1 w-1 shrink-0 rounded-full bg-cyan-300" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function OperatorBriefingCard({
+  summary,
+}: Readonly<{ summary: HonestFitMissionSummary }>) {
+  const briefing = buildHonestFitOperatorBriefing(summary)
+
+  return (
+    <section className="rounded-lg border border-cyan-500/30 bg-slate-950/70 p-4 shadow-[0_0_0_1px_rgba(34,211,238,0.04)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-100">
+            Operator Briefing
+          </h4>
+          <div className="mt-1 text-xs text-slate-500">
+            HonestFit launch status · Last 24 hours
+          </div>
+        </div>
+        <span
+          className={`rounded border px-2 py-1 text-xs font-semibold uppercase ${briefingTone(
+            briefing.status,
+          )}`}
+        >
+          {briefingLabel(briefing.status)}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <BriefingList title="What happened" items={briefing.whatHappened} />
+        <BriefingList title="What changed" items={briefing.whatChanged} />
+        <BriefingList title="Where people got stuck" items={briefing.whereStuck} />
+        <BriefingList
+          title="What needs attention"
+          items={briefing.needsAttention}
+        />
+        <BriefingList title="What can be ignored" items={briefing.canIgnore} />
+      </div>
+    </section>
+  )
+}
+
 export function HonestFitTelemetryPanelView({
   result,
   isLoading = false,
@@ -314,6 +392,7 @@ export function HonestFitTelemetryPanelView({
 
       {summary && (
         <div className="mt-4 space-y-5">
+          <OperatorBriefingCard summary={summary} />
           <LaunchFunnelCard summary={summary} />
 
           <div className="grid gap-5 xl:grid-cols-3">

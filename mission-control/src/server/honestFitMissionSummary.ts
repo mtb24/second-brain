@@ -27,6 +27,33 @@ const recentErrorSchema = z.object({
   requestId: optionalDisplayString,
 })
 
+const previousWindowSchema = z
+  .object({
+    traffic: z
+      .object({
+        pageViews24h: numberMetric.optional(),
+      })
+      .optional(),
+    signups: z
+      .object({
+        pro24h: numberMetric.optional(),
+      })
+      .optional(),
+    errors: z
+      .object({
+        total24h: numberMetric.optional(),
+        critical24h: numberMetric.optional(),
+      })
+      .optional(),
+    billing: z
+      .object({
+        stripeWebhookEvents24h: numberMetric.optional(),
+        stripeWebhookFailures24h: numberMetric.optional(),
+      })
+      .optional(),
+  })
+  .optional()
+
 export const honestFitMissionSummarySchema = z.object({
   generatedAt: z.string().datetime(),
   window: z.string().catch('24h'),
@@ -70,6 +97,18 @@ export const honestFitMissionSummarySchema = z.object({
     stripeWebhookFailures24h: numberMetric,
     lastStripeWebhookAt: optionalDateString,
   }),
+  previous: previousWindowSchema,
+  funnelGraph: z
+    .object({
+      insight: optionalDisplayString,
+    })
+    .optional(),
+  ops: z
+    .object({
+      actionItems: z.array(displayString).catch([]).optional(),
+      resendAlerts24h: numberMetric.optional(),
+    })
+    .optional(),
 })
 
 export type HonestFitMissionSummary = z.infer<
