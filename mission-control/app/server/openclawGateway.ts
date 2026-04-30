@@ -91,12 +91,6 @@ const HealthSnapshotSchema = z.object({
   sessions: SessionsSummarySchema,
 })
 
-// Agents list RPC response (result may be { agents: [...] } or direct array)
-const AgentsListResponseSchema = z.union([
-  z.object({ agents: z.array(AgentEntrySchema).optional().nullable() }),
-  z.array(AgentEntrySchema),
-])
-
 type GatewayReq = {
   type: 'req'
   id: string
@@ -123,40 +117,14 @@ type GatewayMessage = GatewayReq | GatewayEvent | GatewayRes
 
 export type HealthSnapshot = z.infer<typeof HealthSnapshotSchema>
 
-export type AgentSummary = {
-  agentId: string
-  id?: string
-  name?: string
-  status?: string
-  model?: string
-  lastActiveAt?: string
-  messageCount?: number
-  isDefault?: boolean | null
-  heartbeat?: { enabled?: boolean; every?: string } | null
-  sessions?: { path?: string; count?: number; recent?: { key: string; updatedAt?: number; age?: number }[] } | null
-}
-
-export type AgentFile = {
-  path: string
-  size: number
-}
-
-export type AgentDetail = {
-  agent: AgentSummary | null
-  files: AgentFile[]
-  sessions: {
-    key: string
-    updatedAt: string
-    age: string
-  }[]
-}
-
-const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL
+const configuredGatewayUrl = process.env.OPENCLAW_GATEWAY_URL
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN
 
-if (!GATEWAY_URL) {
+if (!configuredGatewayUrl) {
   throw new Error('OPENCLAW_GATEWAY_URL must be set in the environment')
 }
+
+const GATEWAY_URL = configuredGatewayUrl
 
 if (!GATEWAY_TOKEN) {
   console.warn('OPENCLAW_GATEWAY_TOKEN is not set — direct gateway connections will likely be rejected')
@@ -197,7 +165,7 @@ async function withGateway<T>(
       reject(err)
     })
 
-      ws.on('message', (data) => {
+    ws.on('message', (data) => {
       let msg: GatewayMessage
       try {
         msg = JSON.parse(data.toString())
@@ -211,9 +179,14 @@ async function withGateway<T>(
           id: nextId('connect'),
           method: 'connect',
           params: {
-            auth: {},
+            auth: GATEWAY_TOKEN ? { token: GATEWAY_TOKEN } : {},
             minProtocol: 3,
             maxProtocol: 3,
+            role: 'operator',
+            scopes: ['operator.read'],
+            caps: [],
+            commands: [],
+            permissions: {},
             client: {
               id: 'webchat-ui',
               mode: 'webchat',
@@ -237,7 +210,13 @@ async function withGateway<T>(
         return
       }
 
-      if (msg.type === 'res' && (msg as GatewayRes).payload?.type === 'hello-ok') {
+      const payload = (msg as GatewayRes).payload
+      const payloadType =
+        payload && typeof payload === 'object' && 'type' in payload
+          ? payload.type
+          : undefined
+
+      if (msg.type === 'res' && payloadType === 'hello-ok') {
         connected = true
         clearTimeout(timeout)
         // delegate to the caller now that the connection is established
@@ -336,220 +315,5 @@ export async function getHealthSnapshot(): Promise<HealthSnapshot> {
     if (stack) console.error(stack)
     throw err
   }
-}
-
-export async function listAgents(): Promise<AgentSummary[]> {
-  try {
-    return await withGateway<AgentSummary[]>(async ({ ws }) => {
-    // WORKAROUND: agents.list RPC returns "missing scope: operator.read" in
-    // OpenClaw 2026.3.13. Fixed in a future release. When upgrading OpenClaw
-    // and this starts failing, remove this workaround and restore the original
-    // agents.list RPC call below.
-    // Original code: const payload = await this.rpc('agents.list', {})
-    // Track: https://github.com/openclaw/openclaw/issues/46716
-
-    const req: GatewayReq = {
-      type: 'req',
-      id: nextId('health'),
-      method: 'health',
-      params: {},
-    }
-
-    const pending = new Map<string, (res: GatewayRes) => void>()
-
-    ws.on('message', (data) => {
-      let msg: GatewayMessage
-      try {
-        msg = JSON.parse(data.toString())
-      } catch {
-        return
-      }
-      if (msg.type === 'res' && msg.id && pending.has(msg.id)) {
-        const resolve = pending.get(msg.id)!
-        pending.delete(msg.id)
-        resolve(msg)
-      }
-    })
-
-    const response: GatewayRes = await new Promise((resolve, reject) => {
-      pending.set(req.id, resolve)
-      ws.send(JSON.stringify(req), (err) => {
-        if (err) {
-          pending.delete(req.id)
-          reject(err)
-        }
-      })
-      setTimeout(() => {
-        if (pending.has(req.id)) {
-          pending.delete(req.id)
-          reject(new Error('health RPC timed out'))
-        }
-      }, 10_000)
-    })
-
-    if (!response.ok) {
-      throw new Error(response.error?.message ?? 'health RPC failed')
-    }
-
-    const raw = response.payload
-    if (raw === undefined || raw === null) {
-      return []
-    }
-    const snapshot = HealthSnapshotSchema.safeParse(raw)
-    if (!snapshot.success) {
-      return []
-    }
-    const agents = snapshot.data.agents ?? []
-    return agents.map((agent): AgentSummary => ({
-      agentId: agent.agentId,
-      id: agent.agentId,
-      name: agent.agentId,
-      status: 'active',
-      model: 'anthropic/claude-sonnet-4-6',
-      lastActiveAt: agent.sessions?.recent?.[0]?.updatedAt
-        ? new Date(agent.sessions.recent[0].updatedAt).toISOString()
-        : undefined,
-      messageCount: agent.sessions?.count ?? 0,
-      isDefault: agent.isDefault,
-      heartbeat: agent.heartbeat,
-      sessions: agent.sessions,
-    }))
-  })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    const stack = err instanceof Error ? err.stack : undefined
-    console.error('listAgents failed:', message)
-    if (stack) console.error(stack)
-    throw err
-  }
-}
-
-export async function getAgentDetail(agentId: string): Promise<AgentDetail> {
-  return withGateway<AgentDetail>(async ({ ws }) => {
-    // WORKAROUND: agents.list RPC returns "missing scope: operator.read" in
-    // OpenClaw 2026.3.13. Fixed in a future release. When upgrading OpenClaw
-    // and this starts failing, remove this workaround and restore the original
-    // agents.list RPC call for resolving the agent.
-    // Track: https://github.com/openclaw/openclaw/issues/46716
-
-    const pending = new Map<string, (res: GatewayRes) => void>()
-
-    ws.on('message', (data) => {
-      let msg: GatewayMessage
-      try {
-        msg = JSON.parse(data.toString())
-      } catch {
-        return
-      }
-      if (msg.type === 'res' && msg.id && pending.has(msg.id)) {
-        const resolve = pending.get(msg.id)!
-        pending.delete(msg.id)
-        resolve(msg)
-      }
-    })
-
-    async function rpc(method: string, params?: unknown): Promise<any> {
-      const req: GatewayReq = {
-        type: 'req',
-        id: nextId(method),
-        method,
-        params,
-      }
-
-      const res: GatewayRes = await new Promise((resolve, reject) => {
-        pending.set(req.id, resolve)
-        ws.send(JSON.stringify(req), (err) => {
-          if (err) {
-            pending.delete(req.id)
-            reject(err)
-          }
-        })
-        setTimeout(() => {
-          if (pending.has(req.id)) {
-            pending.delete(req.id)
-            reject(new Error(`${method} RPC timed out`))
-          }
-        }, 10_000)
-      })
-
-      if (!res.ok) {
-        throw new Error(res.error?.message ?? `${method} RPC failed`)
-      }
-
-      return res.result
-    }
-
-    // Resolve agent from health RPC (workaround for agents.list scope bug)
-    const healthReq: GatewayReq = {
-      type: 'req',
-      id: nextId('health'),
-      method: 'health',
-      params: {},
-    }
-    const healthRes: GatewayRes = await new Promise((resolve, reject) => {
-      pending.set(healthReq.id, resolve)
-      ws.send(JSON.stringify(healthReq), (err) => {
-        if (err) {
-          pending.delete(healthReq.id)
-          reject(err)
-        }
-      })
-      setTimeout(() => {
-        if (pending.has(healthReq.id)) {
-          pending.delete(healthReq.id)
-          reject(new Error('health RPC timed out'))
-        }
-      }, 10_000)
-    })
-    let agent: AgentSummary | null = null
-    if (healthRes.ok && healthRes.payload != null) {
-      const snapshot = HealthSnapshotSchema.safeParse(healthRes.payload)
-      if (snapshot.success) {
-        const entry = snapshot.data.agents?.find((a) => a.agentId === agentId)
-        if (entry) {
-          agent = {
-            agentId: entry.agentId,
-            id: entry.agentId,
-            name: entry.agentId,
-            status: 'active',
-            model: 'anthropic/claude-sonnet-4-6',
-            lastActiveAt: entry.sessions?.recent?.[0]?.updatedAt
-              ? new Date(entry.sessions.recent[0].updatedAt).toISOString()
-              : undefined,
-            messageCount: entry.sessions?.count ?? 0,
-            isDefault: entry.isDefault,
-            heartbeat: entry.heartbeat,
-            sessions: entry.sessions,
-          }
-        }
-      }
-    }
-
-    // agents.files.list (and agents.files.get) may fail with "missing scope" in
-    // OpenClaw 2026.3.13. Return empty files gracefully instead of throwing.
-    // Track: https://github.com/openclaw/openclaw/issues/46716
-    let files: AgentFile[] = []
-    try {
-      const filesList = await rpc('agents.files.list', { agentId })
-      if (Array.isArray(filesList?.files)) {
-        files = filesList.files as AgentFile[]
-      }
-    } catch {
-      // Scope or other RPC failure — return empty files
-    }
-
-    const sessions = await rpc('sessions.list', { agentId })
-    const sessionItems: AgentDetail['sessions'] = Array.isArray(
-      sessions?.sessions,
-    )
-      ? (sessions.sessions as AgentDetail['sessions'])
-      : []
-
-    return {
-      agent,
-      files,
-      sessions: sessionItems,
-    }
-  })
 }
 
