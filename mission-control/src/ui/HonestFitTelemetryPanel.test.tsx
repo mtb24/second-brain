@@ -260,11 +260,18 @@ describe('HonestFitTelemetryPanelView', () => {
     const futureSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       funnelGraph: {
-        insight: 'Sign-in requested, but not consumed.',
+        insight: {
+          level: 'watch',
+          message: 'Sign-in requested, but not consumed.',
+        },
       },
       ops: {
         actionItems: [
-          'Check email delivery for ken@example.com from 203.0.113.5.',
+          {
+            level: 'watch',
+            title: 'Check email delivery',
+            detail: 'Check delivery for ken@example.com from 203.0.113.5.',
+          },
         ],
       },
     })
@@ -276,7 +283,9 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('Sign-in requested, but not consumed.')
-    expect(html).toContain('Check email delivery for [redacted] from [redacted].')
+    expect(html).toContain(
+      'Check email delivery: Check delivery for [redacted] from [redacted].',
+    )
     expect(html).not.toContain('ken@example.com')
     expect(html).not.toContain('203.0.113.5')
   })

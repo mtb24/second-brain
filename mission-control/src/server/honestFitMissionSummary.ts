@@ -4,12 +4,38 @@ const numberMetric = z.number().finite().nonnegative().catch(0)
 const optionalDateString = z.string().datetime().nullable().catch(null)
 const displayString = z.string().transform(redactPrivateText)
 const optionalDisplayString = z.string().transform(redactPrivateText).optional()
+const flexibleDisplayString = z
+  .preprocess((value) => textFromUnknown(value) ?? '', z.string())
+  .transform(redactPrivateText)
+const optionalFlexibleDisplayString = z
+  .preprocess((value) => textFromUnknown(value), z.string().optional())
+  .transform((value) => (value ? redactPrivateText(value) : undefined))
 
 function redactPrivateText(value: string): string {
   return value
     .split(/[?#]/)[0]
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[redacted]')
+}
+
+function textFromUnknown(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return undefined
+
+  const record = value as Record<string, unknown>
+  const title = typeof record.title === 'string' ? record.title : undefined
+  const detail = typeof record.detail === 'string' ? record.detail : undefined
+  const message = typeof record.message === 'string' ? record.message : undefined
+
+  if (title && detail) return `${title}: ${detail}`
+  return detail ?? message ?? title
+}
+
+function logHonestFitTelemetryIssue(
+  reason: string,
+  details: Record<string, unknown> = {},
+) {
+  console.warn('[honestfit-mission-summary]', { reason, ...details })
 }
 
 const rankedMetricSchema = z.object({
@@ -100,14 +126,20 @@ export const honestFitMissionSummarySchema = z.object({
   previous: previousWindowSchema,
   funnelGraph: z
     .object({
-      insight: optionalDisplayString,
+      insight: optionalFlexibleDisplayString,
     })
+    .passthrough()
     .optional(),
   ops: z
     .object({
-      actionItems: z.array(displayString).catch([]).optional(),
+      actionItems: z
+        .array(flexibleDisplayString)
+        .catch([])
+        .transform((items) => items.filter(Boolean))
+        .optional(),
       resendAlerts24h: numberMetric.optional(),
     })
+    .passthrough()
     .optional(),
 })
 
@@ -133,6 +165,12 @@ export async function fetchHonestFitMissionSummary(
   const apiSecret = env.HONESTFIT_MISSION_API_SECRET
 
   if (!summaryUrl || !apiSecret) {
+    logHonestFitTelemetryIssue('missing_env', {
+      missing: [
+        !summaryUrl ? 'HONESTFIT_MISSION_SUMMARY_URL' : null,
+        !apiSecret ? 'HONESTFIT_MISSION_API_SECRET' : null,
+      ].filter(Boolean),
+    })
     return {
       status: 'unavailable',
       message: 'HonestFit telemetry is not configured.',
@@ -149,6 +187,10 @@ export async function fetchHonestFitMissionSummary(
     })
 
     if (!res.ok) {
+      logHonestFitTelemetryIssue('upstream_non_ok', {
+        upstreamStatus: res.status,
+        requestId: res.headers.get('x-request-id') ?? undefined,
+      })
       return {
         status: 'error',
         message: 'Unable to fetch HonestFit telemetry.',
@@ -158,6 +200,12 @@ export async function fetchHonestFitMissionSummary(
 
     const parsed = honestFitMissionSummarySchema.safeParse(await res.json())
     if (!parsed.success) {
+      logHonestFitTelemetryIssue('schema_validation_failed', {
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          code: issue.code,
+        })),
+      })
       return {
         status: 'error',
         message: 'HonestFit telemetry response was malformed.',
@@ -165,7 +213,12 @@ export async function fetchHonestFitMissionSummary(
     }
 
     return { status: 'success', summary: parsed.data }
-  } catch {
+  } catch (error) {
+    logHonestFitTelemetryIssue('fetch_failed', {
+      errorName: error instanceof Error ? error.name : 'Error',
+      errorMessage:
+        error instanceof Error ? error.message.slice(0, 160) : 'Unknown error',
+    })
     return {
       status: 'error',
       message: 'Unable to fetch HonestFit telemetry.',

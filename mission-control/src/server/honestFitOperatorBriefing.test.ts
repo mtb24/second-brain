@@ -206,7 +206,12 @@ describe('buildHonestFitOperatorBriefing', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
         ops: {
-          actionItems: ['Review recent errors: 2 in the last 24 hours.'],
+          actionItems: [
+            {
+              title: 'Review recent errors',
+              detail: '2 in the last 24 hours.',
+            },
+          ],
         },
       }),
     )
@@ -220,7 +225,10 @@ describe('buildHonestFitOperatorBriefing', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
         funnelGraph: {
-          insight: 'Users are pausing between profile and capture.',
+          insight: {
+            level: 'watch',
+            message: 'Users are pausing between profile and capture.',
+          },
         },
       }),
     )

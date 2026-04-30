@@ -138,6 +138,58 @@ describe('fetchHonestFitMissionSummary', () => {
 })
 
 describe('honestFitMissionSummarySchema', () => {
+  it('accepts current HonestFit funnelGraph and ops objects', () => {
+    const parsed = honestFitMissionSummarySchema.parse({
+      ...validSummary,
+      extraFutureField: { shouldBeIgnored: true },
+      funnelGraph: {
+        window: '24h',
+        steps: [
+          {
+            key: 'magicLinksRequested24h',
+            label: 'Sign-in requested',
+            count: 2,
+            conversionFromPrevious: null,
+          },
+        ],
+        insight: {
+          level: 'watch',
+          message: 'Sign-in requested, but not consumed.',
+        },
+        biggestDropoff: {
+          from: 'Sign-in requested',
+          to: 'Sign-in completed',
+          fromCount: 2,
+          toCount: 0,
+          dropoffPercent: 100,
+        },
+      },
+      ops: {
+        launchStatus: 'watch',
+        actionItems: [
+          {
+            level: 'watch',
+            title: 'Check email delivery',
+            detail: 'Look at delivery for ken@example.com from 203.0.113.5.',
+          },
+        ],
+        signals: {
+          healthOk: true,
+          errors24h: 0,
+        },
+      },
+    })
+
+    expect(parsed.funnelGraph?.insight).toBe(
+      'Sign-in requested, but not consumed.',
+    )
+    expect(parsed.ops?.actionItems).toEqual([
+      'Check email delivery: Look at delivery for [redacted] from [redacted].',
+    ])
+    expect(JSON.stringify(parsed)).not.toContain('ken@example.com')
+    expect(JSON.stringify(parsed)).not.toContain('203.0.113.5')
+  })
+
   it('strips unexpected user fields and redacts obvious email or IP leakage', () => {
     const parsed = honestFitMissionSummarySchema.parse({
       ...validSummary,
