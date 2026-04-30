@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { SystemHealthPanel } from '@/ui/SystemHealthPanel'
-import { AgentRosterPanel } from '@/ui/AgentRosterPanel'
 import { HonestFitTelemetryPanel } from '@/ui/HonestFitTelemetryPanel'
 
 export const Route = createFileRoute('/')({
@@ -16,8 +15,6 @@ function DashboardPage() {
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-200">System health</h2>
         <SystemHealthPanel />
-        <h2 className="text-sm font-semibold text-slate-200">Agents</h2>
-        <AgentRosterPanel />
       </section>
     </div>
   )

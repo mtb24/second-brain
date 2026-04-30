@@ -10,7 +10,6 @@ type HealthSnapshot = {
       probe?: { bot?: { username?: string } }
     }
   }
-  agents?: { agentId: string; isDefault?: boolean; heartbeat?: string; sessions?: number }[]
   sessions?: { count: number; recent: { key: string; updatedAt: string; age: string }[] }
 }
 
@@ -50,7 +49,7 @@ export function SystemHealthPanel() {
         )}
       </div>
       {data && (
-        <div className="mt-4 grid gap-4 md:grid-cols-3 text-xs text-slate-300">
+        <div className="mt-4 grid gap-4 md:grid-cols-2 text-xs text-slate-300">
           <div>
             <div className="text-slate-400">Telegram</div>
             <div className="mt-1">
@@ -75,24 +74,6 @@ export function SystemHealthPanel() {
                 </div>
               </div>
             ) : null}
-          </div>
-          <div>
-            <div className="text-slate-400">Agents</div>
-            <div className="mt-1">
-              {data.agents ? `${data.agents.length} configured` : '—'}
-            </div>
-            <ul className="mt-1 space-y-1">
-              {data.agents?.slice(0, 3).map((a) => (
-                <li key={a.agentId} className="truncate text-slate-300">
-                  {a.agentId}
-                  {a.isDefault && (
-                    <span className="ml-1 rounded bg-emerald-500/10 px-1 text-[10px] text-emerald-300">
-                      default
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
           </div>
           <div>
             <div className="text-slate-400">Sessions</div>

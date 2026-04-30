@@ -11,14 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkoutRouteImport } from './routes/workout'
 import { Route as TradingRouteImport } from './routes/trading'
-import { Route as ThoughtsRouteImport } from './routes/thoughts'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as OpenclawRouteImport } from './routes/openclaw'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AgentsIdRouteImport } from './routes/agents.$id'
 import { Route as ApiWorkoutSessionsRouteImport } from './routes/api/workout/sessions'
 import { Route as ApiWorkoutProfileRouteImport } from './routes/api/workout/profile'
 import { Route as ApiWorkoutExercisesRouteImport } from './routes/api/workout/exercises'
@@ -31,7 +28,6 @@ import { Route as ApiTournamentRoundsRouteImport } from './routes/api/tournament
 import { Route as ApiTournamentLiveRouteImport } from './routes/api/tournament/live'
 import { Route as ApiTournamentLeaderboardRouteImport } from './routes/api/tournament/leaderboard'
 import { Route as ApiOpenclawHealthRouteImport } from './routes/api/openclaw/health'
-import { Route as ApiOpenclawAgentsRouteImport } from './routes/api/openclaw/agents'
 import { Route as ApiMcpSearchBrainRouteImport } from './routes/api/mcp/search-brain'
 import { Route as ApiHonestfitMissionSummaryRouteImport } from './routes/api/honestfit/mission-summary'
 import { Route as ApiWorkoutSessionsIdRouteImport } from './routes/api/workout/sessions.$id'
@@ -40,7 +36,6 @@ import { Route as ApiWorkoutPlanNextRouteImport } from './routes/api/workout/pla
 import { Route as ApiWorkoutPlanGenerateRouteImport } from './routes/api/workout/plan.generate'
 import { Route as ApiWorkoutChatHelpRouteImport } from './routes/api/workout/chat.help'
 import { Route as ApiWorkoutChatCommandRouteImport } from './routes/api/workout/chat.command'
-import { Route as ApiOpenclawAgentsIdRouteImport } from './routes/api/openclaw/agents.$id'
 import { Route as ApiIngestTradingBracketRouteImport } from './routes/api/ingest/trading.bracket'
 import { Route as ApiIngestThoughtsRecentRouteImport } from './routes/api/ingest/thoughts.recent'
 import { Route as ApiIngestThoughtsActivityRouteImport } from './routes/api/ingest/thoughts.activity'
@@ -57,11 +52,6 @@ const WorkoutRoute = WorkoutRouteImport.update({
 const TradingRoute = TradingRouteImport.update({
   id: '/trading',
   path: '/trading',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ThoughtsRoute = ThoughtsRouteImport.update({
-  id: '/thoughts',
-  path: '/thoughts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -84,20 +74,10 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AgentsRoute = AgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AgentsIdRoute = AgentsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AgentsRoute,
 } as any)
 const ApiWorkoutSessionsRoute = ApiWorkoutSessionsRouteImport.update({
   id: '/api/workout/sessions',
@@ -160,11 +140,6 @@ const ApiOpenclawHealthRoute = ApiOpenclawHealthRouteImport.update({
   path: '/api/openclaw/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiOpenclawAgentsRoute = ApiOpenclawAgentsRouteImport.update({
-  id: '/api/openclaw/agents',
-  path: '/api/openclaw/agents',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiMcpSearchBrainRoute = ApiMcpSearchBrainRouteImport.update({
   id: '/api/mcp/search-brain',
   path: '/api/mcp/search-brain',
@@ -205,11 +180,6 @@ const ApiWorkoutChatCommandRoute = ApiWorkoutChatCommandRouteImport.update({
   id: '/api/workout/chat/command',
   path: '/api/workout/chat/command',
   getParentRoute: () => rootRouteImport,
-} as any)
-const ApiOpenclawAgentsIdRoute = ApiOpenclawAgentsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiOpenclawAgentsRoute,
 } as any)
 const ApiIngestTradingBracketRoute = ApiIngestTradingBracketRouteImport.update({
   id: '/api/ingest/trading/bracket',
@@ -254,18 +224,14 @@ const ApiWorkoutExercisePerformancesIdSetsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
-  '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
-  '/agents/$id': typeof AgentsIdRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
-  '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
   '/api/tournament/leaderboard': typeof ApiTournamentLeaderboardRoute
   '/api/tournament/live': typeof ApiTournamentLiveRoute
@@ -281,7 +247,6 @@ export interface FileRoutesByFullPath {
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
-  '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
   '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
   '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
   '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
@@ -295,18 +260,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
-  '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
-  '/agents/$id': typeof AgentsIdRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
-  '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
   '/api/tournament/leaderboard': typeof ApiTournamentLeaderboardRoute
   '/api/tournament/live': typeof ApiTournamentLiveRoute
@@ -322,7 +283,6 @@ export interface FileRoutesByTo {
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
-  '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
   '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
   '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
   '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
@@ -337,18 +297,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/agents': typeof AgentsRouteWithChildren
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
   '/search': typeof SearchRoute
-  '/thoughts': typeof ThoughtsRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
-  '/agents/$id': typeof AgentsIdRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
-  '/api/openclaw/agents': typeof ApiOpenclawAgentsRouteWithChildren
   '/api/openclaw/health': typeof ApiOpenclawHealthRoute
   '/api/tournament/leaderboard': typeof ApiTournamentLeaderboardRoute
   '/api/tournament/live': typeof ApiTournamentLiveRoute
@@ -364,7 +320,6 @@ export interface FileRoutesById {
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
-  '/api/openclaw/agents/$id': typeof ApiOpenclawAgentsIdRoute
   '/api/workout/chat/command': typeof ApiWorkoutChatCommandRoute
   '/api/workout/chat/help': typeof ApiWorkoutChatHelpRoute
   '/api/workout/plan/generate': typeof ApiWorkoutPlanGenerateRoute
@@ -380,18 +335,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/agents'
     | '/login'
     | '/logout'
     | '/openclaw'
     | '/search'
-    | '/thoughts'
     | '/trading'
     | '/workout'
-    | '/agents/$id'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
-    | '/api/openclaw/agents'
     | '/api/openclaw/health'
     | '/api/tournament/leaderboard'
     | '/api/tournament/live'
@@ -407,7 +358,6 @@ export interface FileRouteTypes {
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
-    | '/api/openclaw/agents/$id'
     | '/api/workout/chat/command'
     | '/api/workout/chat/help'
     | '/api/workout/plan/generate'
@@ -421,18 +371,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/agents'
     | '/login'
     | '/logout'
     | '/openclaw'
     | '/search'
-    | '/thoughts'
     | '/trading'
     | '/workout'
-    | '/agents/$id'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
-    | '/api/openclaw/agents'
     | '/api/openclaw/health'
     | '/api/tournament/leaderboard'
     | '/api/tournament/live'
@@ -448,7 +394,6 @@ export interface FileRouteTypes {
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
-    | '/api/openclaw/agents/$id'
     | '/api/workout/chat/command'
     | '/api/workout/chat/help'
     | '/api/workout/plan/generate'
@@ -462,18 +407,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/agents'
     | '/login'
     | '/logout'
     | '/openclaw'
     | '/search'
-    | '/thoughts'
     | '/trading'
     | '/workout'
-    | '/agents/$id'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
-    | '/api/openclaw/agents'
     | '/api/openclaw/health'
     | '/api/tournament/leaderboard'
     | '/api/tournament/live'
@@ -489,7 +430,6 @@ export interface FileRouteTypes {
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
-    | '/api/openclaw/agents/$id'
     | '/api/workout/chat/command'
     | '/api/workout/chat/help'
     | '/api/workout/plan/generate'
@@ -504,17 +444,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AgentsRoute: typeof AgentsRouteWithChildren
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
   OpenclawRoute: typeof OpenclawRoute
   SearchRoute: typeof SearchRoute
-  ThoughtsRoute: typeof ThoughtsRoute
   TradingRoute: typeof TradingRoute
   WorkoutRoute: typeof WorkoutRoute
   ApiHonestfitMissionSummaryRoute: typeof ApiHonestfitMissionSummaryRoute
   ApiMcpSearchBrainRoute: typeof ApiMcpSearchBrainRoute
-  ApiOpenclawAgentsRoute: typeof ApiOpenclawAgentsRouteWithChildren
   ApiOpenclawHealthRoute: typeof ApiOpenclawHealthRoute
   ApiTournamentLeaderboardRoute: typeof ApiTournamentLeaderboardRoute
   ApiTournamentLiveRoute: typeof ApiTournamentLiveRoute
@@ -554,13 +491,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TradingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/thoughts': {
-      id: '/thoughts'
-      path: '/thoughts'
-      fullPath: '/thoughts'
-      preLoaderRoute: typeof ThoughtsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -589,26 +519,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/agents': {
-      id: '/agents'
-      path: '/agents'
-      fullPath: '/agents'
-      preLoaderRoute: typeof AgentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/agents/$id': {
-      id: '/agents/$id'
-      path: '/$id'
-      fullPath: '/agents/$id'
-      preLoaderRoute: typeof AgentsIdRouteImport
-      parentRoute: typeof AgentsRoute
     }
     '/api/workout/sessions': {
       id: '/api/workout/sessions'
@@ -694,13 +610,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOpenclawHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/openclaw/agents': {
-      id: '/api/openclaw/agents'
-      path: '/api/openclaw/agents'
-      fullPath: '/api/openclaw/agents'
-      preLoaderRoute: typeof ApiOpenclawAgentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/mcp/search-brain': {
       id: '/api/mcp/search-brain'
       path: '/api/mcp/search-brain'
@@ -757,13 +666,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWorkoutChatCommandRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/openclaw/agents/$id': {
-      id: '/api/openclaw/agents/$id'
-      path: '/$id'
-      fullPath: '/api/openclaw/agents/$id'
-      preLoaderRoute: typeof ApiOpenclawAgentsIdRouteImport
-      parentRoute: typeof ApiOpenclawAgentsRoute
-    }
     '/api/ingest/trading/bracket': {
       id: '/api/ingest/trading/bracket'
       path: '/api/ingest/trading/bracket'
@@ -816,28 +718,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AgentsRouteChildren {
-  AgentsIdRoute: typeof AgentsIdRoute
-}
-
-const AgentsRouteChildren: AgentsRouteChildren = {
-  AgentsIdRoute: AgentsIdRoute,
-}
-
-const AgentsRouteWithChildren =
-  AgentsRoute._addFileChildren(AgentsRouteChildren)
-
-interface ApiOpenclawAgentsRouteChildren {
-  ApiOpenclawAgentsIdRoute: typeof ApiOpenclawAgentsIdRoute
-}
-
-const ApiOpenclawAgentsRouteChildren: ApiOpenclawAgentsRouteChildren = {
-  ApiOpenclawAgentsIdRoute: ApiOpenclawAgentsIdRoute,
-}
-
-const ApiOpenclawAgentsRouteWithChildren =
-  ApiOpenclawAgentsRoute._addFileChildren(ApiOpenclawAgentsRouteChildren)
-
 interface ApiWorkoutSessionsIdRouteChildren {
   ApiWorkoutSessionsIdCompleteRoute: typeof ApiWorkoutSessionsIdCompleteRoute
   ApiWorkoutSessionsIdSkipRoute: typeof ApiWorkoutSessionsIdSkipRoute
@@ -866,17 +746,14 @@ const ApiWorkoutSessionsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AgentsRoute: AgentsRouteWithChildren,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
   OpenclawRoute: OpenclawRoute,
   SearchRoute: SearchRoute,
-  ThoughtsRoute: ThoughtsRoute,
   TradingRoute: TradingRoute,
   WorkoutRoute: WorkoutRoute,
   ApiHonestfitMissionSummaryRoute: ApiHonestfitMissionSummaryRoute,
   ApiMcpSearchBrainRoute: ApiMcpSearchBrainRoute,
-  ApiOpenclawAgentsRoute: ApiOpenclawAgentsRouteWithChildren,
   ApiOpenclawHealthRoute: ApiOpenclawHealthRoute,
   ApiTournamentLeaderboardRoute: ApiTournamentLeaderboardRoute,
   ApiTournamentLiveRoute: ApiTournamentLiveRoute,

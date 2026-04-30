@@ -56,14 +56,8 @@ function RootComponent() {
                     <Link to="/" className="[&.active]:text-emerald-400">
                       Dashboard
                     </Link>
-                    <Link to="/thoughts" className="[&.active]:text-emerald-400">
-                      Thoughts
-                    </Link>
                     <Link to="/search" className="[&.active]:text-emerald-400">
                       Search
-                    </Link>
-                    <Link to="/agents" className="[&.active]:text-emerald-400">
-                      Agents
                     </Link>
                     <Link to="/trading" className="[&.active]:text-emerald-400">
                       Trading
