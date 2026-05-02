@@ -76,6 +76,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('What needs attention')
     expect(html).toContain('What can be ignored')
     expect(html).toContain('HonestFit Launch Funnel')
+    expect(html).toContain('HonestFit Marketing Command Center')
     expect(html).toContain('Last 24 hours')
     expect(html).toContain('Site visits')
     expect(html).toContain('Sign-in started')
@@ -92,6 +93,183 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Magic requested')
     expect(html).toContain('/api/fit/reports')
     expect(html).toContain('Webhook failures')
+  })
+
+  it('renders the marketing command center with valid marketing data', () => {
+    const marketingSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      marketing: {
+        trafficSources24h: [
+          { source: 'linkedin.com', visits: 25 },
+          { source: 'direct', visits: 4 },
+        ],
+        topReferrers24h: [
+          { referrer: 'linkedin.com/in/kendowney', visits: 18 },
+        ],
+        campaigns24h: [{ campaign: 'launch-post', visits: 20 }],
+        cta24h: {
+          getStartedClicks: 7,
+          signInClicks: 3,
+          viewPlansClicks: 2,
+          partnerApiEmailClicks: 1,
+        },
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: marketingSummary }}
+      />,
+    )
+
+    expect(html).toContain('HonestFit Marketing Command Center')
+    expect(html).toContain('Traffic sources')
+    expect(html).toContain('Visits by source')
+    expect(html).toContain('Top referrers')
+    expect(html).toContain('Campaigns')
+    expect(html).toContain('CTA performance')
+    expect(html).toContain('Get Started clicks')
+    expect(html).toContain('Sign In clicks')
+    expect(html).toContain('View Plans clicks')
+    expect(html).toContain('Partner API email clicks')
+    expect(html).toContain('launch-post')
+    expect(html).toContain('Partner API interest detected')
+  })
+
+  it('renders an empty traffic state when attribution has no activity', () => {
+    const emptyMarketingSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      traffic: {
+        ...summary.traffic,
+        pageViews24h: 0,
+      },
+      marketing: {
+        trafficSources24h: [],
+        topReferrers24h: [],
+        campaigns24h: [],
+        cta24h: {
+          getStartedClicks: 0,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: emptyMarketingSummary }}
+      />,
+    )
+
+    expect(html).toContain(
+      'No marketing traffic is visible in the current window.',
+    )
+    expect(html).toContain(
+      'Traffic is the constraint: publish/comment again today.',
+    )
+  })
+
+  it('renders the traffic but zero signups recommendation', () => {
+    const zeroSignupSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      signups: {
+        ...summary.signups,
+        free24h: 0,
+        pro24h: 0,
+      },
+      marketing: {
+        trafficSources24h: [{ source: 'direct', visits: 15 }],
+        topReferrers24h: [],
+        campaigns24h: [],
+        cta24h: {
+          getStartedClicks: 0,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: zeroSignupSummary }}
+      />,
+    )
+
+    expect(html).toContain(
+      'No signups yet: make the next post about the exact problem HonestFit solves.',
+    )
+    expect(html).toContain('Zero signups angle')
+  })
+
+  it('renders the LinkedIn top-source recommendation', () => {
+    const linkedinSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      marketing: {
+        trafficSources24h: [
+          { source: 'linkedin.com', visits: 30 },
+          { source: 'direct', visits: 3 },
+        ],
+        topReferrers24h: [],
+        campaigns24h: [],
+        cta24h: {
+          getStartedClicks: 0,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: linkedinSummary }}
+      />,
+    )
+
+    expect(html).toContain(
+      'LinkedIn is the strongest source: reply to comments and DM relevant engagers.',
+    )
+    expect(html).toContain('Top channel: linkedin.com')
+  })
+
+  it('renders the CTA click but no signup recommendation', () => {
+    const ctaNoSignupSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 0,
+        magicLinksConsumed24h: 0,
+      },
+      signups: {
+        ...summary.signups,
+        free24h: 0,
+        pro24h: 0,
+      },
+      marketing: {
+        trafficSources24h: [{ source: 'launch-post', visits: 11 }],
+        topReferrers24h: [],
+        campaigns24h: [{ campaign: 'launch-post', visits: 11 }],
+        cta24h: {
+          getStartedClicks: 4,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: ctaNoSignupSummary }}
+      />,
+    )
+
+    expect(html).toContain(
+      'CTA clicks but no signups: inspect login/sign-in copy.',
+    )
+    expect(html).toContain('CTA clicks but no sign-in')
   })
 
   it('renders funnel conversions from the previous step', () => {
@@ -225,6 +403,36 @@ describe('HonestFitTelemetryPanelView', () => {
         ...summary.traffic,
         topPages24h: [{ path: '/profile?email=ken@example.com', views: 1 }],
       },
+      marketing: {
+        trafficSources24h: [
+          {
+            source: 'linkedin.com?email=ken@example.com',
+            visits: 1,
+            userId: 'user_123',
+          },
+        ],
+        topReferrers24h: [
+          {
+            referrer: 'https://example.com/path?ip=203.0.113.5',
+            visits: 1,
+            profileId: 'profile_123',
+          },
+        ],
+        campaigns24h: [
+          {
+            campaign: 'privacy-test',
+            visits: 1,
+            secret: 'mission-secret',
+            content: 'raw profile content',
+          },
+        ],
+        cta24h: {
+          getStartedClicks: 1,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
       errors: {
         ...summary.errors,
         recent: [
@@ -254,6 +462,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).not.toContain('raw JD content')
     expect(html).not.toContain('user_123')
     expect(html).not.toContain('profile_123')
+    expect(html).not.toContain('raw profile content')
   })
 
   it('uses future briefing fields without rendering private action text', () => {

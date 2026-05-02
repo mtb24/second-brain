@@ -25,7 +25,8 @@ function textFromUnknown(value: unknown): string | undefined {
   const record = value as Record<string, unknown>
   const title = typeof record.title === 'string' ? record.title : undefined
   const detail = typeof record.detail === 'string' ? record.detail : undefined
-  const message = typeof record.message === 'string' ? record.message : undefined
+  const message =
+    typeof record.message === 'string' ? record.message : undefined
 
   if (title && detail) return `${title}: ${detail}`
   return detail ?? message ?? title
@@ -42,6 +43,13 @@ const rankedMetricSchema = z.object({
   path: optionalDisplayString,
   source: optionalDisplayString,
   views: numberMetric,
+})
+
+const marketingRankedMetricSchema = z.object({
+  source: optionalDisplayString,
+  referrer: optionalDisplayString,
+  campaign: optionalDisplayString,
+  visits: numberMetric,
 })
 
 const recentErrorSchema = z.object({
@@ -140,6 +148,26 @@ export const honestFitMissionSummarySchema = z.object({
       resendAlerts24h: numberMetric.optional(),
     })
     .passthrough()
+    .optional(),
+  marketing: z
+    .object({
+      trafficSources24h: z.array(marketingRankedMetricSchema).catch([]),
+      topReferrers24h: z.array(marketingRankedMetricSchema).catch([]),
+      campaigns24h: z.array(marketingRankedMetricSchema).catch([]),
+      cta24h: z
+        .object({
+          getStartedClicks: numberMetric,
+          signInClicks: numberMetric,
+          viewPlansClicks: numberMetric,
+          partnerApiEmailClicks: numberMetric,
+        })
+        .catch({
+          getStartedClicks: 0,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        }),
+    })
     .optional(),
 })
 
