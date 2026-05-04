@@ -95,7 +95,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Webhook failures')
   })
 
-  it('renders the marketing workbench with the current experiment and telemetry evidence', () => {
+  it('renders the marketing workbench as a publish-ready action panel', () => {
     const marketingSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       traffic: {
@@ -131,30 +131,62 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('HonestFit Marketing Workbench')
-    expect(html).toContain('Current experiment')
-    expect(html).toContain('Problem post: resumes make claims')
+    expect(html).toContain('Current diagnosis')
     expect(html).toContain(
-      'resumes make claims but do not show support',
+      'Not enough qualified traffic to diagnose signup conversion yet.',
     )
-    expect(html).toContain('Recruiters, hiring managers')
+    expect(html).toContain('Next action')
+    expect(html).toContain('Publish one problem-focused post today.')
+    expect(html).toContain('Why')
+    expect(html).toContain(
+      'The product is live enough to test the message.',
+    )
     expect(html).toContain('https://honestfit.ai/c/ken-downey')
-    expect(html).toContain('20 visits to /c/ken-downey')
-    expect(html).toContain('Review post draft')
-    expect(html).toContain('Publish LinkedIn post')
-    expect(html).toContain('Draft content')
+    expect(html).toContain('Publish-ready LinkedIn post')
     expect(html).toContain('Resumes make claims.')
-    expect(html).toContain('Metrics as evidence')
+    expect(html).toContain(
+      'I just shipped the first live version of HonestFit',
+    )
+    expect(html).toContain('Alternate hooks')
+    expect(html).toContain(
+      'A resume is a list of claims. I&#x27;m building a way to show what supports them.',
+    )
+    expect(html).toContain(
+      'I don&#x27;t think AI resume tools are enough. The harder problem is trust.',
+    )
+    expect(html).toContain('Use this screenshot')
+    expect(html).toContain('Screenshot the first fold of /c/ken-downey')
+    expect(html).toContain('Include the Trust claims/evidence section')
+    expect(html).toContain('Avoid screenshots of internal dashboards')
+    expect(html).toContain('Ask for this feedback')
+    expect(html).toContain(
+      'Without me explaining it, what do you think this page is for?',
+    )
+    expect(html).toContain('Does the Trust &amp; Evidence section make sense?')
+    expect(html).toContain('Would this tell you more than a resume?')
+    expect(html).toContain('Check tomorrow')
+    expect(html).toContain('Comments/replies')
+    expect(html).toContain('What people misunderstood')
+    expect(html).toContain('Learning log')
+    expect(html).toContain('Local note only')
+    expect(html).toContain('Posted? yes/no')
+    expect(html).toContain('Posted URL')
+    expect(html).toContain('What happened?')
+    expect(html).toContain('What was confusing?')
+    expect(html).toContain('Next message angle')
+    expect(html).toContain('Supporting metrics')
     expect(html).toContain('Public profile visits')
     expect(html).toContain('Homepage visits')
     expect(html).toContain('CTA clicks')
     expect(html).toContain('Sign-in attempts')
-    expect(html).toContain('Sign-in completions')
-    expect(html).toContain('Profile/trust page visits')
     expect(html).toContain('4xx/5xx errors')
     expect(html).toContain('Campaigns')
     expect(html).toContain('launch-post')
     expect(html).toContain('linkedin.com: 25')
-    expect(html).toContain('Results / learning')
+
+    expect(html.indexOf('Supporting metrics')).toBeGreaterThan(
+      html.indexOf('Publish-ready LinkedIn post'),
+    )
   })
 
   it('renders an empty traffic state when attribution has no activity', () => {
@@ -163,6 +195,19 @@ describe('HonestFitTelemetryPanelView', () => {
       traffic: {
         ...summary.traffic,
         pageViews24h: 0,
+        topPages24h: [],
+        topReferrers24h: [],
+      },
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 0,
+        magicLinksConsumed24h: 0,
+      },
+      errors: {
+        ...summary.errors,
+        total24h: 0,
+        critical24h: 0,
+        recent: [],
       },
       marketing: {
         trafficSources24h: [],
@@ -183,18 +228,17 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
-    expect(html).toContain('No signal yet')
+    expect(html).toContain('No useful signal yet.')
     expect(html).toContain(
-      'Next task: review the draft and publish the LinkedIn post.',
+      'Publish the post before changing the product.',
     )
-    expect(html).toContain('No traffic -&gt; distribution problem')
     expect(html).toContain(
-      'Review the draft, publish the LinkedIn post, then wait for profile visits.',
+      'Not enough qualified traffic to diagnose signup conversion yet.',
     )
     expect(html).toContain('No CTA signal yet')
   })
 
-  it('renders the traffic but no CTA bottleneck state', () => {
+  it('keeps metrics as supporting evidence when there is traffic but no CTA signal', () => {
     const zeroSignupSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       signups: {
@@ -221,12 +265,9 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
-    expect(html).toContain(
-      'Traffic but no CTA clicks -&gt; message/profile clarity problem',
-    )
-    expect(html).toContain(
-      'Tighten the post and public profile around why evidence-backed claims matter.',
-    )
+    expect(html).toContain('Supporting metrics')
+    expect(html).toContain('direct: 15')
+    expect(html).toContain('No CTA signal yet')
   })
 
   it('renders the LinkedIn top-source recommendation', () => {
@@ -255,12 +296,10 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('linkedin.com: 30')
-    expect(html).toContain(
-      'Traffic but no CTA clicks -&gt; message/profile clarity problem',
-    )
+    expect(html).toContain('Publish one problem-focused post today.')
   })
 
-  it('renders the CTA click but no sign-in bottleneck state', () => {
+  it('renders CTA clicks and sign-in attempts below the action panel', () => {
     const ctaNoSignupSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       funnel: {
@@ -292,11 +331,11 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
-    expect(html).toContain(
-      'CTA clicks but no sign-ins -&gt; signup friction problem',
-    )
-    expect(html).toContain(
-      'Inspect the CTA destination and sign-in copy before sending more traffic.',
+    expect(html).toContain('CTA clicks')
+    expect(html).toContain('Sign-in attempts')
+    expect(html).toContain('4')
+    expect(html.indexOf('Supporting metrics')).toBeGreaterThan(
+      html.indexOf('Check tomorrow'),
     )
   })
 
