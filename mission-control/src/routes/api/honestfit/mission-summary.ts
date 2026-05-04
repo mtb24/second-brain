@@ -9,11 +9,17 @@ export const Route = createFileRoute('/api/honestfit/mission-summary')({
         const denied = guardMcApi(request)
         if (denied) return denied
 
-        return Response.json(await fetchHonestFitMissionSummary(), {
+        const url = new URL(request.url)
+        return Response.json(
+          await fetchHonestFitMissionSummary({
+            since: url.searchParams.get('since'),
+          }),
+          {
           headers: {
             'Cache-Control': 'no-store',
           },
-        })
+          },
+        )
       },
     },
   },

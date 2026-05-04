@@ -1,20 +1,53 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   buildHonestFitOperatorBriefing,
   type HonestFitOperatorBriefingStatus,
 } from '@/server/honestFitOperatorBriefing'
+import {
+  defaultHonestFitMarketingExperiment,
+  type HonestFitMarketingExperiment,
+} from '@/lib/honestFitMarketingExperiment'
 import type {
   HonestFitMissionSummary,
   HonestFitMissionSummaryResult,
 } from '@/server/honestFitMissionSummary'
 
-async function fetchHonestFitTelemetry(): Promise<HonestFitMissionSummaryResult> {
-  const res = await fetch('/api/honestfit/mission-summary', {
+async function fetchHonestFitTelemetry(
+  since?: string | null,
+): Promise<HonestFitMissionSummaryResult> {
+  const params = new URLSearchParams()
+  if (since) params.set('since', since)
+  const suffix = params.size ? `?${params.toString()}` : ''
+  const res = await fetch(`/api/honestfit/mission-summary${suffix}`, {
     cache: 'no-store',
   })
   if (!res.ok) {
     throw new Error('Unable to load HonestFit telemetry')
+  }
+  return res.json()
+}
+
+async function fetchHonestFitMarketingExperiment(): Promise<HonestFitMarketingExperiment> {
+  const res = await fetch('/api/honestfit/marketing-experiment', {
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    throw new Error('Unable to load HonestFit marketing experiment')
+  }
+  return res.json()
+}
+
+async function patchHonestFitMarketingExperiment(
+  body: Record<string, unknown>,
+): Promise<HonestFitMarketingExperiment> {
+  const res = await fetch('/api/honestfit/marketing-experiment', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    throw new Error('Unable to save HonestFit marketing experiment')
   }
   return res.json()
 }
@@ -313,27 +346,6 @@ function hasMarketingFields(summary: HonestFitMissionSummary) {
   return Boolean(summary.marketing)
 }
 
-const publicTrustProfileUrl = 'https://honestfit.ai/c/ken-downey'
-
-const publishReadyPost = `Resumes make claims. They rarely show what supports them.
-
-That's the problem I'm trying to solve with HonestFit.
-
-I just shipped the first live version of HonestFit's Trust Layer: a candidate-controlled public profile with structured career claims, public evidence links, and private evidence controls.
-
-Here's my first public Trust profile:
-https://honestfit.ai/c/ken-downey
-
-The question I'm testing is simple:
-
-Can someone understand what a candidate claims, what supports it, and what stays private faster than they can from a normal resume?
-
-I'd appreciate blunt feedback:
-- Does the Trust & Evidence section make sense?
-- Do the claims feel credible?
-- Does the evidence help?
-- What's confusing or overclaimed?`
-
 const alternateHooks = [
   'Resumes make claims. They rarely show what supports them.',
   "A resume is a list of claims. I'm building a way to show what supports them.",
@@ -360,6 +372,21 @@ const checkTomorrowItems = [
   'Comments/replies',
   'What people misunderstood',
 ]
+
+function defaultExperimentForView(): HonestFitMarketingExperiment {
+  const now = new Date(0).toISOString()
+  return {
+    ...defaultHonestFitMarketingExperiment,
+    status: 'draft',
+    postUrl: null,
+    postedAt: null,
+    learningWhatHappened: '',
+    learningWhatWasConfusing: '',
+    nextMessageAngle: '',
+    createdAt: now,
+    updatedAt: now,
+  }
+}
 
 function pageViewsFor(summary: HonestFitMissionSummary, matcher: RegExp) {
   return summary.traffic.topPages24h
@@ -489,23 +516,84 @@ function SignalMetric({
   )
 }
 
+function checkAfterTimestamp(experiment: HonestFitMarketingExperiment) {
+  if (!experiment.postedAt) return null
+  const posted = new Date(experiment.postedAt)
+  if (Number.isNaN(posted.getTime())) return null
+  return new Date(
+    posted.getTime() + experiment.checkAfterHours * 60 * 60 * 1000,
+  ).toISOString()
+}
+
+function experimentStatusLabel(status: HonestFitMarketingExperiment['status']) {
+  if (status === 'waiting_for_data') return 'Waiting for data'
+  if (status === 'learning_captured') return 'Learning captured'
+  return 'Draft'
+}
+
+function nextActionForExperiment(
+  experiment: HonestFitMarketingExperiment,
+): string {
+  if (experiment.status === 'waiting_for_data') {
+    return `Check metrics after ${experiment.checkAfterHours}h`
+  }
+  if (experiment.status === 'learning_captured') {
+    return experiment.nextMessageAngle
+      ? `Write the next post around: ${experiment.nextMessageAngle}`
+      : 'Write the next post from the captured learning.'
+  }
+  return 'Publish this post today'
+}
+
 function HonestFitMarketingWorkbench({
   summary,
-}: Readonly<{ summary: HonestFitMissionSummary }>) {
+  experiment,
+  onMarkPosted,
+  onSaveLearning,
+  onResetExperiment,
+  isSaving = false,
+}: Readonly<{
+  summary: HonestFitMissionSummary
+  experiment: HonestFitMarketingExperiment
+  onMarkPosted?: (input: { postUrl: string }) => void
+  onSaveLearning?: (
+    input: Pick<
+      HonestFitMarketingExperiment,
+      | 'learningWhatHappened'
+      | 'learningWhatWasConfusing'
+      | 'nextMessageAngle'
+    >,
+  ) => void
+  onResetExperiment?: () => void
+  isSaving?: boolean
+}>) {
   const topSource = topMarketingSource(summary)
   const marketingReady = hasMarketingFields(summary)
   const hasUsefulSignal = hasUsefulMarketingSignal(summary)
   const metrics = experimentMetrics(summary)
-  const [learningLog, setLearningLog] = useState({
-    posted: false,
-    postedUrl: '',
-    happened: '',
-    confusing: '',
-    nextAngle: '',
+  const [postUrl, setPostUrl] = useState(experiment.postUrl ?? '')
+  const [learningFields, setLearningFields] = useState({
+    learningWhatHappened: experiment.learningWhatHappened,
+    learningWhatWasConfusing: experiment.learningWhatWasConfusing,
+    nextMessageAngle: experiment.nextMessageAngle,
   })
+  const checkAfter = checkAfterTimestamp(experiment)
+  const hasPosted = experiment.status !== 'draft' && Boolean(experiment.postedAt)
+  const metricsWindowLabel = hasPosted
+    ? `Since posted ${formatTimestamp(experiment.postedAt)}`
+    : 'Last 24 hours until posted'
+
+  useEffect(() => {
+    setPostUrl(experiment.postUrl ?? '')
+    setLearningFields({
+      learningWhatHappened: experiment.learningWhatHappened,
+      learningWhatWasConfusing: experiment.learningWhatWasConfusing,
+      nextMessageAngle: experiment.nextMessageAngle,
+    })
+  }, [experiment])
 
   async function copyPost() {
-    await navigator.clipboard?.writeText(publishReadyPost)
+    await navigator.clipboard?.writeText(experiment.postDraft)
   }
 
   return (
@@ -516,15 +604,20 @@ function HonestFitMarketingWorkbench({
             HonestFit Marketing Workbench
           </h4>
           <div className="mt-1 text-xs text-slate-500">
-            Publish one useful thing today, then check what people understood
+            {experiment.title}
           </div>
         </div>
-        <a
-          href={publicTrustProfileUrl}
-          className="rounded border border-cyan-400/40 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-400/10"
-        >
-          Public profile
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200">
+            {experimentStatusLabel(experiment.status)}
+          </span>
+          <a
+            href={experiment.targetUrl}
+            className="rounded border border-cyan-400/40 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-400/10"
+          >
+            Public profile
+          </a>
+        </div>
       </div>
 
       {!marketingReady && (
@@ -555,7 +648,7 @@ function HonestFitMarketingWorkbench({
               Next action
             </div>
             <div className="mt-1 text-sm font-semibold leading-5 text-slate-100">
-              Publish one problem-focused post today.
+              {nextActionForExperiment(experiment)}
             </div>
           </div>
           <div>
@@ -574,7 +667,7 @@ function HonestFitMarketingWorkbench({
         <Section title="Publish-ready LinkedIn post">
           <div className="rounded border border-slate-800/80 bg-slate-950/60 p-3">
             <pre className="whitespace-pre-wrap text-sm leading-6 text-slate-100">
-              {publishReadyPost}
+              {experiment.postDraft}
             </pre>
             <div className="mt-3 flex justify-end">
               <button
@@ -631,61 +724,101 @@ function HonestFitMarketingWorkbench({
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-        <Section title="Check tomorrow">
-          <ul className="grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-1">
-            {checkTomorrowItems.map((item) => (
-              <li
-                key={item}
-                className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
+        <Section title={hasPosted ? 'Post status' : 'Check tomorrow'}>
+          {hasPosted ? (
+            <div className="space-y-2 rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Status</span>
+                <span className="font-semibold text-slate-100">
+                  {experimentStatusLabel(experiment.status)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Posted</span>
+                <span className="text-right text-slate-200">
+                  {formatTimestamp(experiment.postedAt)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Check after</span>
+                <span className="text-right text-slate-200">
+                  {formatTimestamp(checkAfter)}
+                </span>
+              </div>
+              {experiment.postUrl && (
+                <a
+                  href={experiment.postUrl}
+                  className="block truncate text-cyan-100 hover:text-cyan-50"
+                >
+                  {experiment.postUrl}
+                </a>
+              )}
+              {experiment.status === 'learning_captured' && (
+                <div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-emerald-100">
+                  Next-message recommendation:{' '}
+                  {nextActionForExperiment(experiment)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <ul className="grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-1">
+              {checkTomorrowItems.map((item) => (
+                <li
+                  key={item}
+                  className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          )}
         </Section>
 
         <Section title="Learning log">
           <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="mb-3 rounded border border-amber-900/70 bg-amber-950/30 p-2 text-xs text-amber-100">
-              Local note only — persistence TODO.
+            <div className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300">
+              {hasPosted
+                ? metricsWindowLabel
+                : 'Publish this post today, then save the LinkedIn URL.'}
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex items-center gap-2 text-xs text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={learningLog.posted}
-                  onChange={(event) =>
-                    setLearningLog((log) => ({
-                      ...log,
-                      posted: event.target.checked,
-                    }))
-                  }
-                  className="h-4 w-4 rounded border-slate-600 bg-slate-950"
-                />
-                Posted? yes/no
-              </label>
               <label className="text-xs text-slate-400">
                 Posted URL
                 <input
-                  value={learningLog.postedUrl}
-                  onChange={(event) =>
-                    setLearningLog((log) => ({
-                      ...log,
-                      postedUrl: event.target.value,
-                    }))
-                  }
+                  value={postUrl}
+                  onChange={(event) => setPostUrl(event.target.value)}
                   className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
                   placeholder="LinkedIn URL after publishing"
                 />
               </label>
+              <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  disabled={isSaving || !postUrl.trim()}
+                  onClick={() => onMarkPosted?.({ postUrl })}
+                  className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark posted
+                </button>
+                {onResetExperiment && (
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={onResetExperiment}
+                    className="rounded border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
               <label className="text-xs text-slate-400">
                 What happened?
                 <textarea
-                  value={learningLog.happened}
+                  value={learningFields.learningWhatHappened}
                   onChange={(event) =>
-                    setLearningLog((log) => ({
-                      ...log,
-                      happened: event.target.value,
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      learningWhatHappened: event.target.value,
                     }))
                   }
                   className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
@@ -694,11 +827,11 @@ function HonestFitMarketingWorkbench({
               <label className="text-xs text-slate-400">
                 What was confusing?
                 <textarea
-                  value={learningLog.confusing}
+                  value={learningFields.learningWhatWasConfusing}
                   onChange={(event) =>
-                    setLearningLog((log) => ({
-                      ...log,
-                      confusing: event.target.value,
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      learningWhatWasConfusing: event.target.value,
                     }))
                   }
                   className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
@@ -707,22 +840,33 @@ function HonestFitMarketingWorkbench({
               <label className="text-xs text-slate-400 md:col-span-2">
                 Next message angle
                 <textarea
-                  value={learningLog.nextAngle}
+                  value={learningFields.nextMessageAngle}
                   onChange={(event) =>
-                    setLearningLog((log) => ({
-                      ...log,
-                      nextAngle: event.target.value,
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      nextMessageAngle: event.target.value,
                     }))
                   }
                   className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
                 />
               </label>
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => onSaveLearning?.(learningFields)}
+                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Save learning
+                </button>
+              </div>
             </div>
           </div>
         </Section>
       </div>
 
       <Section title="Supporting metrics">
+        <div className="mb-2 text-xs text-slate-500">{metricsWindowLabel}</div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {metrics.map((metric) => (
             <SignalMetric key={metric.label} {...metric} />
@@ -842,10 +986,27 @@ function OperatorBriefingCard({
 
 export function HonestFitTelemetryPanelView({
   result,
+  experiment = defaultExperimentForView(),
+  onMarkPosted,
+  onSaveLearning,
+  onResetExperiment,
+  isExperimentSaving = false,
   isLoading = false,
   error,
 }: Readonly<{
   result?: HonestFitMissionSummaryResult
+  experiment?: HonestFitMarketingExperiment
+  onMarkPosted?: (input: { postUrl: string }) => void
+  onSaveLearning?: (
+    input: Pick<
+      HonestFitMarketingExperiment,
+      | 'learningWhatHappened'
+      | 'learningWhatWasConfusing'
+      | 'nextMessageAngle'
+    >,
+  ) => void
+  onResetExperiment?: () => void
+  isExperimentSaving?: boolean
   isLoading?: boolean
   error?: Error | null
 }>) {
@@ -898,7 +1059,14 @@ export function HonestFitTelemetryPanelView({
       {summary && (
         <div className="mt-4 space-y-5">
           <OperatorBriefingCard summary={summary} />
-          <HonestFitMarketingWorkbench summary={summary} />
+          <HonestFitMarketingWorkbench
+            summary={summary}
+            experiment={experiment}
+            onMarkPosted={onMarkPosted}
+            onSaveLearning={onSaveLearning}
+            onResetExperiment={onResetExperiment}
+            isSaving={isExperimentSaving}
+          />
           <LaunchFunnelCard summary={summary} />
 
           <div className="grid gap-5 xl:grid-cols-3">
@@ -1062,23 +1230,58 @@ export function HonestFitTelemetryPanelView({
 }
 
 export function HonestFitTelemetryPanel() {
+  const queryClient = useQueryClient()
+  const experimentQuery = useQuery({
+    queryKey: ['honestfit-marketing-experiment'],
+    queryFn: fetchHonestFitMarketingExperiment,
+  })
+  const experiment = experimentQuery.data
+  const telemetrySince =
+    experiment?.status === 'waiting_for_data' ||
+    experiment?.status === 'learning_captured'
+      ? experiment.postedAt
+      : null
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['honestfit-mission-summary'],
-    queryFn: fetchHonestFitTelemetry,
+    queryKey: ['honestfit-mission-summary', telemetrySince],
+    queryFn: () => fetchHonestFitTelemetry(telemetrySince),
     refetchInterval: 60_000,
+    enabled: !experimentQuery.isLoading,
+  })
+  const experimentMutation = useMutation({
+    mutationFn: patchHonestFitMarketingExperiment,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['honestfit-marketing-experiment'],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ['honestfit-mission-summary'],
+      })
+    },
   })
 
   return (
     <div className="space-y-2">
       <HonestFitTelemetryPanelView
         result={data}
-        isLoading={isLoading || isFetching}
-        error={error as Error | null}
+        experiment={experiment}
+        onMarkPosted={({ postUrl }) =>
+          experimentMutation.mutate({ action: 'mark_posted', postUrl })
+        }
+        onSaveLearning={(learning) =>
+          experimentMutation.mutate({ action: 'save_learning', ...learning })
+        }
+        onResetExperiment={() => experimentMutation.mutate({ action: 'reset' })}
+        isExperimentSaving={experimentMutation.isPending}
+        isLoading={isLoading || isFetching || experimentQuery.isLoading}
+        error={(error || experimentQuery.error) as Error | null}
       />
       <div className="flex justify-end">
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => {
+            void experimentQuery.refetch()
+            void refetch()
+          }}
           className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100"
         >
           Refresh

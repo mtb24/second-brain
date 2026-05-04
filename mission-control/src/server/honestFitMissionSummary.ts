@@ -149,26 +149,29 @@ export const honestFitMissionSummarySchema = z.object({
     })
     .passthrough()
     .optional(),
-  marketing: z
-    .object({
-      trafficSources24h: z.array(marketingRankedMetricSchema).catch([]),
-      topReferrers24h: z.array(marketingRankedMetricSchema).catch([]),
-      campaigns24h: z.array(marketingRankedMetricSchema).catch([]),
-      cta24h: z
-        .object({
-          getStartedClicks: numberMetric,
-          signInClicks: numberMetric,
-          viewPlansClicks: numberMetric,
-          partnerApiEmailClicks: numberMetric,
-        })
-        .catch({
-          getStartedClicks: 0,
-          signInClicks: 0,
-          viewPlansClicks: 0,
-          partnerApiEmailClicks: 0,
-        }),
-    })
-    .optional(),
+  marketing: z.preprocess(
+    normalizeMarketingSummary,
+    z
+      .object({
+        trafficSources24h: z.array(marketingRankedMetricSchema).catch([]),
+        topReferrers24h: z.array(marketingRankedMetricSchema).catch([]),
+        campaigns24h: z.array(marketingRankedMetricSchema).catch([]),
+        cta24h: z
+          .object({
+            getStartedClicks: numberMetric,
+            signInClicks: numberMetric,
+            viewPlansClicks: numberMetric,
+            partnerApiEmailClicks: numberMetric,
+          })
+          .catch({
+            getStartedClicks: 0,
+            signInClicks: 0,
+            viewPlansClicks: 0,
+            partnerApiEmailClicks: 0,
+          }),
+      })
+      .optional(),
+  ),
 })
 
 export type HonestFitMissionSummary = z.infer<
@@ -183,6 +186,7 @@ export type HonestFitMissionSummaryResult =
 type FetchSummaryOptions = {
   env?: NodeJS.ProcessEnv
   fetchImpl?: typeof fetch
+  since?: string | null
 }
 
 export async function fetchHonestFitMissionSummary(
@@ -206,7 +210,8 @@ export async function fetchHonestFitMissionSummary(
   }
 
   try {
-    const res = await (options.fetchImpl ?? fetch)(summaryUrl, {
+    const url = summaryUrlWithSince(summaryUrl, options.since)
+    const res = await (options.fetchImpl ?? fetch)(url, {
       cache: 'no-store',
       headers: {
         Authorization: `Bearer ${apiSecret}`,
@@ -251,5 +256,46 @@ export async function fetchHonestFitMissionSummary(
       status: 'error',
       message: 'Unable to fetch HonestFit telemetry.',
     }
+  }
+}
+
+function summaryUrlWithSince(summaryUrl: string, since?: string | null) {
+  if (!since) return summaryUrl
+  const parsedSince = new Date(since)
+  if (Number.isNaN(parsedSince.getTime())) return summaryUrl
+
+  const url = new URL(summaryUrl)
+  url.searchParams.set('since', parsedSince.toISOString())
+  return url.toString()
+}
+
+function normalizeMarketingSummary(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value
+  const record = value as Record<string, unknown>
+  const cta = record.cta24h ?? record.ctaClicks24h
+
+  return {
+    ...record,
+    trafficSources24h:
+      record.trafficSources24h ?? record.visitsBySource24h ?? [],
+    campaigns24h: record.campaigns24h ?? record.visitsByCampaign24h ?? [],
+    topReferrers24h: record.topReferrers24h ?? [],
+    cta24h:
+      cta && typeof cta === 'object'
+        ? {
+            getStartedClicks:
+              (cta as Record<string, unknown>).getStartedClicks ??
+              (cta as Record<string, unknown>).getStarted,
+            signInClicks:
+              (cta as Record<string, unknown>).signInClicks ??
+              (cta as Record<string, unknown>).signIn,
+            viewPlansClicks:
+              (cta as Record<string, unknown>).viewPlansClicks ??
+              (cta as Record<string, unknown>).viewPlans,
+            partnerApiEmailClicks:
+              (cta as Record<string, unknown>).partnerApiEmailClicks ??
+              (cta as Record<string, unknown>).partnerApiEmail,
+          }
+        : cta,
   }
 }
