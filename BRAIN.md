@@ -338,7 +338,7 @@ Retention: 7 backups
 
 ### mission.kendowney.com
 - `/` → `127.0.0.1:4173`
-- `/openclaw/` → `127.0.0.1:18789` with `proxy_set_header X-Forwarded-User "iframeuser"`
+- `/openclaw/` and exact `/openclaw` → `127.0.0.1:18789` with `proxy_set_header X-Forwarded-User "iframeuser"`; keep both proxy locations because WebSocket clients do not reliably recover through the HTTP slash redirect.
 
 ### kendowney.com
 - **`/api/role-fit/start`** (POST JSON) and **`/api/role-fit/status`** (GET, `jobId` query) — Nitro handlers on the same **`4174`** app; role fit UI polls these (Honest Fit–style `/api/*`), not `/_serverFn/*` alone.
@@ -562,6 +562,8 @@ scp brain@147.182.240.24:~/brain/docker-compose.yml /Users/kendowney/Sites/Secon
 
 - **Docker bridge IP** for `brain_default` is `172.19.0.1` (not 172.18.0.1)
 - **OpenClaw is trusted-proxy only** — must go through Nginx, never direct ws://
+- **OpenClaw no-slash WebSocket** — `/openclaw` must proxy like `/openclaw/`, not only `301` to it. `wss://mission.kendowney.com/openclaw` otherwise fails with `1006` even though the slash URL works.
+- **OpenClaw Brave search provider** — `tools.web.search.provider: "brave"` requires the external plugin **`@openclaw/brave-plugin`** installed under `~/.openclaw/npm/`; the API key/config entry alone is not enough. If the gateway crash-loops with `web_search provider is not available: brave`, install the plugin, keep `tools.web.search.enabled: true`, and restart `openclaw-gateway`.
 - **`openclaw cron list`** (CLI on the VPS) may **fail with a WebSocket handshake error** to `127.0.0.1:18789` — **`~/.openclaw/cron/jobs.json` on disk** is the reliable source for scheduled jobs
 - **OpenClaw gateway down → 502** — If **`openclaw-gateway`** (systemd **user** service for **`brain`**) is **inactive**, nothing listens on **18789** and Nginx returns **502** for **`/openclaw/`**; Mission Control’s OpenClaw APIs fail the same way. Typical after an npm upgrade if the service was stopped and not restarted. Fix: **`systemctl --user start openclaw-gateway`**, then confirm **`ss -tlnp | grep 18789`**
 - **Git default branch on the VPS** is **`main`** (repo was historically `master` — **do not recreate `master`**)
