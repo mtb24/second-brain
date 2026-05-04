@@ -91,6 +91,25 @@ describe('fetchHonestFitMissionSummary', () => {
     )
   })
 
+  it('passes a postedAt timestamp to the upstream summary when filtering since publish', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(validSummary))
+
+    await fetchHonestFitMissionSummary({
+      env: {
+        HONESTFIT_MISSION_SUMMARY_URL:
+          'https://honestfit.ai/api/admin/mission/summary',
+        HONESTFIT_MISSION_API_SECRET: 'mission-secret',
+      },
+      fetchImpl,
+      since: '2026-05-04T16:00:00.000Z',
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://honestfit.ai/api/admin/mission/summary?since=2026-05-04T16%3A00%3A00.000Z',
+      expect.any(Object),
+    )
+  })
+
   it('returns unavailable when Mission env is missing', async () => {
     const result = await fetchHonestFitMissionSummary({
       env: {},
@@ -223,5 +242,30 @@ describe('honestFitMissionSummarySchema', () => {
     expect(JSON.stringify(parsed)).not.toContain('candidate transcript')
     expect(parsed.traffic.topPages24h[0]?.path).toBe('/profile')
     expect(parsed.errors.recent[0]?.message).toContain('[redacted]')
+  })
+
+  it('accepts HonestFit marketing aliases from the upstream summary', () => {
+    const parsed = honestFitMissionSummarySchema.parse({
+      ...validSummary,
+      marketing: {
+        visitsBySource24h: [{ source: 'linkedin.com', visits: 8 }],
+        visitsByCampaign24h: [{ campaign: 'trust-layer-post', visits: 5 }],
+        ctaClicks24h: {
+          getStarted: 2,
+          signIn: 1,
+          viewPlans: 0,
+          partnerApiEmail: 0,
+        },
+      },
+    })
+
+    expect(parsed.marketing?.trafficSources24h).toEqual([
+      { source: 'linkedin.com', visits: 8 },
+    ])
+    expect(parsed.marketing?.campaigns24h).toEqual([
+      { campaign: 'trust-layer-post', visits: 5 },
+    ])
+    expect(parsed.marketing?.cta24h.getStartedClicks).toBe(2)
+    expect(parsed.marketing?.cta24h.signInClicks).toBe(1)
   })
 })

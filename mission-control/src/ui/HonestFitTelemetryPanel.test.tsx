@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import type { HonestFitMarketingExperiment } from '@/lib/honestFitMarketingExperiment'
 import { honestFitMissionSummarySchema } from '@/server/honestFitMissionSummary'
 import { HonestFitTelemetryPanelView } from './HonestFitTelemetryPanel'
 
@@ -59,6 +60,31 @@ const summary = honestFitMissionSummarySchema.parse({
 
 function visibleText(html: string) {
   return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ')
+}
+
+function experiment(
+  patch: Partial<HonestFitMarketingExperiment> = {},
+): HonestFitMarketingExperiment {
+  return {
+    id: 'honestfit-trust-layer-linkedin-v1',
+    title: 'Trust Layer public profile LinkedIn post',
+    hypothesis: 'Test the Trust Layer message.',
+    channel: 'linkedin',
+    targetUrl: 'https://honestfit.ai/c/ken-downey',
+    postDraft: `Resumes make claims.
+
+I just shipped the first live version of HonestFit's Trust Layer.`,
+    status: 'draft',
+    postUrl: null,
+    postedAt: null,
+    checkAfterHours: 24,
+    learningWhatHappened: '',
+    learningWhatWasConfusing: '',
+    nextMessageAngle: '',
+    createdAt: '2026-05-04T15:00:00.000Z',
+    updatedAt: '2026-05-04T15:00:00.000Z',
+    ...patch,
+  }
 }
 
 describe('HonestFitTelemetryPanelView', () => {
@@ -136,7 +162,7 @@ describe('HonestFitTelemetryPanelView', () => {
       'Not enough qualified traffic to diagnose signup conversion yet.',
     )
     expect(html).toContain('Next action')
-    expect(html).toContain('Publish one problem-focused post today.')
+    expect(html).toContain('Publish this post today')
     expect(html).toContain('Why')
     expect(html).toContain(
       'The product is live enough to test the message.',
@@ -168,9 +194,8 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Comments/replies')
     expect(html).toContain('What people misunderstood')
     expect(html).toContain('Learning log')
-    expect(html).toContain('Local note only')
-    expect(html).toContain('Posted? yes/no')
     expect(html).toContain('Posted URL')
+    expect(html).toContain('Mark posted')
     expect(html).toContain('What happened?')
     expect(html).toContain('What was confusing?')
     expect(html).toContain('Next message angle')
@@ -296,7 +321,52 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('linkedin.com: 30')
-    expect(html).toContain('Publish one problem-focused post today.')
+    expect(html).toContain('Publish this post today')
+  })
+
+  it('renders persisted waiting_for_data state after a posted experiment reload', () => {
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary }}
+        experiment={experiment({
+          status: 'waiting_for_data',
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
+          postedAt: '2026-05-04T16:00:00.000Z',
+        })}
+      />,
+    )
+
+    expect(html).toContain('Waiting for data')
+    expect(html).toContain('Check metrics after 24h')
+    expect(html).toContain(
+      'https://www.linkedin.com/feed/update/urn:li:activity:123',
+    )
+    expect(html).toContain('Posted')
+    expect(html).toContain('Check after')
+    expect(html).toContain('Since posted')
+    expect(html).toContain('Supporting metrics')
+  })
+
+  it('renders persisted learning fields and learning_captured state', () => {
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary }}
+        experiment={experiment({
+          status: 'learning_captured',
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
+          postedAt: '2026-05-04T16:00:00.000Z',
+          learningWhatHappened: 'Profile clicks, but no replies.',
+          learningWhatWasConfusing: 'People missed evidence controls.',
+          nextMessageAngle: 'Explain public versus private evidence.',
+        })}
+      />,
+    )
+
+    expect(html).toContain('Learning captured')
+    expect(html).toContain('Profile clicks, but no replies.')
+    expect(html).toContain('People missed evidence controls.')
+    expect(html).toContain('Explain public versus private evidence.')
+    expect(html).toContain('Next-message recommendation')
   })
 
   it('renders CTA clicks and sign-in attempts below the action panel', () => {
