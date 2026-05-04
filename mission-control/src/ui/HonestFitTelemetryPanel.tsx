@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   buildHonestFitOperatorBriefing,
   type HonestFitOperatorBriefingStatus,
@@ -61,13 +61,6 @@ type FunnelStep = {
   label: string
   phrase: string
   value: number
-}
-
-type MarketingAction = {
-  priority: 'high' | 'medium' | 'low'
-  action: string
-  why: string
-  channel: string
 }
 
 function buildLaunchFunnelSteps(
@@ -329,152 +322,166 @@ function hasMarketingActivity(summary: HonestFitMissionSummary) {
   )
 }
 
-function buildFunnelDiagnosis(summary: HonestFitMissionSummary) {
-  const traffic = marketingTrafficTotal(summary)
-  const ctaClicks = totalCtaClicks(summary)
-  const signInStarted = summary.funnel.magicLinksRequested24h
-  const signedIn = summary.funnel.magicLinksConsumed24h
-  const signups = summary.signups.free24h + summary.signups.pro24h
-  const captureStarted = summary.funnel.captureStarted24h
-
-  return [
-    {
-      label: 'Traffic but no CTA clicks',
-      active: traffic > 0 && ctaClicks === 0,
-    },
-    {
-      label: 'CTA clicks but no sign-in',
-      active: ctaClicks > 0 && signInStarted === 0,
-    },
-    {
-      label: 'Sign-in attempts but no completions',
-      active: signInStarted > 0 && signedIn === 0,
-    },
-    {
-      label: 'Signups but no capture',
-      active: signups > 0 && captureStarted === 0,
-    },
-  ]
+const currentExperiment = {
+  title: 'Problem post: resumes make claims',
+  hypothesis:
+    'If the post clearly frames the problem - resumes make claims but do not show support - then more qualified visitors will understand why HonestFit exists.',
+  channel: 'LinkedIn',
+  audience:
+    'Recruiters, hiring managers, senior engineers, design systems/frontend peers',
+  link: 'https://honestfit.ai/c/ken-downey',
+  successTargets: [
+    '20 visits to /c/ken-downey',
+    '2 CTA clicks',
+    '1 sign-in attempt',
+    '1 useful qualitative reply',
+  ],
+  statuses: [
+    'Draft',
+    'Ready',
+    'Posted',
+    'Waiting for data',
+    'Learning captured',
+  ],
 }
 
-function buildMarketingActions(summary: HonestFitMissionSummary) {
-  const traffic = marketingTrafficTotal(summary)
+const initialExperimentTasks = [
+  'Review post draft',
+  'Publish LinkedIn post',
+  'Add campaign tag or source note if available',
+  'Check metrics after 24h',
+  'Record what people misunderstood',
+  'Decide next iteration',
+]
+
+const initialPostDraft = `Resumes make claims. They rarely show what supports them.
+
+I built HonestFit's Trust Layer to explore a different kind of career profile: candidate-controlled claims, public evidence links, and private evidence that stays private.
+
+My first public Trust profile is live:
+https://honestfit.ai/c/ken-downey
+
+I'm looking for blunt feedback:
+Does the Trust & Evidence section make sense?
+Would this help you understand a candidate faster than a resume?`
+
+function pageViewsFor(summary: HonestFitMissionSummary, matcher: RegExp) {
+  return summary.traffic.topPages24h
+    .filter((item) => item.path && matcher.test(item.path))
+    .reduce((total, item) => total + item.views, 0)
+}
+
+function publicProfileVisits(summary: HonestFitMissionSummary) {
+  return pageViewsFor(summary, /^\/c\/ken-downey\/?$/)
+}
+
+function homepageVisits(summary: HonestFitMissionSummary) {
+  return pageViewsFor(summary, /^\/$/)
+}
+
+function profileTrustVisits(summary: HonestFitMissionSummary) {
+  const trustRouteViews = pageViewsFor(summary, /^\/profile\/trust\/?$/)
+  return Math.max(trustRouteViews, summary.funnel.profileViews24h)
+}
+
+function experimentTraffic(summary: HonestFitMissionSummary) {
+  return Math.max(publicProfileVisits(summary), marketingTrafficTotal(summary))
+}
+
+function buildExperimentDiagnosis(summary: HonestFitMissionSummary) {
+  const traffic = experimentTraffic(summary)
   const ctaClicks = totalCtaClicks(summary)
   const signInStarted = summary.funnel.magicLinksRequested24h
   const signedIn = summary.funnel.magicLinksConsumed24h
-  const signups = summary.signups.free24h + summary.signups.pro24h
-  const topSource = topMarketingSource(summary)
-  const topSourceName = topSource ? metricName(topSource) : 'Unknown'
-  const topSourceLower = topSourceName.toLowerCase()
-  const partnerApiClicks = summary.marketing?.cta24h.partnerApiEmailClicks ?? 0
-  const actions: MarketingAction[] = []
-
-  if (!hasMarketingFields(summary)) {
-    return [
-      {
-        priority: 'high' as const,
-        action:
-          'Finish wiring HonestFit marketing attribution into the Mission summary.',
-        why: 'Mission is receiving launch telemetry, but marketing source fields are not present yet.',
-        channel: 'Mission setup',
-      },
-    ]
-  }
+  const trustActions =
+    summary.funnel.captureStarted24h +
+    summary.funnel.captureSaved24h +
+    summary.funnel.fitViewed24h +
+    summary.funnel.fitReportsRequested24h +
+    summary.funnel.resumeGenerated24h
+  const profileViews = profileTrustVisits(summary)
 
   if (traffic === 0) {
-    actions.push({
-      priority: 'high',
-      action: 'Traffic is the constraint: publish/comment again today.',
-      why: 'No marketing visits are visible in the current window.',
-      channel: 'LinkedIn',
-    })
+    return {
+      bottleneck: 'No traffic -> distribution problem',
+      nextAction: 'Review the draft, publish the LinkedIn post, then wait for profile visits.',
+    }
   }
 
-  if (traffic > 0 && ctaClicks === 0) {
-    actions.push({
-      priority: 'high',
-      action: 'Make the next post about the exact problem HonestFit solves.',
-      why: 'Traffic arrived, but no CTA clicks were recorded.',
-      channel: topSourceName,
-    })
+  if (ctaClicks === 0) {
+    return {
+      bottleneck: 'Traffic but no CTA clicks -> message/profile clarity problem',
+      nextAction: 'Tighten the post and public profile around why evidence-backed claims matter.',
+    }
   }
 
-  if (ctaClicks > 0 && signInStarted === 0) {
-    actions.push({
-      priority: 'high',
-      action: 'CTA clicks but no signups: inspect login/sign-in copy.',
-      why: 'People clicked a CTA, but no sign-in links were requested.',
-      channel: 'HonestFit site',
-    })
+  if (signInStarted === 0) {
+    return {
+      bottleneck: 'CTA clicks but no sign-ins -> signup friction problem',
+      nextAction: 'Inspect the CTA destination and sign-in copy before sending more traffic.',
+    }
   }
 
-  if (signInStarted > 0 && signedIn === 0) {
-    actions.push({
-      priority: 'high',
-      action:
-        'Check the magic-link completion path before sending more traffic.',
-      why: 'Sign-in attempts started, but none completed.',
-      channel: 'HonestFit site',
-    })
+  if (signedIn > 0 && trustActions === 0) {
+    return {
+      bottleneck:
+        'Sign-ins but no profile/trust actions -> activation problem',
+      nextAction: 'Walk the first signed-in trust flow and find the first unclear step.',
+    }
   }
 
-  if (topSourceLower.includes('linkedin') && traffic > 0) {
-    actions.push({
-      priority: 'high',
-      action:
-        'LinkedIn is the strongest source: reply to comments and DM relevant engagers.',
-      why: 'LinkedIn is the strongest known source in the current window.',
-      channel: 'LinkedIn',
-    })
+  if (profileViews > 0) {
+    return {
+      bottleneck:
+        'Profile views but no feedback -> ask/problem framing problem',
+      nextAction: 'Reply to likely viewers and ask what the Trust & Evidence section failed to explain.',
+    }
   }
 
-  if (signups === 0) {
-    actions.push({
-      priority: 'medium',
-      action:
-        'No signups yet: make the next post about the exact problem HonestFit solves.',
-      why: 'Launch telemetry shows zero signups in the current window.',
-      channel: topSourceName === 'Unknown' ? 'LinkedIn' : topSourceName,
-    })
+  return {
+    bottleneck: 'Traffic but no CTA clicks -> message/profile clarity problem',
+    nextAction: 'Use the next reply or repost to make the Trust Layer problem sharper.',
   }
-
-  if (signups > 0 && summary.funnel.captureStarted24h === 0) {
-    actions.push({
-      priority: 'high',
-      action: 'Walk the first-user capture path and tighten the first screen.',
-      why: 'Signups happened, but no capture started.',
-      channel: 'HonestFit site',
-    })
-  }
-
-  if (partnerApiClicks > 0) {
-    actions.push({
-      priority: 'high',
-      action:
-        'Partner API interest detected: follow up with API/ATS/recruiter angle.',
-      why: `${formatNumber(partnerApiClicks)} Partner API email click${
-        partnerApiClicks === 1 ? '' : 's'
-      } landed in the current window.`,
-      channel: 'Email',
-    })
-  }
-
-  return actions.slice(0, 5)
 }
 
-function buildContentPrompts(summary: HonestFitMissionSummary) {
-  const topSource = topMarketingSource(summary)
-  const channel = topSource ? metricName(topSource) : 'LinkedIn'
-  const signups = summary.signups.free24h + summary.signups.pro24h
-
+function experimentMetrics(summary: HonestFitMissionSummary) {
+  const ctaClicks = totalCtaClicks(summary)
   return [
-    signups === 0
-      ? `Zero signups angle: what I changed after launching HonestFit to almost no traffic and zero signups.`
-      : `Signup signal angle: what the first HonestFit signups are testing next.`,
-    `Profile-before-resume angle: why the profile should become the source of truth before rewriting a resume.`,
-    `Voice-first angle: capture career proof by talking it out before polishing documents.`,
-    `Build-in-public launch lesson: what ${channel} traffic taught me about the HonestFit launch.`,
-    `Explainable fit angle: show why a role fits instead of hiding behind a matching score.`,
+    {
+      label: 'Public profile visits',
+      value: publicProfileVisits(summary),
+      fallback: 'No signal yet',
+    },
+    {
+      label: 'Homepage visits',
+      value: homepageVisits(summary),
+      fallback: 'No signal yet',
+    },
+    {
+      label: 'CTA clicks',
+      value: ctaClicks,
+      fallback: 'No CTA signal yet',
+    },
+    {
+      label: 'Sign-in attempts',
+      value: summary.funnel.magicLinksRequested24h,
+      fallback: 'No sign-in attempts yet',
+    },
+    {
+      label: 'Sign-in completions',
+      value: summary.funnel.magicLinksConsumed24h,
+      fallback: 'No completions yet',
+    },
+    {
+      label: 'Profile/trust page visits',
+      value: profileTrustVisits(summary),
+      fallback: 'No profile/trust visits yet',
+    },
+    {
+      label: '4xx/5xx errors',
+      value: summary.errors.total24h,
+      fallback: 'No errors reported',
+    },
   ]
 }
 
@@ -530,106 +537,226 @@ function MarketingMetricList({
   )
 }
 
-function HonestFitMarketingCommandCenter({
+function SignalMetric({
+  label,
+  value,
+  fallback,
+}: Readonly<{ label: string; value: number; fallback: string }>) {
+  return (
+    <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold text-slate-100">
+        {value > 0 ? formatNumber(value) : fallback}
+      </div>
+    </div>
+  )
+}
+
+function HonestFitMarketingWorkbench({
   summary,
 }: Readonly<{ summary: HonestFitMissionSummary }>) {
   const topSource = topMarketingSource(summary)
-  const topSourceLabel = topSource ? metricName(topSource) : 'No source yet'
-  const bestCta = topCta(summary)
-  const signups = summary.signups.free24h + summary.signups.pro24h
-  const actions = buildMarketingActions(summary)
-  const recommended = actions[0]
-  const diagnosis = buildFunnelDiagnosis(summary)
-  const prompts = buildContentPrompts(summary)
+  const diagnosis = buildExperimentDiagnosis(summary)
   const marketingReady = hasMarketingFields(summary)
   const hasActivity = hasMarketingActivity(summary)
+  const metrics = experimentMetrics(summary)
+  const [status, setStatus] = useState(currentExperiment.statuses[0])
+  const [tasks, setTasks] = useState(() =>
+    initialExperimentTasks.map((label) => ({ label, done: false })),
+  )
+  const [postDraft, setPostDraft] = useState(initialPostDraft)
+  const [learningLog, setLearningLog] = useState({
+    happened: '',
+    misunderstood: '',
+    nextAngle: '',
+  })
+
+  function toggleTask(label: string) {
+    setTasks((items) =>
+      items.map((item) =>
+        item.label === label ? { ...item, done: !item.done } : item,
+      ),
+    )
+  }
+
+  async function copyDraft() {
+    await navigator.clipboard?.writeText(postDraft)
+  }
 
   return (
     <section className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-slate-100">
-            HonestFit Marketing Command Center
+            HonestFit Marketing Workbench
           </h4>
           <div className="mt-1 text-xs text-slate-500">
-            Aggregate attribution and deterministic daily actions
+            One experiment loop: decide, create, post, track, learn
           </div>
         </div>
-        <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs font-semibold uppercase text-cyan-100">
-          Daily
-        </span>
+        <label className="flex items-center gap-2 text-xs text-slate-400">
+          Status
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs font-semibold text-slate-100"
+          >
+            {currentExperiment.statuses.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {!marketingReady && (
         <div className="mt-4 rounded border border-amber-900/70 bg-amber-950/30 p-3 text-xs text-amber-100">
-          Marketing attribution is not available yet. Once HonestFit exposes
-          source, campaign, and CTA fields, this section will show channel
-          performance and next actions.
+          Marketing attribution is not available yet. The workbench can still
+          run the experiment, but source and CTA evidence will be incomplete.
         </div>
       )}
 
       {marketingReady && !hasActivity && (
         <div className="mt-4 rounded border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-300">
-          No marketing traffic is visible in the current window.
+          No signal yet. Next task: review the draft and publish the LinkedIn
+          post.
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Top channel" value={topSource?.visits ?? 0} />
-        <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">
-            Best CTA
+      <div className="mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
+              Current experiment
+            </div>
+            <h5 className="mt-1 text-lg font-semibold text-slate-100">
+              {currentExperiment.title}
+            </h5>
           </div>
-          <div className="mt-1 text-lg font-semibold text-slate-100">
-            {formatNumber(bestCta?.value ?? 0)}
+          <a
+            href={currentExperiment.link}
+            className="rounded border border-cyan-400/40 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-400/10"
+          >
+            Public profile
+          </a>
+        </div>
+        <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">
+          {currentExperiment.hypothesis}
+        </p>
+        <div className="mt-4 grid gap-3 text-xs md:grid-cols-3">
+          <div>
+            <div className="font-semibold uppercase tracking-wide text-slate-500">
+              Channel
+            </div>
+            <div className="mt-1 text-slate-100">
+              {currentExperiment.channel}
+            </div>
           </div>
-          <div className="mt-1 truncate text-xs text-slate-500">
-            {bestCta?.label ?? 'No CTA yet'}
+          <div>
+            <div className="font-semibold uppercase tracking-wide text-slate-500">
+              Audience
+            </div>
+            <div className="mt-1 text-slate-100">
+              {currentExperiment.audience}
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold uppercase tracking-wide text-slate-500">
+              Link
+            </div>
+            <div className="mt-1 break-all font-mono text-cyan-100">
+              {currentExperiment.link}
+            </div>
           </div>
         </div>
-        <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">
-            Signup pressure
-          </div>
-          <div className="mt-1 text-lg font-semibold text-slate-100">
-            {signups === 0 ? 'Zero' : formatNumber(signups)}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            {signups === 0 ? 'No signups yet' : 'Signups in window'}
-          </div>
-        </div>
-        <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">
-            Recommended next move
-          </div>
-          <div className="mt-1 text-sm font-semibold leading-5 text-slate-100">
-            {recommended?.action ?? 'Keep watching attribution.'}
-          </div>
-        </div>
-      </div>
-      <div className="mt-2 text-xs text-slate-500">
-        Top channel: {topSourceLabel}
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <Section title="Traffic sources">
-          <div className="space-y-3">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <Section title="Current bottleneck">
+          <div className="rounded border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="text-sm font-semibold text-amber-100">
+              {diagnosis.bottleneck}
+            </div>
+            <div className="mt-2 text-xs leading-5 text-slate-200">
+              Next action: {diagnosis.nextAction}
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Success metrics">
+          <ul className="grid gap-2 text-xs md:grid-cols-2">
+            {currentExperiment.successTargets.map((target) => (
+              <li
+                key={target}
+                className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
+              >
+                {target}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <Section title="Tasks">
+          <ul className="space-y-2 text-xs">
+            {tasks.map((item) => (
+              <li
+                key={item.label}
+                className="rounded border border-slate-800/80 bg-slate-900/50 p-2"
+              >
+                <label className="flex items-start gap-2 text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    onChange={() => toggleTask(item.label)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-950"
+                  />
+                  <span className={item.done ? 'text-slate-500 line-through' : ''}>
+                    {item.label}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <Section title="Draft content">
+          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+            <textarea
+              value={postDraft}
+              onChange={(event) => setPostDraft(event.target.value)}
+              className="min-h-56 w-full resize-y rounded border border-slate-800 bg-slate-950 p-3 text-sm leading-6 text-slate-100 outline-none focus:border-cyan-500"
+            />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void copyDraft()}
+                className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20"
+              >
+                Copy draft
+              </button>
+            </div>
+          </div>
+        </Section>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <Section title="Metrics as evidence">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {metrics.map((metric) => (
+              <SignalMetric key={metric.label} {...metric} />
+            ))}
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
             <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
               <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-                Visits by source
+                Traffic sources
               </div>
               <MarketingMetricList
                 items={summary.marketing?.trafficSources24h ?? []}
-                emptyLabel="No source visits"
-              />
-            </div>
-            <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-              <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-                Top referrers
-              </div>
-              <MarketingMetricList
-                items={summary.marketing?.topReferrers24h ?? []}
-                emptyLabel="No referrers"
+                emptyLabel="No source signal yet"
               />
             </div>
             <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
@@ -638,76 +765,65 @@ function HonestFitMarketingCommandCenter({
               </div>
               <MarketingMetricList
                 items={summary.marketing?.campaigns24h ?? []}
-                emptyLabel="No campaigns"
+                emptyLabel="No campaign signal yet"
               />
+            </div>
+            <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Top source
+              </div>
+              <div className="text-xs text-slate-300">
+                {topSource
+                  ? `${metricName(topSource)}: ${formatNumber(topSource.visits)}`
+                  : 'No source signal yet'}
+              </div>
             </div>
           </div>
         </Section>
 
-        <Section title="CTA performance">
+        <Section title="Results / learning">
           <div className="grid gap-3">
-            {ctaMetrics(summary).map((item) => (
-              <Metric key={item.label} label={item.label} value={item.value} />
-            ))}
+            <label className="text-xs text-slate-400">
+              What happened
+              <textarea
+                value={learningLog.happened}
+                onChange={(event) =>
+                  setLearningLog((log) => ({
+                    ...log,
+                    happened: event.target.value,
+                  }))
+                }
+                className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                placeholder="TODO: persist this once a marketing workbench store exists."
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              What people misunderstood
+              <textarea
+                value={learningLog.misunderstood}
+                onChange={(event) =>
+                  setLearningLog((log) => ({
+                    ...log,
+                    misunderstood: event.target.value,
+                  }))
+                }
+                className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              Next message angle
+              <textarea
+                value={learningLog.nextAngle}
+                onChange={(event) =>
+                  setLearningLog((log) => ({
+                    ...log,
+                    nextAngle: event.target.value,
+                  }))
+                }
+                className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+              />
+            </label>
           </div>
-        </Section>
-
-        <Section title="Funnel diagnosis">
-          <ul className="space-y-2 text-xs">
-            {diagnosis.map((item) => (
-              <li
-                key={item.label}
-                className={`rounded border p-2 ${
-                  item.active
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
-                    : 'border-slate-800/80 bg-slate-950/40 text-slate-500'
-                }`}
-              >
-                {item.label}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <Section title="Suggested actions">
-          <ul className="space-y-2 text-xs">
-            {actions.map((item) => (
-              <li
-                key={`${item.priority}-${item.action}`}
-                className="rounded border border-slate-800/80 bg-slate-900/50 p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-100">
-                    {item.action}
-                  </span>
-                  <span className="rounded border border-slate-700 px-2 py-0.5 font-semibold uppercase text-slate-300">
-                    {item.priority}
-                  </span>
-                </div>
-                <div className="mt-2 grid gap-2 text-slate-400 md:grid-cols-[1fr_140px]">
-                  <span>{item.why}</span>
-                  <span className="font-medium text-cyan-100">
-                    {item.channel}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Section>
-
-        <Section title="Content prompts">
-          <ul className="space-y-2 text-xs leading-5 text-slate-200">
-            {prompts.map((prompt) => (
-              <li
-                key={prompt}
-                className="rounded border border-slate-800/80 bg-slate-950/40 p-2"
-              >
-                {prompt}
-              </li>
-            ))}
-          </ul>
         </Section>
       </div>
     </section>
@@ -850,7 +966,7 @@ export function HonestFitTelemetryPanelView({
         <div className="mt-4 space-y-5">
           <OperatorBriefingCard summary={summary} />
           <LaunchFunnelCard summary={summary} />
-          <HonestFitMarketingCommandCenter summary={summary} />
+          <HonestFitMarketingWorkbench summary={summary} />
 
           <div className="grid gap-5 xl:grid-cols-3">
             <Section title="Health">

@@ -76,7 +76,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('What needs attention')
     expect(html).toContain('What can be ignored')
     expect(html).toContain('HonestFit Launch Funnel')
-    expect(html).toContain('HonestFit Marketing Command Center')
+    expect(html).toContain('HonestFit Marketing Workbench')
     expect(html).toContain('Last 24 hours')
     expect(html).toContain('Site visits')
     expect(html).toContain('Sign-in started')
@@ -95,9 +95,17 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Webhook failures')
   })
 
-  it('renders the marketing command center with valid marketing data', () => {
+  it('renders the marketing workbench with the current experiment and telemetry evidence', () => {
     const marketingSummary = honestFitMissionSummarySchema.parse({
       ...summary,
+      traffic: {
+        ...summary.traffic,
+        topPages24h: [
+          { path: '/', views: 9 },
+          { path: '/c/ken-downey', views: 25 },
+          { path: '/profile/trust', views: 4 },
+        ],
+      },
       marketing: {
         trafficSources24h: [
           { source: 'linkedin.com', visits: 25 },
@@ -122,18 +130,31 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
-    expect(html).toContain('HonestFit Marketing Command Center')
-    expect(html).toContain('Traffic sources')
-    expect(html).toContain('Visits by source')
-    expect(html).toContain('Top referrers')
+    expect(html).toContain('HonestFit Marketing Workbench')
+    expect(html).toContain('Current experiment')
+    expect(html).toContain('Problem post: resumes make claims')
+    expect(html).toContain(
+      'resumes make claims but do not show support',
+    )
+    expect(html).toContain('Recruiters, hiring managers')
+    expect(html).toContain('https://honestfit.ai/c/ken-downey')
+    expect(html).toContain('20 visits to /c/ken-downey')
+    expect(html).toContain('Review post draft')
+    expect(html).toContain('Publish LinkedIn post')
+    expect(html).toContain('Draft content')
+    expect(html).toContain('Resumes make claims.')
+    expect(html).toContain('Metrics as evidence')
+    expect(html).toContain('Public profile visits')
+    expect(html).toContain('Homepage visits')
+    expect(html).toContain('CTA clicks')
+    expect(html).toContain('Sign-in attempts')
+    expect(html).toContain('Sign-in completions')
+    expect(html).toContain('Profile/trust page visits')
+    expect(html).toContain('4xx/5xx errors')
     expect(html).toContain('Campaigns')
-    expect(html).toContain('CTA performance')
-    expect(html).toContain('Get Started clicks')
-    expect(html).toContain('Sign In clicks')
-    expect(html).toContain('View Plans clicks')
-    expect(html).toContain('Partner API email clicks')
     expect(html).toContain('launch-post')
-    expect(html).toContain('Partner API interest detected')
+    expect(html).toContain('linkedin.com: 25')
+    expect(html).toContain('Results / learning')
   })
 
   it('renders an empty traffic state when attribution has no activity', () => {
@@ -162,15 +183,18 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
+    expect(html).toContain('No signal yet')
     expect(html).toContain(
-      'No marketing traffic is visible in the current window.',
+      'Next task: review the draft and publish the LinkedIn post.',
     )
+    expect(html).toContain('No traffic -&gt; distribution problem')
     expect(html).toContain(
-      'Traffic is the constraint: publish/comment again today.',
+      'Review the draft, publish the LinkedIn post, then wait for profile visits.',
     )
+    expect(html).toContain('No CTA signal yet')
   })
 
-  it('renders the traffic but zero signups recommendation', () => {
+  it('renders the traffic but no CTA bottleneck state', () => {
     const zeroSignupSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       signups: {
@@ -198,9 +222,11 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain(
-      'No signups yet: make the next post about the exact problem HonestFit solves.',
+      'Traffic but no CTA clicks -&gt; message/profile clarity problem',
     )
-    expect(html).toContain('Zero signups angle')
+    expect(html).toContain(
+      'Tighten the post and public profile around why evidence-backed claims matter.',
+    )
   })
 
   it('renders the LinkedIn top-source recommendation', () => {
@@ -228,13 +254,13 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
+    expect(html).toContain('linkedin.com: 30')
     expect(html).toContain(
-      'LinkedIn is the strongest source: reply to comments and DM relevant engagers.',
+      'Traffic but no CTA clicks -&gt; message/profile clarity problem',
     )
-    expect(html).toContain('Top channel: linkedin.com')
   })
 
-  it('renders the CTA click but no signup recommendation', () => {
+  it('renders the CTA click but no sign-in bottleneck state', () => {
     const ctaNoSignupSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       funnel: {
@@ -267,9 +293,11 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain(
-      'CTA clicks but no signups: inspect login/sign-in copy.',
+      'CTA clicks but no sign-ins -&gt; signup friction problem',
     )
-    expect(html).toContain('CTA clicks but no sign-in')
+    expect(html).toContain(
+      'Inspect the CTA destination and sign-in copy before sending more traffic.',
+    )
   })
 
   it('renders funnel conversions from the previous step', () => {
