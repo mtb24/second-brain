@@ -447,6 +447,84 @@ function experimentMetrics(summary: HonestFitMissionSummary) {
   ]
 }
 
+function isCheckTimePassed(checkAfter: string | null) {
+  if (!checkAfter) return false
+  const checkAt = new Date(checkAfter)
+  if (Number.isNaN(checkAt.getTime())) return false
+  return checkAt.getTime() <= Date.now()
+}
+
+function workflowStatusForExperiment(
+  experiment: HonestFitMarketingExperiment,
+  checkAfter: string | null,
+) {
+  if (experiment.status === 'learning_captured') {
+    return {
+      headline: 'Learning captured',
+      nextAction: 'Choose or create the next experiment.',
+    }
+  }
+
+  if (experiment.status === 'waiting_for_data') {
+    if (isCheckTimePassed(checkAfter)) {
+      return {
+        headline: 'Time to review results',
+        nextAction:
+          'Record what happened and choose the next message angle.',
+      }
+    }
+
+    return {
+      headline: 'Post is live — waiting for signal',
+      nextAction:
+        'Wait until the check time, then record what happened.',
+    }
+  }
+
+  return {
+    headline: 'Publish this post today',
+    nextAction: 'Post the draft and save the LinkedIn URL.',
+  }
+}
+
+function nextExperimentOptions(
+  summary: HonestFitMissionSummary,
+  experiment: HonestFitMarketingExperiment,
+) {
+  const options = [
+    {
+      label: 'No traffic',
+      recommendation: 'Try a sharper hook or broader distribution.',
+      active: experimentTraffic(summary) === 0,
+    },
+    {
+      label: 'Profile visits but no clicks',
+      recommendation: 'Clarify the page CTA or post CTA.',
+      active: experimentTraffic(summary) > 0 && totalCtaClicks(summary) === 0,
+    },
+    {
+      label: 'CTA clicks but no sign-ins',
+      recommendation: 'Inspect signup friction.',
+      active:
+        totalCtaClicks(summary) > 0 &&
+        summary.funnel.magicLinksRequested24h === 0,
+    },
+    {
+      label: 'Confused replies',
+      recommendation: 'Rewrite around the problem, not the feature.',
+      active: experiment.learningWhatWasConfusing.trim().length > 0,
+    },
+  ]
+
+  return options.map((option) => ({
+    ...option,
+    active:
+      option.active ||
+      (!options.some((candidate) => candidate.active) &&
+        option.label === 'No traffic'),
+  }))
+}
+
 function CompactList({
   items,
   emptyLabel,
@@ -531,20 +609,6 @@ function experimentStatusLabel(status: HonestFitMarketingExperiment['status']) {
   return 'Draft'
 }
 
-function nextActionForExperiment(
-  experiment: HonestFitMarketingExperiment,
-): string {
-  if (experiment.status === 'waiting_for_data') {
-    return `Check metrics after ${experiment.checkAfterHours}h`
-  }
-  if (experiment.status === 'learning_captured') {
-    return experiment.nextMessageAngle
-      ? `Write the next post around: ${experiment.nextMessageAngle}`
-      : 'Write the next post from the captured learning.'
-  }
-  return 'Publish this post today'
-}
-
 function HonestFitMarketingWorkbench({
   summary,
   experiment,
@@ -578,6 +642,8 @@ function HonestFitMarketingWorkbench({
     nextMessageAngle: experiment.nextMessageAngle,
   })
   const checkAfter = checkAfterTimestamp(experiment)
+  const workflowStatus = workflowStatusForExperiment(experiment, checkAfter)
+  const options = nextExperimentOptions(summary, experiment)
   const hasPosted = experiment.status !== 'draft' && Boolean(experiment.postedAt)
   const metricsWindowLabel = hasPosted
     ? `Since posted ${formatTimestamp(experiment.postedAt)}`
@@ -633,6 +699,66 @@ function HonestFitMarketingWorkbench({
         </div>
       )}
 
+      <div className="mt-4 rounded-lg border border-cyan-400/40 bg-cyan-400/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
+              Workflow status
+            </div>
+            <h4 className="mt-1 text-lg font-semibold leading-6 text-slate-50">
+              {workflowStatus.headline}
+            </h4>
+          </div>
+          <span className="rounded border border-cyan-300/40 bg-slate-950/40 px-2 py-1 text-xs font-semibold text-cyan-50">
+            {experimentStatusLabel(experiment.status)}
+          </span>
+        </div>
+
+        {hasPosted && (
+          <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <dt className="text-slate-500">Posted URL</dt>
+              <dd className="mt-1 min-w-0">
+                {experiment.postUrl ? (
+                  <a
+                    href={experiment.postUrl}
+                    className="block truncate font-semibold text-cyan-50 hover:text-white"
+                  >
+                    {experiment.postUrl}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-slate-300">Missing</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Posted time</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                {formatTimestamp(experiment.postedAt)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Check-after time</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                {formatTimestamp(checkAfter)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Next action</dt>
+              <dd className="mt-1 font-semibold leading-5 text-slate-50">
+                {workflowStatus.nextAction}
+              </dd>
+            </div>
+          </dl>
+        )}
+
+        {!hasPosted && (
+          <div className="mt-4 rounded border border-cyan-300/30 bg-slate-950/30 p-3 text-sm font-semibold text-slate-50">
+            Next action: {workflowStatus.nextAction}
+          </div>
+        )}
+      </div>
+
       <div className="mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
         <div className="grid gap-4 md:grid-cols-3">
           <div>
@@ -648,7 +774,7 @@ function HonestFitMarketingWorkbench({
               Next action
             </div>
             <div className="mt-1 text-sm font-semibold leading-5 text-slate-100">
-              {nextActionForExperiment(experiment)}
+              {workflowStatus.nextAction}
             </div>
           </div>
           <div>
@@ -664,9 +790,19 @@ function HonestFitMarketingWorkbench({
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Section title="Publish-ready LinkedIn post">
-          <div className="rounded border border-slate-800/80 bg-slate-950/60 p-3">
-            <pre className="whitespace-pre-wrap text-sm leading-6 text-slate-100">
+        <Section
+          title={hasPosted ? 'Original draft' : 'Publish-ready LinkedIn post'}
+        >
+          <div
+            className={`rounded border border-slate-800/80 bg-slate-950/60 p-3 ${
+              hasPosted ? 'opacity-60' : ''
+            }`}
+          >
+            <pre
+              className={`whitespace-pre-wrap text-sm leading-6 ${
+                hasPosted ? 'text-slate-400' : 'text-slate-100'
+              }`}
+            >
               {experiment.postDraft}
             </pre>
             <div className="mt-3 flex justify-end">
@@ -755,8 +891,8 @@ function HonestFitMarketingWorkbench({
               )}
               {experiment.status === 'learning_captured' && (
                 <div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-emerald-100">
-                  Next-message recommendation:{' '}
-                  {nextActionForExperiment(experiment)}
+                  Captured message angle:{' '}
+                  {experiment.nextMessageAngle || 'No angle saved yet.'}
                 </div>
               )}
             </div>
@@ -782,35 +918,29 @@ function HonestFitMarketingWorkbench({
                 : 'Publish this post today, then save the LinkedIn URL.'}
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs text-slate-400">
-                Posted URL
-                <input
-                  value={postUrl}
-                  onChange={(event) => setPostUrl(event.target.value)}
-                  className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                  placeholder="LinkedIn URL after publishing"
-                />
-              </label>
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  disabled={isSaving || !postUrl.trim()}
-                  onClick={() => onMarkPosted?.({ postUrl })}
-                  className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Mark posted
-                </button>
-                {onResetExperiment && (
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={onResetExperiment}
-                    className="rounded border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
+              {!hasPosted && (
+                <>
+                  <label className="text-xs text-slate-400">
+                    Posted URL
+                    <input
+                      value={postUrl}
+                      onChange={(event) => setPostUrl(event.target.value)}
+                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                      placeholder="LinkedIn URL after publishing"
+                    />
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <button
+                      type="button"
+                      disabled={isSaving || !postUrl.trim()}
+                      onClick={() => onMarkPosted?.({ postUrl })}
+                      className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Mark posted
+                    </button>
+                  </div>
+                </>
+              )}
               <label className="text-xs text-slate-400">
                 What happened?
                 <textarea
@@ -860,6 +990,37 @@ function HonestFitMarketingWorkbench({
                   Save learning
                 </button>
               </div>
+            </div>
+
+            <div className="mt-4 rounded border border-slate-800 bg-slate-900/50 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Next experiment options
+              </div>
+              <ul className="mt-2 grid gap-2 text-xs md:grid-cols-2">
+                {options.map((option) => (
+                  <li
+                    key={option.label}
+                    className={`rounded border p-2 ${
+                      option.active
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-50'
+                        : 'border-slate-800/80 bg-slate-950/40 text-slate-300'
+                    }`}
+                  >
+                    <div className="font-semibold">{option.label}</div>
+                    <div className="mt-1 leading-5">{option.recommendation}</div>
+                  </li>
+                ))}
+              </ul>
+              {onResetExperiment && (
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={onResetExperiment}
+                  className="mt-3 rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Start next experiment
+                </button>
+              )}
             </div>
           </div>
         </Section>

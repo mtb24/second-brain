@@ -153,16 +153,19 @@ describe('HonestFitTelemetryPanelView', () => {
     const html = renderToStaticMarkup(
       <HonestFitTelemetryPanelView
         result={{ status: 'success', summary: marketingSummary }}
+        onResetExperiment={() => undefined}
       />,
     )
 
     expect(html).toContain('HonestFit Marketing Workbench')
+    expect(html).toContain('Workflow status')
+    expect(html).toContain('Publish this post today')
+    expect(html).toContain('Post the draft and save the LinkedIn URL.')
     expect(html).toContain('Current diagnosis')
     expect(html).toContain(
       'Not enough qualified traffic to diagnose signup conversion yet.',
     )
     expect(html).toContain('Next action')
-    expect(html).toContain('Publish this post today')
     expect(html).toContain('Why')
     expect(html).toContain(
       'The product is live enough to test the message.',
@@ -199,6 +202,14 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('What happened?')
     expect(html).toContain('What was confusing?')
     expect(html).toContain('Next message angle')
+    expect(html).toContain('Next experiment options')
+    expect(html).toContain('Profile visits but no clicks')
+    expect(html).toContain('Clarify the page CTA or post CTA.')
+    expect(html).toContain('CTA clicks but no sign-ins')
+    expect(html).toContain('Inspect signup friction.')
+    expect(html).toContain('Confused replies')
+    expect(html).toContain('Rewrite around the problem, not the feature.')
+    expect(html).toContain('Start next experiment')
     expect(html).toContain('Supporting metrics')
     expect(html).toContain('Public profile visits')
     expect(html).toContain('Homepage visits')
@@ -328,29 +339,57 @@ describe('HonestFitTelemetryPanelView', () => {
     const html = renderToStaticMarkup(
       <HonestFitTelemetryPanelView
         result={{ status: 'success', summary }}
+        onResetExperiment={() => undefined}
         experiment={experiment({
           status: 'waiting_for_data',
           postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
-          postedAt: '2026-05-04T16:00:00.000Z',
+          postedAt: '2099-05-04T16:00:00.000Z',
         })}
       />,
     )
 
     expect(html).toContain('Waiting for data')
-    expect(html).toContain('Check metrics after 24h')
+    expect(html).toContain('Post is live — waiting for signal')
+    expect(html).toContain(
+      'Wait until the check time, then record what happened.',
+    )
     expect(html).toContain(
       'https://www.linkedin.com/feed/update/urn:li:activity:123',
     )
-    expect(html).toContain('Posted')
-    expect(html).toContain('Check after')
+    expect(html).toContain('Posted URL')
+    expect(html).toContain('Posted time')
+    expect(html).toContain('Check-after time')
     expect(html).toContain('Since posted')
+    expect(html).toContain('Original draft')
+    expect(html).toContain('opacity-60')
+    expect(html).toContain('Start next experiment')
+    expect(html).not.toContain('Mark posted')
     expect(html).toContain('Supporting metrics')
+  })
+
+  it('shows review guidance after the check time has passed', () => {
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary }}
+        experiment={experiment({
+          status: 'waiting_for_data',
+          postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
+          postedAt: '2020-01-01T00:00:00.000Z',
+        })}
+      />,
+    )
+
+    expect(html).toContain('Time to review results')
+    expect(html).toContain(
+      'Record what happened and choose the next message angle.',
+    )
   })
 
   it('renders persisted learning fields and learning_captured state', () => {
     const html = renderToStaticMarkup(
       <HonestFitTelemetryPanelView
         result={{ status: 'success', summary }}
+        onResetExperiment={() => undefined}
         experiment={experiment({
           status: 'learning_captured',
           postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
@@ -363,10 +402,12 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('Learning captured')
+    expect(html).toContain('Choose or create the next experiment.')
     expect(html).toContain('Profile clicks, but no replies.')
     expect(html).toContain('People missed evidence controls.')
     expect(html).toContain('Explain public versus private evidence.')
-    expect(html).toContain('Next-message recommendation')
+    expect(html).toContain('Captured message angle')
+    expect(html).toContain('Start next experiment')
   })
 
   it('renders CTA clicks and sign-in attempts below the action panel', () => {
