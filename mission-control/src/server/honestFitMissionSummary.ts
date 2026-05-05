@@ -52,6 +52,13 @@ const marketingRankedMetricSchema = z.object({
   visits: numberMetric,
 })
 
+const trafficClassificationSchema = z.object({
+  raw: numberMetric,
+  estimatedReal: numberMetric,
+  testingSmokeAdmin: numberMetric,
+  ambiguous: numberMetric,
+})
+
 const recentErrorSchema = z.object({
   at: z.string().datetime().catch(''),
   source: displayString.catch('server'),
@@ -97,11 +104,14 @@ export const honestFitMissionSummarySchema = z.object({
     warningCount: numberMetric,
     appVersion: z.string().optional(),
   }),
-  traffic: z.object({
-    pageViews24h: numberMetric,
-    topPages24h: z.array(rankedMetricSchema).catch([]),
-    topReferrers24h: z.array(rankedMetricSchema).catch([]),
-  }),
+  traffic: z
+    .object({
+      pageViews24h: numberMetric,
+      topPages24h: z.array(rankedMetricSchema).catch([]),
+      topReferrers24h: z.array(rankedMetricSchema).catch([]),
+      classification: trafficClassificationSchema.optional(),
+    })
+    .passthrough(),
   signups: z.object({
     freeTotal: numberMetric,
     free24h: numberMetric,
@@ -172,7 +182,15 @@ export const honestFitMissionSummarySchema = z.object({
       })
       .optional(),
   ),
-})
+}).transform((summary) => ({
+  ...summary,
+  traffic: {
+    pageViews24h: summary.traffic.pageViews24h,
+    topPages24h: summary.traffic.topPages24h,
+    topReferrers24h: summary.traffic.topReferrers24h,
+    classification: currentTrafficClassification(summary),
+  },
+}))
 
 export type HonestFitMissionSummary = z.infer<
   typeof honestFitMissionSummarySchema
@@ -187,6 +205,174 @@ type FetchSummaryOptions = {
   env?: NodeJS.ProcessEnv
   fetchImpl?: typeof fetch
   since?: string | null
+}
+
+type TrafficClassificationInput = {
+  traffic: {
+    pageViews24h: number
+    topPages24h: { path?: string; source?: string; views: number }[]
+    topReferrers24h: { path?: string; source?: string; views: number }[]
+  }
+  marketing?: {
+    trafficSources24h: {
+      source?: string
+      referrer?: string
+      campaign?: string
+      visits: number
+    }[]
+    topReferrers24h?: {
+      source?: string
+      referrer?: string
+      campaign?: string
+      visits: number
+    }[]
+    campaigns24h?: {
+      source?: string
+      referrer?: string
+      campaign?: string
+      visits: number
+    }[]
+  }
+}
+
+export function classifyHonestFitTraffic(
+  summary: TrafficClassificationInput,
+): z.infer<typeof trafficClassificationSchema> {
+  const raw = summary.traffic.pageViews24h
+  const sources = summary.marketing?.trafficSources24h ?? []
+
+  if (sources.length > 0) {
+    const classified = sources.reduce(
+      (totals, item) => {
+        const label = trafficLabel(item)
+        if (isTestingSmokeAdminTraffic(label)) {
+          totals.testingSmokeAdmin += item.visits
+        } else if (isAmbiguousDirectTraffic(label)) {
+          totals.ambiguous += item.visits
+        } else {
+          totals.estimatedReal += item.visits
+        }
+        return totals
+      },
+      { estimatedReal: 0, testingSmokeAdmin: 0, ambiguous: 0 },
+    )
+    const classifiedTotal =
+      classified.estimatedReal +
+      classified.testingSmokeAdmin +
+      classified.ambiguous
+    if (classifiedTotal < raw) {
+      classified.ambiguous += raw - classifiedTotal
+    }
+
+    return normalizeTrafficClassification(raw, classified)
+  }
+
+  const classified = summary.traffic.topPages24h.reduce(
+    (totals, item) => {
+      const label = trafficLabel(item)
+      if (isTestingSmokeAdminTraffic(label)) {
+        totals.testingSmokeAdmin += item.views
+      } else if (isAmbiguousProductPage(label)) {
+        totals.ambiguous += item.views
+      } else {
+        totals.estimatedReal += item.views
+      }
+      return totals
+    },
+    { estimatedReal: 0, testingSmokeAdmin: 0, ambiguous: 0 },
+  )
+
+  const classifiedTotal =
+    classified.estimatedReal +
+    classified.testingSmokeAdmin +
+    classified.ambiguous
+  if (classifiedTotal < raw) {
+    classified.ambiguous += raw - classifiedTotal
+  }
+
+  return normalizeTrafficClassification(raw, classified)
+}
+
+function currentTrafficClassification(
+  summary: TrafficClassificationInput & {
+    traffic: TrafficClassificationInput['traffic'] & {
+      classification?: z.infer<typeof trafficClassificationSchema>
+    }
+  },
+) {
+  const upstream = summary.traffic.classification
+  if (upstream?.raw === summary.traffic.pageViews24h) return upstream
+  return classifyHonestFitTraffic(summary)
+}
+
+function trafficLabel(item: {
+  path?: string
+  source?: string
+  referrer?: string
+  campaign?: string
+}) {
+  return [item.path, item.source, item.referrer, item.campaign]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function isTestingSmokeAdminTraffic(label: string) {
+  return [
+    'internal_smoke',
+    'local_test',
+    'production_probe',
+    'system',
+    'deploy_smoke',
+    'public_profile_smoke',
+    'mission_proxy',
+    'mission-proxy',
+    'mission control',
+    'smoke',
+    'probe',
+    'nginx',
+    '/api/health',
+    '/api/admin/mission',
+    '/admin',
+  ].some((pattern) => label.includes(pattern))
+}
+
+function isAmbiguousDirectTraffic(label: string) {
+  return label === '' || label === 'direct' || label === '(direct)'
+}
+
+function isAmbiguousProductPage(label: string) {
+  return (
+    label === '' ||
+    label === '/' ||
+    label === '/login' ||
+    label.startsWith('/login ') ||
+    /^\/c\/[^/\s?#]+\/?$/.test(label)
+  )
+}
+
+function normalizeTrafficClassification(
+  raw: number,
+  classified: {
+    estimatedReal: number
+    testingSmokeAdmin: number
+    ambiguous: number
+  },
+) {
+  const testingSmokeAdmin = Math.min(raw, classified.testingSmokeAdmin)
+  const ambiguous = Math.min(raw - testingSmokeAdmin, classified.ambiguous)
+  const estimatedReal = Math.max(
+    0,
+    Math.min(raw - testingSmokeAdmin - ambiguous, classified.estimatedReal),
+  )
+  const assigned = estimatedReal + testingSmokeAdmin + ambiguous
+
+  return {
+    raw,
+    estimatedReal: assigned < raw ? estimatedReal + (raw - assigned) : estimatedReal,
+    testingSmokeAdmin,
+    ambiguous,
+  }
 }
 
 export async function fetchHonestFitMissionSummary(

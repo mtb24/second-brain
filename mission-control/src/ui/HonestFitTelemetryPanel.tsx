@@ -99,11 +99,12 @@ type FunnelStep = {
 function buildLaunchFunnelSteps(
   summary: HonestFitMissionSummary,
 ): FunnelStep[] {
+  const traffic = summary.traffic.classification
   return [
     {
-      label: 'Site visits',
-      phrase: 'site visits',
-      value: summary.traffic.pageViews24h,
+      label: 'Estimated real visits',
+      phrase: 'estimated real visits',
+      value: traffic.estimatedReal,
     },
     {
       label: 'Sign-in started',
@@ -152,6 +153,7 @@ function formatConversion(step: FunnelStep, previous?: FunnelStep) {
 }
 
 function launchFunnelInsight(steps: FunnelStep[]) {
+  const estimatedRealVisits = steps[0]?.value ?? 0
   const signInStarted = steps[1]?.value ?? 0
   const signedIn = steps[2]?.value ?? 0
   const profileViewed = steps[3]?.value ?? 0
@@ -160,6 +162,9 @@ function launchFunnelInsight(steps: FunnelStep[]) {
   const fitViewed = steps[6]?.value ?? 0
   const fitReportAction = steps[7]?.value ?? 0
 
+  if (estimatedRealVisits < 10) {
+    return 'Current launch signal is too low to diagnose conversion'
+  }
   if (signInStarted === 0) return 'No sign-in attempts yet'
   if (profileViewed > 0 && captureStarted === 0) {
     return 'Visitors are reaching profile, but capture has not started yet'
@@ -294,6 +299,46 @@ function Metric({ label, value }: Readonly<{ label: string; value: number }>) {
   )
 }
 
+function TrafficClassificationCard({
+  summary,
+}: Readonly<{ summary: HonestFitMissionSummary }>) {
+  const classification = summary.traffic.classification
+  return (
+    <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+        Real-user estimate
+      </div>
+      <div className="mt-1 text-2xl font-semibold text-slate-100">
+        {formatNumber(classification.estimatedReal)}
+      </div>
+      <div className="mt-1 text-xs text-slate-500">
+        Raw page views: {formatNumber(classification.raw)}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+        <span>Testing/smoke/admin</span>
+        <span className="text-right font-mono">
+          {formatNumber(classification.testingSmokeAdmin)}
+        </span>
+        <span>Ambiguous</span>
+        <span className="text-right font-mono">
+          {formatNumber(classification.ambiguous)}
+        </span>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Classification excludes internal_smoke, local_test, production_probe,
+        system, deploy smoke, public-profile smoke, and Mission proxy checks
+        from real-user counts. Direct homepage, login, and public-profile
+        traffic stays ambiguous until attribution proves it is qualified user
+        traffic.
+      </p>
+      <p className="mt-2 text-xs leading-5 text-amber-200">
+        Current launch signal is too low to diagnose conversion. Need more
+        qualified traffic before changing product based on funnel numbers.
+      </p>
+    </div>
+  )
+}
+
 function metricName(
   item: {
     source?: string
@@ -306,13 +351,7 @@ function metricName(
 }
 
 function marketingTrafficTotal(summary: HonestFitMissionSummary) {
-  const sourceVisits =
-    summary.marketing?.trafficSources24h.reduce(
-      (total, item) => total + item.visits,
-      0,
-    ) ?? 0
-
-  return Math.max(sourceVisits, summary.traffic.pageViews24h)
+  return summary.traffic.classification.estimatedReal
 }
 
 function ctaMetrics(summary: HonestFitMissionSummary) {
@@ -403,7 +442,7 @@ function homepageVisits(summary: HonestFitMissionSummary) {
 }
 
 function experimentTraffic(summary: HonestFitMissionSummary) {
-  return Math.max(publicProfileVisits(summary), marketingTrafficTotal(summary))
+  return marketingTrafficTotal(summary)
 }
 
 function hasUsefulMarketingSignal(summary: HonestFitMissionSummary) {
@@ -1260,7 +1299,7 @@ export function HonestFitTelemetryPanelView({
             </Section>
 
             <Section title="Traffic 24h">
-              <Metric label="Page views" value={summary.traffic.pageViews24h} />
+              <TrafficClassificationCard summary={summary} />
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
                 <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
                   <div className="text-[11px] uppercase tracking-wide text-slate-500">

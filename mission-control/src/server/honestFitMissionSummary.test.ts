@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  classifyHonestFitTraffic,
   fetchHonestFitMissionSummary,
   honestFitMissionSummarySchema,
 } from './honestFitMissionSummary'
@@ -267,5 +268,52 @@ describe('honestFitMissionSummarySchema', () => {
     ])
     expect(parsed.marketing?.cta24h.getStartedClicks).toBe(2)
     expect(parsed.marketing?.cta24h.signInClicks).toBe(1)
+  })
+
+  it('classifies real, testing, and ambiguous traffic buckets', () => {
+    const parsed = honestFitMissionSummarySchema.parse({
+      ...validSummary,
+      traffic: {
+        ...validSummary.traffic,
+        pageViews24h: 17,
+      },
+      marketing: {
+        trafficSources24h: [
+          { source: 'linkedin.com', visits: 2 },
+          { source: 'internal_smoke', visits: 4 },
+          { source: 'production_probe', visits: 3 },
+          { source: 'direct', visits: 8 },
+        ],
+      },
+    })
+
+    expect(parsed.traffic.classification).toEqual({
+      raw: 17,
+      estimatedReal: 2,
+      testingSmokeAdmin: 7,
+      ambiguous: 8,
+    })
+  })
+
+  it('keeps deploy smoke, public-profile smoke, and Mission checks out of real traffic', () => {
+    const classification = classifyHonestFitTraffic({
+      traffic: {
+        pageViews24h: 12,
+        topPages24h: [
+          { path: '/api/admin/mission/summary', views: 2 },
+          { path: '/c/ken-downey?source=public_profile_smoke', views: 3 },
+          { path: '/login?source=deploy_smoke', views: 1 },
+          { path: '/', views: 6 },
+        ],
+        topReferrers24h: [],
+      },
+    })
+
+    expect(classification).toEqual({
+      raw: 12,
+      estimatedReal: 0,
+      testingSmokeAdmin: 6,
+      ambiguous: 6,
+    })
   })
 })

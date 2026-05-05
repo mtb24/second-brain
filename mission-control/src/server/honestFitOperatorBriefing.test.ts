@@ -83,7 +83,9 @@ describe('buildHonestFitOperatorBriefing', () => {
     const briefing = buildHonestFitOperatorBriefing(summary())
 
     expect(briefing.status).toBe('ok')
-    expect(briefing.whatHappened).toContain('0 page views in the last 24 hours.')
+    expect(briefing.whatHappened).toContain(
+      '0 estimated real page views in the last 24 hours.',
+    )
     expect(briefing.whatChanged).toContain(
       'No comparison window yet; watching the next refresh.',
     )
@@ -93,19 +95,27 @@ describe('buildHonestFitOperatorBriefing', () => {
 
   it('watches traffic with no sign-in started', () => {
     const briefing = buildHonestFitOperatorBriefing(
-      summary({ traffic: { pageViews24h: 15 } }),
+      summary({
+        traffic: {
+          pageViews24h: 15,
+          topPages24h: [{ path: '/pricing', views: 15 }],
+        },
+      }),
     )
 
     expect(briefing.status).toBe('watch')
     expect(briefing.whereStuck).toContain(
-      'Traffic reached the site, but no sign-in started.',
+      'Current launch signal is too low to diagnose conversion. Need more qualified traffic before changing product based on funnel numbers.',
     )
   })
 
   it('watches sign-in requests that were not consumed', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
-        traffic: { pageViews24h: 15 },
+        traffic: {
+          pageViews24h: 15,
+          topPages24h: [{ path: '/pricing', views: 15 }],
+        },
         funnel: { magicLinksRequested24h: 2 },
       }),
     )
@@ -122,7 +132,10 @@ describe('buildHonestFitOperatorBriefing', () => {
   it('watches profile reached but capture not started', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
-        traffic: { pageViews24h: 15 },
+        traffic: {
+          pageViews24h: 15,
+          topPages24h: [{ path: '/pricing', views: 15 }],
+        },
         funnel: {
           magicLinksRequested24h: 2,
           magicLinksConsumed24h: 2,
@@ -140,7 +153,10 @@ describe('buildHonestFitOperatorBriefing', () => {
   it('watches capture started but not saved', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
-        traffic: { pageViews24h: 15 },
+        traffic: {
+          pageViews24h: 15,
+          topPages24h: [{ path: '/pricing', views: 15 }],
+        },
         funnel: {
           magicLinksRequested24h: 2,
           magicLinksConsumed24h: 2,
@@ -186,7 +202,10 @@ describe('buildHonestFitOperatorBriefing', () => {
   it('keeps a clean active state calm', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
-        traffic: { pageViews24h: 5 },
+        traffic: {
+          pageViews24h: 5,
+          topPages24h: [{ path: '/pricing', views: 5 }],
+        },
         funnel: {
           magicLinksRequested24h: 1,
           magicLinksConsumed24h: 1,

@@ -36,7 +36,9 @@ function limitBullets(items: string[], max = 3) {
 export function buildHonestFitOperatorBriefing(
   summary: HonestFitMissionSummary,
 ): HonestFitOperatorBriefing {
-  const pageViews = summary.traffic.pageViews24h
+  const traffic = summary.traffic.classification
+  const pageViews = traffic.estimatedReal
+  const rawPageViews = traffic.raw
   const signInStarted = summary.funnel.magicLinksRequested24h
   const signedIn = summary.funnel.magicLinksConsumed24h
   const profileViewed = summary.funnel.profileViews24h
@@ -64,8 +66,16 @@ export function buildHonestFitOperatorBriefing(
     hasCaptureDropOff
 
   const whatHappened = [
-    `${countLabel(pageViews, 'page view')} in the last 24 hours.`,
+    `${countLabel(
+      pageViews,
+      'estimated real page view',
+    )} in the last 24 hours.`,
   ]
+  if (rawPageViews !== pageViews) {
+    whatHappened.push(
+      `${countLabel(rawPageViews, 'raw page view')} before launch traffic classification.`,
+    )
+  }
   if (signInStarted > 0) {
     whatHappened.push(
       `${countLabel(signInStarted, 'person', 'people')} requested sign-in links.`,
@@ -120,7 +130,9 @@ export function buildHonestFitOperatorBriefing(
     whereStuck.push(summary.funnelGraph.insight)
   }
   if (pageViews > 0 && signInStarted === 0) {
-    whereStuck.push('Traffic reached the site, but no sign-in started.')
+    whereStuck.push(
+      'Current launch signal is too low to diagnose conversion. Need more qualified traffic before changing product based on funnel numbers.',
+    )
   }
   if (hasSignInDropOff) {
     whereStuck.push(

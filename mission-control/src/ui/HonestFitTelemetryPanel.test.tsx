@@ -104,7 +104,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('HonestFit Launch Funnel')
     expect(html).toContain('HonestFit Marketing Workbench')
     expect(html).toContain('Last 24 hours')
-    expect(html).toContain('Site visits')
+    expect(html).toContain('Estimated real visits')
     expect(html).toContain('Sign-in started')
     expect(html).toContain('Signed in')
     expect(html).toContain('Profile viewed')
@@ -113,12 +113,63 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Fit viewed')
     expect(html).toContain('Fit/report action')
     expect(html).toContain('blocked')
+    expect(html).toContain('Real-user estimate')
+    expect(html).toContain('Raw page views')
+    expect(html).toContain('Testing/smoke/admin')
+    expect(html).toContain('Ambiguous')
     expect(html).toContain('1,234')
     expect(html).toContain('linkedin.com')
     expect(html).toContain('Free total')
     expect(html).toContain('Magic requested')
     expect(html).toContain('/api/fit/reports')
     expect(html).toContain('Webhook failures')
+  })
+
+  it('renders low real traffic classification without presenting raw smoke as traction', () => {
+    const lowTrafficSummary = honestFitMissionSummarySchema.parse({
+      ...summary,
+      traffic: {
+        pageViews24h: 18,
+        topPages24h: [{ path: '/', views: 8 }],
+        topReferrers24h: [],
+        classification: undefined,
+      },
+      marketing: {
+        trafficSources24h: [
+          { source: 'linkedin.com', visits: 2 },
+          { source: 'internal_smoke', visits: 5 },
+          { source: 'mission_proxy', visits: 3 },
+          { source: 'direct', visits: 8 },
+        ],
+        cta24h: {
+          getStartedClicks: 0,
+          signInClicks: 0,
+          viewPlansClicks: 0,
+          partnerApiEmailClicks: 0,
+        },
+      },
+      funnel: {
+        ...summary.funnel,
+        magicLinksRequested24h: 0,
+        magicLinksConsumed24h: 0,
+      },
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary: lowTrafficSummary }}
+      />,
+    )
+    const text = visibleText(html)
+
+    expect(text).toContain('Real-user estimate2Raw page views: 18')
+    expect(text).toContain('Testing/smoke/admin8Ambiguous8')
+    expect(text).toContain('No CTA signal yet')
+    expect(text).toContain('No sign-in attempts yet')
+    expect(text).toContain(
+      'Current launch signal is too low to diagnose conversion. Need more qualified traffic before changing product based on funnel numbers.',
+    )
+    expect(text).not.toContain('18 estimated real visits')
   })
 
   it('renders the marketing workbench as a publish-ready action panel', () => {
@@ -456,6 +507,10 @@ describe('HonestFitTelemetryPanelView', () => {
       traffic: {
         ...summary.traffic,
         pageViews24h: 20,
+        classification: undefined,
+      },
+      marketing: {
+        trafficSources24h: [{ source: 'linkedin.com', visits: 20 }],
       },
       funnel: {
         ...summary.funnel,
@@ -478,7 +533,7 @@ describe('HonestFitTelemetryPanelView', () => {
     const text = visibleText(html)
 
     expect(text).toContain('10 sign-in started')
-    expect(text).toContain('50% from site visits')
+    expect(text).toContain('50% from estimated real visits')
     expect(text).toContain('8 signed in')
     expect(text).toContain('80% from sign-in started')
     expect(text).toContain('2 fit/report action')
@@ -491,6 +546,7 @@ describe('HonestFitTelemetryPanelView', () => {
       traffic: {
         ...summary.traffic,
         pageViews24h: 0,
+        classification: undefined,
       },
       funnel: {
         ...summary.funnel,
@@ -512,7 +568,7 @@ describe('HonestFitTelemetryPanelView', () => {
     )
     const text = visibleText(html)
 
-    expect(text).toContain('0 site visits')
+    expect(text).toContain('0 estimated real visits')
     expect(text).toContain('2 sign-in started')
     expect(text).toContain('—')
   })
@@ -523,6 +579,10 @@ describe('HonestFitTelemetryPanelView', () => {
       traffic: {
         ...summary.traffic,
         pageViews24h: 10,
+        classification: undefined,
+      },
+      marketing: {
+        trafficSources24h: [{ source: 'linkedin.com', visits: 10 }],
       },
       funnel: {
         ...summary.funnel,
