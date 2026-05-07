@@ -68,15 +68,25 @@ function experiment(
   return {
     id: 'honestfit-trust-layer-linkedin-v1',
     title: 'Trust Layer public profile LinkedIn post',
-    hypothesis: 'Test the Trust Layer message.',
     channel: 'linkedin',
     targetUrl: 'https://honestfit.ai/c/ken-downey',
+    hook: 'A resume is a list of claims.',
+    angle: 'Problem-first',
+    audience: 'Recruiters',
+    hypothesis: 'Test the Trust Layer message.',
+    suggestedScreenshot: 'Public profile first fold',
+    feedbackAsk: 'What is confusing?',
+    postBody: `Resumes make claims.
+
+I just shipped the first live version of HonestFit's Trust Layer.`,
     postDraft: `Resumes make claims.
 
 I just shipped the first live version of HonestFit's Trust Layer.`,
     status: 'draft',
+    postedUrl: null,
     postUrl: null,
     postedAt: null,
+    checkAfter: null,
     checkAfterHours: 24,
     learningWhatHappened: '',
     learningWhatWasConfusing: '',
@@ -84,6 +94,16 @@ I just shipped the first live version of HonestFit's Trust Layer.`,
     createdAt: '2026-05-04T15:00:00.000Z',
     updatedAt: '2026-05-04T15:00:00.000Z',
     ...patch,
+  }
+}
+
+function campaignState(
+  selected: HonestFitMarketingExperiment,
+  others: HonestFitMarketingExperiment[] = [],
+) {
+  return {
+    campaigns: [selected, ...others],
+    selectedCampaignId: selected.id,
   }
 }
 
@@ -204,75 +224,54 @@ describe('HonestFitTelemetryPanelView', () => {
     const html = renderToStaticMarkup(
       <HonestFitTelemetryPanelView
         result={{ status: 'success', summary: marketingSummary }}
-        onResetExperiment={() => undefined}
+        campaignState={campaignState(experiment())}
       />,
     )
 
     expect(html).toContain('HonestFit Marketing Workbench')
-    expect(html).toContain('Workflow status')
-    expect(html).toContain('Publish this post today')
-    expect(html).toContain('Post the draft and save the LinkedIn URL.')
-    expect(html).toContain('Current diagnosis')
-    expect(html).toContain(
-      'Not enough qualified traffic to diagnose signup conversion yet.',
-    )
-    expect(html).toContain('Next action')
-    expect(html).toContain('Why')
-    expect(html).toContain(
-      'The product is live enough to test the message.',
-    )
+    expect(html).toContain('Campaign queue')
+    expect(html).toContain('Active campaign')
+    expect(html).toContain('Draft campaigns')
+    expect(html).toContain('Posted/waiting campaigns')
+    expect(html).toContain('Learning captured')
+    expect(html).toContain('Selected campaign')
+    expect(html).toContain('What should I publish next?')
     expect(html).toContain('https://honestfit.ai/c/ken-downey')
-    expect(html).toContain('Publish-ready LinkedIn post')
+    expect(html).toContain('Editable draft')
     expect(html).toContain('Resumes make claims.')
     expect(html).toContain(
       'I just shipped the first live version of HonestFit',
     )
-    expect(html).toContain('Alternate hooks')
-    expect(html).toContain(
-      'A resume is a list of claims. I&#x27;m building a way to show what supports them.',
-    )
-    expect(html).toContain(
-      'I don&#x27;t think AI resume tools are enough. The harder problem is trust.',
-    )
-    expect(html).toContain('Use this screenshot')
-    expect(html).toContain('Screenshot the first fold of /c/ken-downey')
-    expect(html).toContain('Include the Trust claims/evidence section')
-    expect(html).toContain('Avoid screenshots of internal dashboards')
-    expect(html).toContain('Ask for this feedback')
-    expect(html).toContain(
-      'Without me explaining it, what do you think this page is for?',
-    )
-    expect(html).toContain('Does the Trust &amp; Evidence section make sense?')
-    expect(html).toContain('Would this tell you more than a resume?')
-    expect(html).toContain('Check tomorrow')
-    expect(html).toContain('Comments/replies')
-    expect(html).toContain('What people misunderstood')
-    expect(html).toContain('Learning log')
+    expect(html).toContain('Angle being tested')
+    expect(html).toContain('Success metric')
+    expect(html).toContain('Suggested screenshot')
+    expect(html).toContain('Feedback ask')
+    expect(html).toContain('Mark published')
     expect(html).toContain('Posted URL')
     expect(html).toContain('Mark posted')
-    expect(html).toContain('What happened?')
+    expect(html).toContain('Record learning')
+    expect(html).toContain('What happened after the last post?')
     expect(html).toContain('What was confusing?')
     expect(html).toContain('Next message angle')
-    expect(html).toContain('Next experiment options')
-    expect(html).toContain('Profile visits but no clicks')
-    expect(html).toContain('Clarify the page CTA or post CTA.')
-    expect(html).toContain('CTA clicks but no sign-ins')
-    expect(html).toContain('Inspect signup friction.')
-    expect(html).toContain('Confused replies')
-    expect(html).toContain('Rewrite around the problem, not the feature.')
-    expect(html).toContain('Start next experiment')
+    expect(html).toContain('Choose next campaign')
+    expect(html).toContain('Problem-first')
+    expect(html).toContain('Recruiter-value')
+    expect(html).toContain('Candidate-control')
+    expect(html).toContain('AI-resume critique')
     expect(html).toContain('Supporting metrics')
-    expect(html).toContain('Public profile visits')
-    expect(html).toContain('Homepage visits')
+    expect(html).toContain('Real-user visits')
+    expect(html).toContain('Raw visits')
+    expect(html).toContain('Testing/smoke/admin')
+    expect(html).toContain('Ambiguous')
     expect(html).toContain('CTA clicks')
     expect(html).toContain('Sign-in attempts')
-    expect(html).toContain('4xx/5xx errors')
+    expect(html).toContain('Errors')
     expect(html).toContain('Campaigns')
     expect(html).toContain('launch-post')
     expect(html).toContain('linkedin.com: 25')
 
     expect(html.indexOf('Supporting metrics')).toBeGreaterThan(
-      html.indexOf('Publish-ready LinkedIn post'),
+      html.indexOf('Editable draft'),
     )
   })
 
@@ -315,12 +314,8 @@ describe('HonestFitTelemetryPanelView', () => {
       />,
     )
 
-    expect(html).toContain('No useful signal yet.')
     expect(html).toContain(
-      'Publish the post before changing the product.',
-    )
-    expect(html).toContain(
-      'Not enough qualified traffic to diagnose signup conversion yet.',
+      'No traffic: try a stronger hook or broader distribution.',
     )
     expect(html).toContain('No CTA signal yet')
   })
@@ -360,6 +355,15 @@ describe('HonestFitTelemetryPanelView', () => {
   it('renders the LinkedIn top-source recommendation', () => {
     const linkedinSummary = honestFitMissionSummarySchema.parse({
       ...summary,
+      traffic: {
+        ...summary.traffic,
+        classification: {
+          raw: 33,
+          estimatedReal: 30,
+          testingSmokeAdmin: 0,
+          ambiguous: 3,
+        },
+      },
       marketing: {
         trafficSources24h: [
           { source: 'linkedin.com', visits: 30 },
@@ -383,7 +387,9 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('linkedin.com: 30')
-    expect(html).toContain('Publish this post today')
+    expect(html).toContain(
+      'Profile visits but no CTA: clarify profile value and the call to action.',
+    )
   })
 
   it('renders persisted waiting_for_data state after a posted experiment reload', () => {
@@ -393,27 +399,25 @@ describe('HonestFitTelemetryPanelView', () => {
         onResetExperiment={() => undefined}
         experiment={experiment({
           status: 'waiting_for_data',
+          postedUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postedAt: '2099-05-04T16:00:00.000Z',
+          checkAfter: '2099-05-05T16:00:00.000Z',
         })}
       />,
     )
 
     expect(html).toContain('Waiting for data')
-    expect(html).toContain('Post is live — waiting for signal')
-    expect(html).toContain(
-      'Wait until the check time, then record what happened.',
-    )
+    expect(html).toContain('Post is live')
+    expect(html).toContain('Record learning, then choose next campaign')
     expect(html).toContain(
       'https://www.linkedin.com/feed/update/urn:li:activity:123',
     )
-    expect(html).toContain('Posted URL')
     expect(html).toContain('Posted time')
     expect(html).toContain('Check-after time')
-    expect(html).toContain('Since posted')
-    expect(html).toContain('Original draft')
-    expect(html).toContain('opacity-60')
-    expect(html).toContain('Start next experiment')
+    expect(html).toContain('Since active campaign posted')
+    expect(html).toContain('Posted campaign')
+    expect(html).toContain('Choose next campaign')
     expect(html).not.toContain('Mark posted')
     expect(html).toContain('Supporting metrics')
   })
@@ -424,16 +428,16 @@ describe('HonestFitTelemetryPanelView', () => {
         result={{ status: 'success', summary }}
         experiment={experiment({
           status: 'waiting_for_data',
+          postedUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postedAt: '2020-01-01T00:00:00.000Z',
+          checkAfter: '2020-01-02T00:00:00.000Z',
         })}
       />,
     )
 
-    expect(html).toContain('Time to review results')
-    expect(html).toContain(
-      'Record what happened and choose the next message angle.',
-    )
+    expect(html).toContain('Post is live')
+    expect(html).toContain('Record learning')
   })
 
   it('renders persisted learning fields and learning_captured state', () => {
@@ -443,8 +447,10 @@ describe('HonestFitTelemetryPanelView', () => {
         onResetExperiment={() => undefined}
         experiment={experiment({
           status: 'learning_captured',
+          postedUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postUrl: 'https://www.linkedin.com/feed/update/urn:li:activity:123',
           postedAt: '2026-05-04T16:00:00.000Z',
+          checkAfter: '2026-05-05T16:00:00.000Z',
           learningWhatHappened: 'Profile clicks, but no replies.',
           learningWhatWasConfusing: 'People missed evidence controls.',
           nextMessageAngle: 'Explain public versus private evidence.',
@@ -453,12 +459,12 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('Learning captured')
-    expect(html).toContain('Choose or create the next experiment.')
+    expect(html).toContain('Learning saved. Choose next campaign')
     expect(html).toContain('Profile clicks, but no replies.')
     expect(html).toContain('People missed evidence controls.')
     expect(html).toContain('Explain public versus private evidence.')
-    expect(html).toContain('Captured message angle')
-    expect(html).toContain('Start next experiment')
+    expect(html).toContain('Previous campaign learning')
+    expect(html).toContain('Choose next campaign')
   })
 
   it('renders CTA clicks and sign-in attempts below the action panel', () => {

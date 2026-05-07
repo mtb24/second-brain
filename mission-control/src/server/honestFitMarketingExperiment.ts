@@ -1,28 +1,37 @@
 import type { PoolClient } from 'pg'
-import { z } from 'zod'
 import {
   defaultHonestFitMarketingExperiment,
   markHonestFitMarketingExperimentPostedSchema,
   marketingExperimentActionSchema,
+  preparedHonestFitMarketingCampaignDrafts,
   saveHonestFitMarketingLearningSchema,
-  updateHonestFitMarketingExperimentSchema,
-  type HonestFitMarketingExperiment,
-  type HonestFitMarketingExperimentStatus,
+  updateHonestFitMarketingCampaignSchema,
+  type HonestFitMarketingCampaign,
+  type HonestFitMarketingCampaignState,
+  type HonestFitMarketingCampaignStatus,
   type MarketingExperimentAction,
 } from '@/lib/honestFitMarketingExperiment'
 import { getWorkoutPool, withWorkoutTransaction } from './workout/db'
 
-type ExperimentRow = {
+type CampaignRow = {
   id: string
   title: string
   hypothesis: string
   channel: string
   target_url: string
-  post_draft: string
-  status: HonestFitMarketingExperimentStatus
+  post_draft: string | null
+  post_body: string | null
+  hook: string | null
+  angle: string | null
+  audience: string | null
+  suggested_screenshot: string | null
+  feedback_ask: string | null
+  status: HonestFitMarketingCampaignStatus
   post_url: string | null
+  posted_url: string | null
   posted_at: Date | string | null
   check_after_hours: number
+  check_after: Date | string | null
   learning_what_happened: string | null
   learning_what_was_confusing: string | null
   next_message_angle: string | null
@@ -34,92 +43,220 @@ type Queryable = Pick<PoolClient, 'query'>
 
 export async function getCurrentHonestFitMarketingExperiment(
   client: Queryable = getWorkoutPool(),
-): Promise<HonestFitMarketingExperiment> {
-  await ensureDefaultExperiment(client)
-  const { rows } = await client.query<ExperimentRow>(
+): Promise<HonestFitMarketingCampaignState> {
+  await ensureDefaultCampaigns(client)
+  const { rows } = await client.query<CampaignRow>(
     `SELECT *
      FROM honestfit_marketing_experiments
-     ORDER BY updated_at DESC
-     LIMIT 1`,
+     ORDER BY
+       CASE status
+         WHEN 'draft' THEN 0
+         WHEN 'ready' THEN 1
+         WHEN 'waiting_for_data' THEN 2
+         WHEN 'posted' THEN 3
+         WHEN 'learning_captured' THEN 4
+         ELSE 5
+       END,
+       updated_at DESC`,
   )
-  return mapExperimentRow(rows[0])
+  const campaigns = rows.map(mapCampaignRow)
+  return {
+    campaigns,
+    selectedCampaignId: selectDefaultCampaign(campaigns),
+  }
 }
 
-export async function updateHonestFitMarketingExperiment(
-  patch: z.infer<typeof updateHonestFitMarketingExperimentSchema>,
-): Promise<HonestFitMarketingExperiment> {
-  const validated = updateHonestFitMarketingExperimentSchema.parse(patch)
+export async function updateHonestFitMarketingCampaign(
+  campaignId: string,
+  patch: unknown,
+): Promise<HonestFitMarketingCampaignState> {
+  const validated = updateHonestFitMarketingCampaignSchema.parse(patch)
   return withWorkoutTransaction(async (client) => {
-    const current = await getCurrentHonestFitMarketingExperiment(client)
-    const next = { ...current, ...validated }
-    return writeExperiment(client, next)
+    const campaign = await getCampaign(client, campaignId)
+    await writeCampaign(client, { ...campaign, ...validated })
+    return selectCampaignState(client, campaignId)
   })
 }
 
 export async function markHonestFitMarketingExperimentPosted(
-  input: z.infer<typeof markHonestFitMarketingExperimentPostedSchema>,
-): Promise<HonestFitMarketingExperiment> {
+  input: unknown,
+): Promise<HonestFitMarketingCampaignState> {
   const validated = markHonestFitMarketingExperimentPostedSchema.parse(input)
   return withWorkoutTransaction(async (client) => {
-    const current = await getCurrentHonestFitMarketingExperiment(client)
-    return writeExperiment(client, {
-      ...current,
+    const campaign = await getCampaign(client, validated.campaignId)
+    const postedAt = validated.postedAt ?? new Date().toISOString()
+    const checkAfter = new Date(
+      new Date(postedAt).getTime() + 24 * 60 * 60 * 1000,
+    ).toISOString()
+    await writeCampaign(client, {
+      ...campaign,
       status: 'waiting_for_data',
-      postUrl: validated.postUrl,
-      postedAt: validated.postedAt ?? new Date().toISOString(),
+      postedUrl: validated.postedUrl,
+      postedAt,
+      checkAfter,
     })
+    return selectCampaignState(client, campaign.id)
   })
 }
 
 export async function saveHonestFitMarketingLearning(
-  input: z.infer<typeof saveHonestFitMarketingLearningSchema>,
-): Promise<HonestFitMarketingExperiment> {
+  input: unknown,
+): Promise<HonestFitMarketingCampaignState> {
   const validated = saveHonestFitMarketingLearningSchema.parse(input)
   return withWorkoutTransaction(async (client) => {
-    const current = await getCurrentHonestFitMarketingExperiment(client)
-    return writeExperiment(client, {
-      ...current,
-      ...validated,
+    const campaign = await getCampaign(client, validated.campaignId)
+    await writeCampaign(client, {
+      ...campaign,
+      learningWhatHappened: validated.learningWhatHappened,
+      learningWhatWasConfusing: validated.learningWhatWasConfusing,
+      nextMessageAngle: validated.nextMessageAngle,
       status: 'learning_captured',
     })
+    return selectCampaignState(client, campaign.id)
   })
 }
 
-export async function resetHonestFitMarketingExperiment(): Promise<HonestFitMarketingExperiment> {
+export async function startNextHonestFitMarketingCampaign(
+  draftId: string,
+): Promise<HonestFitMarketingCampaignState> {
   return withWorkoutTransaction(async (client) => {
-    await client.query(
-      `DELETE FROM honestfit_marketing_experiments
-       WHERE id = $1`,
-      [defaultHonestFitMarketingExperiment.id],
-    )
-    await ensureDefaultExperiment(client)
-    return getCurrentHonestFitMarketingExperiment(client)
+    const source = await getCampaign(client, draftId)
+    const now = new Date().toISOString()
+    const id = `${source.id}-${Date.now()}`
+    const campaign = {
+      ...source,
+      id,
+      status: 'draft' as const,
+      postDraft: source.postBody,
+      postedUrl: null,
+      postUrl: null,
+      postedAt: null,
+      checkAfter: null,
+      checkAfterHours: 24,
+      learningWhatHappened: '',
+      learningWhatWasConfusing: '',
+      nextMessageAngle: '',
+      createdAt: now,
+      updatedAt: now,
+    }
+    await insertCampaign(client, campaign)
+    return selectCampaignState(client, id)
   })
 }
 
 export async function applyHonestFitMarketingExperimentAction(
   action: MarketingExperimentAction,
-): Promise<HonestFitMarketingExperiment> {
-  if (action.action === 'update') {
-    return updateHonestFitMarketingExperiment(action.experiment)
+): Promise<HonestFitMarketingCampaignState> {
+  const parsed = marketingExperimentActionSchema.parse(action)
+  if (parsed.action === 'update') {
+    return updateHonestFitMarketingCampaign(parsed.campaignId, parsed.campaign)
   }
-  if (action.action === 'mark_posted') {
+  if (parsed.action === 'mark_posted') {
     return markHonestFitMarketingExperimentPosted({
-      postUrl: action.postUrl,
-      postedAt: action.postedAt,
+      campaignId: parsed.campaignId,
+      postedUrl: parsed.postedUrl,
+      postedAt: parsed.postedAt,
     })
   }
-  if (action.action === 'save_learning') {
-    return saveHonestFitMarketingLearning({
-      learningWhatHappened: action.learningWhatHappened,
-      learningWhatWasConfusing: action.learningWhatWasConfusing,
-      nextMessageAngle: action.nextMessageAngle,
-    })
+  if (parsed.action === 'save_learning') {
+    return saveHonestFitMarketingLearning(parsed)
   }
-  return resetHonestFitMarketingExperiment()
+  if (parsed.action === 'start_next_campaign') {
+    return startNextHonestFitMarketingCampaign(parsed.draftId)
+  }
+  return updateHonestFitMarketingCampaign(parsed.campaignId, {
+    status: 'archived',
+  })
 }
 
-async function ensureDefaultExperiment(client: Queryable) {
+async function selectCampaignState(
+  client: Queryable,
+  selectedCampaignId: string,
+): Promise<HonestFitMarketingCampaignState> {
+  const state = await getCurrentHonestFitMarketingExperiment(client)
+  return { ...state, selectedCampaignId }
+}
+
+async function ensureDefaultCampaigns(client: Queryable) {
+  await ensureLegacyColumns(client)
+  await insertCampaignIfMissing(client, {
+    ...defaultHonestFitMarketingExperiment,
+    postDraft: defaultHonestFitMarketingExperiment.postBody,
+    postedUrl: null,
+    postUrl: null,
+    postedAt: null,
+    checkAfter: null,
+    checkAfterHours: 24,
+    learningWhatHappened: '',
+    learningWhatWasConfusing: '',
+    nextMessageAngle: '',
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  })
+  for (const draft of preparedHonestFitMarketingCampaignDrafts) {
+    await insertCampaignIfMissing(client, {
+      ...draft,
+      postDraft: draft.postBody,
+      postedUrl: null,
+      postUrl: null,
+      postedAt: null,
+      checkAfter: null,
+      checkAfterHours: 24,
+      learningWhatHappened: '',
+      learningWhatWasConfusing: '',
+      nextMessageAngle: '',
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+    })
+  }
+}
+
+async function ensureLegacyColumns(client: Queryable) {
+  await client.query(
+    `ALTER TABLE honestfit_marketing_experiments
+       DROP CONSTRAINT IF EXISTS honestfit_marketing_experiments_status_check`,
+  )
+  await client.query(
+    `ALTER TABLE honestfit_marketing_experiments
+       ADD COLUMN IF NOT EXISTS post_body text,
+       ADD COLUMN IF NOT EXISTS hook text,
+       ADD COLUMN IF NOT EXISTS angle text,
+       ADD COLUMN IF NOT EXISTS audience text,
+       ADD COLUMN IF NOT EXISTS posted_url text,
+       ADD COLUMN IF NOT EXISTS check_after timestamptz,
+       ADD COLUMN IF NOT EXISTS suggested_screenshot text,
+       ADD COLUMN IF NOT EXISTS feedback_ask text`,
+  )
+  await client.query(
+    `ALTER TABLE honestfit_marketing_experiments
+       ADD CONSTRAINT honestfit_marketing_experiments_status_check
+       CHECK (status IN (
+         'draft',
+         'ready',
+         'posted',
+         'waiting_for_data',
+         'learning_captured',
+         'archived'
+       ))`,
+  )
+  await client.query(
+    `UPDATE honestfit_marketing_experiments
+     SET post_body = COALESCE(post_body, post_draft),
+         posted_url = COALESCE(posted_url, post_url),
+         check_after = COALESCE(
+           check_after,
+           posted_at + (check_after_hours || ' hours')::interval
+         )
+     WHERE post_body IS NULL
+        OR posted_url IS NULL
+        OR (check_after IS NULL AND posted_at IS NOT NULL)`,
+  )
+}
+
+async function insertCampaignIfMissing(
+  client: Queryable,
+  campaign: HonestFitMarketingCampaign,
+) {
   await client.query(
     `INSERT INTO honestfit_marketing_experiments (
        id,
@@ -128,77 +265,200 @@ async function ensureDefaultExperiment(client: Queryable) {
        channel,
        target_url,
        post_draft,
-       check_after_hours
+       post_body,
+       hook,
+       angle,
+       audience,
+       suggested_screenshot,
+       feedback_ask,
+       status
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (id) DO NOTHING`,
     [
-      defaultHonestFitMarketingExperiment.id,
-      defaultHonestFitMarketingExperiment.title,
-      defaultHonestFitMarketingExperiment.hypothesis,
-      defaultHonestFitMarketingExperiment.channel,
-      defaultHonestFitMarketingExperiment.targetUrl,
-      defaultHonestFitMarketingExperiment.postDraft,
-      defaultHonestFitMarketingExperiment.checkAfterHours,
+      campaign.id,
+      campaign.title,
+      campaign.hypothesis,
+      campaign.channel,
+      campaign.targetUrl,
+      campaign.postBody,
+      campaign.hook,
+      campaign.angle,
+      campaign.audience,
+      campaign.suggestedScreenshot,
+      campaign.feedbackAsk,
+      campaign.status,
     ],
   )
 }
 
-async function writeExperiment(
+async function insertCampaign(
   client: Queryable,
-  experiment: HonestFitMarketingExperiment,
-): Promise<HonestFitMarketingExperiment> {
-  const { rows } = await client.query<ExperimentRow>(
+  campaign: HonestFitMarketingCampaign,
+) {
+  await client.query(
+    `INSERT INTO honestfit_marketing_experiments (
+       id,
+       title,
+       hypothesis,
+       channel,
+       target_url,
+       post_draft,
+       post_body,
+       hook,
+       angle,
+       audience,
+       suggested_screenshot,
+       feedback_ask,
+       status,
+       post_url,
+       posted_url,
+       posted_at,
+       check_after,
+       learning_what_happened,
+       learning_what_was_confusing,
+       next_message_angle
+     )
+     VALUES (
+       $1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $13,
+       $14, $15, $16, $17, $18
+     )`,
+    [
+      campaign.id,
+      campaign.title,
+      campaign.hypothesis,
+      campaign.channel,
+      campaign.targetUrl,
+      campaign.postBody,
+      campaign.hook,
+      campaign.angle,
+      campaign.audience,
+      campaign.suggestedScreenshot,
+      campaign.feedbackAsk,
+      campaign.status,
+      campaign.postedUrl,
+      campaign.postedAt,
+      campaign.checkAfter,
+      campaign.learningWhatHappened,
+      campaign.learningWhatWasConfusing,
+      campaign.nextMessageAngle,
+    ],
+  )
+}
+
+async function getCampaign(
+  client: Queryable,
+  campaignId?: string,
+): Promise<HonestFitMarketingCampaign> {
+  await ensureDefaultCampaigns(client)
+  const id = campaignId ?? defaultHonestFitMarketingExperiment.id
+  const { rows } = await client.query<CampaignRow>(
+    `SELECT *
+     FROM honestfit_marketing_experiments
+     WHERE id = $1
+     LIMIT 1`,
+    [id],
+  )
+  return mapCampaignRow(rows[0])
+}
+
+async function writeCampaign(
+  client: Queryable,
+  campaign: HonestFitMarketingCampaign,
+): Promise<HonestFitMarketingCampaign> {
+  const { rows } = await client.query<CampaignRow>(
     `UPDATE honestfit_marketing_experiments
      SET title = $2,
          hypothesis = $3,
          channel = $4,
          target_url = $5,
          post_draft = $6,
-         status = $7,
-         post_url = $8,
-         posted_at = $9,
-         check_after_hours = $10,
-         learning_what_happened = $11,
-         learning_what_was_confusing = $12,
-         next_message_angle = $13,
+         post_body = $6,
+         hook = $7,
+         angle = $8,
+         audience = $9,
+         suggested_screenshot = $10,
+         feedback_ask = $11,
+         status = $12,
+         post_url = $13,
+         posted_url = $13,
+         posted_at = $14,
+         check_after = $15,
+         check_after_hours = 24,
+         learning_what_happened = $16,
+         learning_what_was_confusing = $17,
+         next_message_angle = $18,
          updated_at = now()
      WHERE id = $1
      RETURNING *`,
     [
-      experiment.id,
-      experiment.title,
-      experiment.hypothesis,
-      experiment.channel,
-      experiment.targetUrl,
-      experiment.postDraft,
-      experiment.status,
-      experiment.postUrl,
-      experiment.postedAt,
-      experiment.checkAfterHours,
-      experiment.learningWhatHappened,
-      experiment.learningWhatWasConfusing,
-      experiment.nextMessageAngle,
+      campaign.id,
+      campaign.title,
+      campaign.hypothesis,
+      campaign.channel,
+      campaign.targetUrl,
+      campaign.postBody,
+      campaign.hook,
+      campaign.angle,
+      campaign.audience,
+      campaign.suggestedScreenshot,
+      campaign.feedbackAsk,
+      campaign.status,
+      campaign.postedUrl,
+      campaign.postedAt,
+      campaign.checkAfter,
+      campaign.learningWhatHappened,
+      campaign.learningWhatWasConfusing,
+      campaign.nextMessageAngle,
     ],
   )
-  return mapExperimentRow(rows[0])
+  return mapCampaignRow(rows[0])
 }
 
-function mapExperimentRow(row: ExperimentRow | undefined): HonestFitMarketingExperiment {
+function selectDefaultCampaign(campaigns: HonestFitMarketingCampaign[]) {
+  return (
+    campaigns.find((campaign) => campaign.status === 'draft')?.id ??
+    campaigns.find((campaign) => campaign.status === 'ready')?.id ??
+    campaigns.find((campaign) => campaign.status === 'waiting_for_data')?.id ??
+    campaigns.find((campaign) => campaign.status === 'posted')?.id ??
+    campaigns[0]?.id ??
+    defaultHonestFitMarketingExperiment.id
+  )
+}
+
+function mapCampaignRow(row: CampaignRow | undefined): HonestFitMarketingCampaign {
   if (!row) {
-    throw new Error('HonestFit marketing experiment was not found')
+    throw new Error('HonestFit marketing campaign was not found')
   }
+
+  const postedAt = isoFrom(row.posted_at)
+  const checkAfter =
+    isoFrom(row.check_after) ??
+    (postedAt
+      ? new Date(
+          new Date(postedAt).getTime() +
+            Number(row.check_after_hours) * 60 * 60 * 1000,
+        ).toISOString()
+      : null)
 
   return {
     id: row.id,
     title: row.title,
-    hypothesis: row.hypothesis,
+    status: row.status,
     channel: row.channel,
     targetUrl: row.target_url,
-    postDraft: row.post_draft,
-    status: row.status,
-    postUrl: row.post_url,
-    postedAt: isoFrom(row.posted_at),
+    postBody: row.post_body ?? row.post_draft ?? '',
+    postDraft: row.post_body ?? row.post_draft ?? '',
+    hook: row.hook ?? '',
+    angle: row.angle ?? '',
+    audience: row.audience ?? '',
+    hypothesis: row.hypothesis,
+    suggestedScreenshot: row.suggested_screenshot ?? '',
+    feedbackAsk: row.feedback_ask ?? '',
+    postedUrl: row.posted_url ?? row.post_url,
+    postUrl: row.posted_url ?? row.post_url,
+    postedAt,
+    checkAfter,
     checkAfterHours: Number(row.check_after_hours),
     learningWhatHappened: row.learning_what_happened ?? '',
     learningWhatWasConfusing: row.learning_what_was_confusing ?? '',

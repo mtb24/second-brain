@@ -6,6 +6,9 @@ import {
 } from '@/server/honestFitOperatorBriefing'
 import {
   defaultHonestFitMarketingExperiment,
+  preparedHonestFitMarketingCampaignDrafts,
+  type HonestFitMarketingCampaign,
+  type HonestFitMarketingCampaignState,
   type HonestFitMarketingExperiment,
 } from '@/lib/honestFitMarketingExperiment'
 import type {
@@ -28,7 +31,7 @@ async function fetchHonestFitTelemetry(
   return res.json()
 }
 
-async function fetchHonestFitMarketingExperiment(): Promise<HonestFitMarketingExperiment> {
+async function fetchHonestFitMarketingExperiment(): Promise<HonestFitMarketingCampaignState> {
   const res = await fetch('/api/honestfit/marketing-experiment', {
     cache: 'no-store',
   })
@@ -40,7 +43,7 @@ async function fetchHonestFitMarketingExperiment(): Promise<HonestFitMarketingEx
 
 async function patchHonestFitMarketingExperiment(
   body: Record<string, unknown>,
-): Promise<HonestFitMarketingExperiment> {
+): Promise<HonestFitMarketingCampaignState> {
   const res = await fetch('/api/honestfit/marketing-experiment', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -417,8 +420,12 @@ function defaultExperimentForView(): HonestFitMarketingExperiment {
   return {
     ...defaultHonestFitMarketingExperiment,
     status: 'draft',
+    postDraft: defaultHonestFitMarketingExperiment.postBody,
+    postedUrl: null,
     postUrl: null,
     postedAt: null,
+    checkAfter: null,
+    checkAfterHours: 24,
     learningWhatHappened: '',
     learningWhatWasConfusing: '',
     nextMessageAngle: '',
@@ -648,57 +655,252 @@ function experimentStatusLabel(status: HonestFitMarketingExperiment['status']) {
   return 'Draft'
 }
 
+type CampaignEditFields = Pick<
+  HonestFitMarketingCampaign,
+  | 'title'
+  | 'hook'
+  | 'postBody'
+  | 'audience'
+  | 'hypothesis'
+  | 'targetUrl'
+  | 'suggestedScreenshot'
+  | 'feedbackAsk'
+>
+
+function campaignStateForView(
+  campaign?: HonestFitMarketingCampaign,
+): HonestFitMarketingCampaignState {
+  const now = new Date(0).toISOString()
+  const seededCampaigns = [
+    {
+      ...defaultHonestFitMarketingExperiment,
+      postDraft: defaultHonestFitMarketingExperiment.postBody,
+      postedUrl: null,
+      postUrl: null,
+      postedAt: null,
+      checkAfter: null,
+      checkAfterHours: 24,
+      learningWhatHappened: '',
+      learningWhatWasConfusing: '',
+      nextMessageAngle: '',
+      createdAt: now,
+      updatedAt: now,
+    },
+    ...preparedHonestFitMarketingCampaignDrafts.map((draft) => ({
+      ...draft,
+      postDraft: draft.postBody,
+      postedUrl: null,
+      postUrl: null,
+      postedAt: null,
+      checkAfter: null,
+      checkAfterHours: 24,
+      learningWhatHappened: '',
+      learningWhatWasConfusing: '',
+      nextMessageAngle: '',
+      createdAt: now,
+      updatedAt: now,
+    })),
+  ]
+  const campaigns = campaign
+    ? [campaign, ...seededCampaigns.filter((item) => item.id !== campaign.id)]
+    : seededCampaigns
+  return {
+    campaigns,
+    selectedCampaignId:
+      campaign?.id ??
+      campaigns.find((item) => item.status === 'draft' || item.status === 'ready')
+        ?.id ??
+      campaigns[0].id,
+  }
+}
+
+function statusBucket(status: HonestFitMarketingCampaign['status']) {
+  if (status === 'draft') return 'Active campaign'
+  if (status === 'ready') return 'Draft campaigns'
+  if (status === 'posted' || status === 'waiting_for_data') {
+    return 'Posted/waiting campaigns'
+  }
+  if (status === 'learning_captured') return 'Learning captured'
+  return 'Archived'
+}
+
+function selectedCampaignFrom(
+  campaigns: HonestFitMarketingCampaign[],
+  selectedCampaignId: string,
+) {
+  return (
+    campaigns.find((campaign) => campaign.id === selectedCampaignId) ??
+    campaigns.find((campaign) => campaign.status === 'draft') ??
+    campaigns[0]
+  )
+}
+
+function campaignStatusLabel(status: HonestFitMarketingCampaign['status']) {
+  if (status === 'waiting_for_data') return 'Waiting for data'
+  if (status === 'learning_captured') return 'Learning captured'
+  return status.replaceAll('_', ' ')
+}
+
+function recommendationForResults(
+  summary: HonestFitMissionSummary,
+  campaign: HonestFitMarketingCampaign,
+) {
+  const visits = experimentTraffic(summary)
+  const ctaClicks = totalCtaClicks(summary)
+  const signIns = summary.funnel.magicLinksRequested24h
+  const confused = campaign.learningWhatWasConfusing.trim().length > 0
+  const positiveReply =
+    /positive|interested|useful|trial|try|clear/i.test(
+      campaign.learningWhatHappened,
+    ) && signIns === 0
+
+  if (visits === 0) return 'No traffic: try a stronger hook or broader distribution.'
+  if (visits > 0 && ctaClicks === 0) {
+    return 'Profile visits but no CTA: clarify profile value and the call to action.'
+  }
+  if (ctaClicks > 0 && signIns === 0) {
+    return 'CTA clicks but no sign-ins: inspect signup friction.'
+  }
+  if (confused) return 'Confused replies: rewrite the problem statement.'
+  if (positiveReply) {
+    return 'Positive replies but no signups: ask for a direct product trial.'
+  }
+  return 'Signal is mixed: keep the angle, tighten the ask, and run one more post.'
+}
+
+function checkAfterTimestampForCampaign(campaign: HonestFitMarketingCampaign) {
+  if (campaign.checkAfter) return campaign.checkAfter
+  if (!campaign.postedAt) return null
+  const posted = new Date(campaign.postedAt)
+  if (Number.isNaN(posted.getTime())) return null
+  return new Date(posted.getTime() + 24 * 60 * 60 * 1000).toISOString()
+}
+
 function HonestFitMarketingWorkbench({
   summary,
-  experiment,
+  state,
+  selectedCampaignId,
+  onSelectCampaign,
   onMarkPosted,
   onSaveLearning,
-  onResetExperiment,
+  onUpdateCampaign,
+  onStartNextCampaign,
   isSaving = false,
 }: Readonly<{
   summary: HonestFitMissionSummary
-  experiment: HonestFitMarketingExperiment
-  onMarkPosted?: (input: { postUrl: string }) => void
+  state: HonestFitMarketingCampaignState
+  selectedCampaignId: string
+  onSelectCampaign?: (campaignId: string) => void
+  onMarkPosted?: (input: { campaignId: string; postedUrl: string }) => void
   onSaveLearning?: (
     input: Pick<
-      HonestFitMarketingExperiment,
+      HonestFitMarketingCampaign,
       | 'learningWhatHappened'
       | 'learningWhatWasConfusing'
       | 'nextMessageAngle'
-    >,
+    > & { campaignId: string },
   ) => void
+  onUpdateCampaign?: (
+    campaignId: string,
+    campaign: Partial<CampaignEditFields>,
+  ) => void
+  onStartNextCampaign?: (draftId: string) => void
   onResetExperiment?: () => void
   isSaving?: boolean
 }>) {
+  const campaigns = state.campaigns
+  const campaign = selectedCampaignFrom(campaigns, selectedCampaignId)
   const topSource = topMarketingSource(summary)
   const marketingReady = hasMarketingFields(summary)
-  const hasUsefulSignal = hasUsefulMarketingSignal(summary)
-  const metrics = experimentMetrics(summary)
-  const [postUrl, setPostUrl] = useState(experiment.postUrl ?? '')
-  const [learningFields, setLearningFields] = useState({
-    learningWhatHappened: experiment.learningWhatHappened,
-    learningWhatWasConfusing: experiment.learningWhatWasConfusing,
-    nextMessageAngle: experiment.nextMessageAngle,
+  const hasPosted = Boolean(campaign.postedAt || campaign.postedUrl)
+  const canPublish = campaign.status === 'draft' || campaign.status === 'ready'
+  const metrics = [
+    {
+      label: 'Real-user visits',
+      value: summary.traffic.classification.estimatedReal,
+      fallback: 'No real-user signal yet',
+    },
+    {
+      label: 'Raw visits',
+      value: summary.traffic.pageViews24h,
+      fallback: 'No raw traffic yet',
+    },
+    {
+      label: 'Testing/smoke/admin',
+      value: summary.traffic.classification.testingSmokeAdmin,
+      fallback: 'No test traffic',
+    },
+    {
+      label: 'Ambiguous',
+      value: summary.traffic.classification.ambiguous,
+      fallback: 'No ambiguous traffic',
+    },
+    {
+      label: 'CTA clicks',
+      value: totalCtaClicks(summary),
+      fallback: 'No CTA signal yet',
+    },
+    {
+      label: 'Sign-in attempts',
+      value: summary.funnel.magicLinksRequested24h,
+      fallback: 'No sign-in attempts yet',
+    },
+    {
+      label: 'Errors',
+      value: summary.errors.total24h,
+      fallback: 'No errors reported',
+    },
+  ]
+  const [postedUrl, setPostedUrl] = useState(campaign.postedUrl ?? '')
+  const [editFields, setEditFields] = useState<CampaignEditFields>({
+    title: campaign.title,
+    hook: campaign.hook,
+    postBody: campaign.postBody,
+    audience: campaign.audience,
+    hypothesis: campaign.hypothesis,
+    targetUrl: campaign.targetUrl,
+    suggestedScreenshot: campaign.suggestedScreenshot,
+    feedbackAsk: campaign.feedbackAsk,
   })
-  const checkAfter = checkAfterTimestamp(experiment)
-  const workflowStatus = workflowStatusForExperiment(experiment, checkAfter)
-  const options = nextExperimentOptions(summary, experiment)
-  const hasPosted = experiment.status !== 'draft' && Boolean(experiment.postedAt)
+  const [learningFields, setLearningFields] = useState({
+    learningWhatHappened: campaign.learningWhatHappened,
+    learningWhatWasConfusing: campaign.learningWhatWasConfusing,
+    nextMessageAngle: campaign.nextMessageAngle,
+  })
+  const checkAfter = checkAfterTimestampForCampaign(campaign)
   const metricsWindowLabel = hasPosted
-    ? `Since posted ${formatTimestamp(experiment.postedAt)}`
-    : 'Last 24 hours until posted'
+    ? `Since active campaign posted ${formatTimestamp(campaign.postedAt)}`
+    : 'Last 24 hours until active campaign is posted'
+  const recommendation = recommendationForResults(summary, campaign)
 
   useEffect(() => {
-    setPostUrl(experiment.postUrl ?? '')
-    setLearningFields({
-      learningWhatHappened: experiment.learningWhatHappened,
-      learningWhatWasConfusing: experiment.learningWhatWasConfusing,
-      nextMessageAngle: experiment.nextMessageAngle,
+    setPostedUrl(campaign.postedUrl ?? '')
+    setEditFields({
+      title: campaign.title,
+      hook: campaign.hook,
+      postBody: campaign.postBody,
+      audience: campaign.audience,
+      hypothesis: campaign.hypothesis,
+      targetUrl: campaign.targetUrl,
+      suggestedScreenshot: campaign.suggestedScreenshot,
+      feedbackAsk: campaign.feedbackAsk,
     })
-  }, [experiment])
+    setLearningFields({
+      learningWhatHappened: campaign.learningWhatHappened,
+      learningWhatWasConfusing: campaign.learningWhatWasConfusing,
+      nextMessageAngle: campaign.nextMessageAngle,
+    })
+  }, [campaign])
 
   async function copyPost() {
-    await navigator.clipboard?.writeText(experiment.postDraft)
+    await navigator.clipboard?.writeText(editFields.postBody)
+  }
+
+  function updateField<Key extends keyof CampaignEditFields>(
+    key: Key,
+    value: CampaignEditFields[Key],
+  ) {
+    setEditFields((fields) => ({ ...fields, [key]: value }))
   }
 
   return (
@@ -709,400 +911,462 @@ function HonestFitMarketingWorkbench({
             HonestFit Marketing Workbench
           </h4>
           <div className="mt-1 text-xs text-slate-500">
-            {experiment.title}
+            Actionable campaign queue, publishing state, learning, and next post
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200">
-            {experimentStatusLabel(experiment.status)}
-          </span>
-          <a
-            href={experiment.targetUrl}
-            className="rounded border border-cyan-400/40 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-400/10"
-          >
-            Public profile
-          </a>
-        </div>
+        <a
+          href={campaign.targetUrl}
+          className="rounded border border-cyan-400/40 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-400/10"
+        >
+          Target profile
+        </a>
       </div>
 
       {!marketingReady && (
         <div className="mt-4 rounded border border-amber-900/70 bg-amber-950/30 p-3 text-xs text-amber-100">
-          Marketing attribution is not available yet. The workbench can still
-          run the experiment, but source and CTA evidence will be incomplete.
+          Marketing attribution is not available yet. The campaign workflow can
+          still save drafts and learning, but source and CTA evidence will be
+          incomplete.
         </div>
       )}
 
-      {!hasUsefulSignal && (
-        <div className="mt-4 rounded border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-300">
-          No useful signal yet. Publish the post before changing the product.
-        </div>
-      )}
-
-      <div className="mt-4 rounded-lg border border-cyan-400/40 bg-cyan-400/10 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
-              Workflow status
-            </div>
-            <h4 className="mt-1 text-lg font-semibold leading-6 text-slate-50">
-              {workflowStatus.headline}
-            </h4>
-          </div>
-          <span className="rounded border border-cyan-300/40 bg-slate-950/40 px-2 py-1 text-xs font-semibold text-cyan-50">
-            {experimentStatusLabel(experiment.status)}
-          </span>
-        </div>
-
-        {hasPosted && (
-          <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <dt className="text-slate-500">Posted URL</dt>
-              <dd className="mt-1 min-w-0">
-                {experiment.postUrl ? (
-                  <a
-                    href={experiment.postUrl}
-                    className="block truncate font-semibold text-cyan-50 hover:text-white"
-                  >
-                    {experiment.postUrl}
-                  </a>
-                ) : (
-                  <span className="font-semibold text-slate-300">Missing</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Posted time</dt>
-              <dd className="mt-1 font-semibold text-slate-100">
-                {formatTimestamp(experiment.postedAt)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Check-after time</dt>
-              <dd className="mt-1 font-semibold text-slate-100">
-                {formatTimestamp(checkAfter)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Next action</dt>
-              <dd className="mt-1 font-semibold leading-5 text-slate-50">
-                {workflowStatus.nextAction}
-              </dd>
-            </div>
-          </dl>
-        )}
-
-        {!hasPosted && (
-          <div className="mt-4 rounded border border-cyan-300/30 bg-slate-950/30 p-3 text-sm font-semibold text-slate-50">
-            Next action: {workflowStatus.nextAction}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
-              Current diagnosis
-            </div>
-            <div className="mt-1 text-sm font-semibold leading-5 text-slate-100">
-              Not enough qualified traffic to diagnose signup conversion yet.
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
-              Next action
-            </div>
-            <div className="mt-1 text-sm font-semibold leading-5 text-slate-100">
-              {workflowStatus.nextAction}
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
-              Why
-            </div>
-            <div className="mt-1 text-sm leading-5 text-slate-100">
-              The product is live enough to test the message. The next question
-              is whether people understand the problem HonestFit solves.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Section
-          title={hasPosted ? 'Original draft' : 'Publish-ready LinkedIn post'}
-        >
-          <div
-            className={`rounded border border-slate-800/80 bg-slate-950/60 p-3 ${
-              hasPosted ? 'opacity-60' : ''
-            }`}
-          >
-            <pre
-              className={`whitespace-pre-wrap text-sm leading-6 ${
-                hasPosted ? 'text-slate-400' : 'text-slate-100'
-              }`}
-            >
-              {experiment.postDraft}
-            </pre>
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void copyPost()}
-                className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20"
-              >
-                Copy post
-              </button>
-            </div>
-          </div>
-        </Section>
-
-        <div className="grid gap-4">
-          <Section title="Alternate hooks">
-            <ul className="space-y-2 text-xs">
-              {alternateHooks.map((hook) => (
-                <li
-                  key={hook}
-                  className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
+      <div className="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <Section title="Campaign queue">
+          <div className="space-y-3">
+            {[
+              'Active campaign',
+              'Draft campaigns',
+              'Posted/waiting campaigns',
+              'Learning captured',
+              'Archived',
+            ].map((bucket) => {
+              const bucketCampaigns = campaigns.filter(
+                (item) => statusBucket(item.status) === bucket,
+              )
+              return (
+                <div
+                  key={bucket}
+                  className="rounded border border-slate-800 bg-slate-950/50 p-2"
                 >
-                  {hook}
-                </li>
-              ))}
-            </ul>
-          </Section>
-
-          <Section title="Use this screenshot">
-            <ul className="space-y-2 text-xs">
-              {screenshotGuidance.map((item) => (
-                <li
-                  key={item}
-                  className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </Section>
-
-          <Section title="Ask for this feedback">
-            <ul className="space-y-2 text-xs">
-              {feedbackQuestions.map((question) => (
-                <li
-                  key={question}
-                  className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
-                >
-                  {question}
-                </li>
-              ))}
-            </ul>
-          </Section>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-        <Section title={hasPosted ? 'Post status' : 'Check tomorrow'}>
-          {hasPosted ? (
-            <div className="space-y-2 rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs">
-              <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Status</span>
-                <span className="font-semibold text-slate-100">
-                  {experimentStatusLabel(experiment.status)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Posted</span>
-                <span className="text-right text-slate-200">
-                  {formatTimestamp(experiment.postedAt)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-slate-500">Check after</span>
-                <span className="text-right text-slate-200">
-                  {formatTimestamp(checkAfter)}
-                </span>
-              </div>
-              {experiment.postUrl && (
-                <a
-                  href={experiment.postUrl}
-                  className="block truncate text-cyan-100 hover:text-cyan-50"
-                >
-                  {experiment.postUrl}
-                </a>
-              )}
-              {experiment.status === 'learning_captured' && (
-                <div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-emerald-100">
-                  Captured message angle:{' '}
-                  {experiment.nextMessageAngle || 'No angle saved yet.'}
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {bucket}
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {bucketCampaigns.length === 0 ? (
+                      <div className="text-xs text-slate-600">None</div>
+                    ) : (
+                      bucketCampaigns.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onSelectCampaign?.(item.id)}
+                          className={`w-full rounded border p-2 text-left text-xs ${
+                            item.id === campaign.id
+                              ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-50'
+                              : 'border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="font-semibold">{item.title}</div>
+                          <div className="mt-1 text-slate-500">
+                            {campaignStatusLabel(item.status)} · {item.angle}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <ul className="grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-1">
-              {checkTomorrowItems.map((item) => (
-                <li
-                  key={item}
-                  className="rounded border border-slate-800/80 bg-slate-950/40 p-2 text-slate-200"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
+              )
+            })}
+          </div>
         </Section>
 
-        <Section title="Learning log">
-          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300">
-              {hasPosted
-                ? metricsWindowLabel
-                : 'Publish this post today, then save the LinkedIn URL.'}
+        <div className="space-y-4">
+          <div className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
+                  Selected campaign
+                </div>
+                <h4 className="mt-1 text-lg font-semibold leading-6 text-slate-50">
+                  {campaign.title}
+                </h4>
+                <div className="mt-1 text-sm text-slate-300">
+                  Testing {campaign.angle} for {campaign.audience}
+                </div>
+              </div>
+              <span className="rounded border border-cyan-300/40 bg-slate-950/40 px-2 py-1 text-xs font-semibold capitalize text-cyan-50">
+                {campaignStatusLabel(campaign.status)}
+              </span>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {!hasPosted && (
-                <>
+
+            {hasPosted ? (
+              <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <dt className="text-slate-500">Post is live</dt>
+                  <dd className="mt-1 font-semibold text-slate-100">
+                    {campaign.postedUrl ? (
+                      <a
+                        href={campaign.postedUrl}
+                        className="block truncate text-cyan-50 hover:text-white"
+                      >
+                        {campaign.postedUrl}
+                      </a>
+                    ) : (
+                      'URL not saved'
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Posted time</dt>
+                  <dd className="mt-1 font-semibold text-slate-100">
+                    {formatTimestamp(campaign.postedAt)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Check-after time</dt>
+                  <dd className="mt-1 font-semibold text-slate-100">
+                    {formatTimestamp(checkAfter)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Next action</dt>
+                  <dd className="mt-1 font-semibold text-slate-100">
+                    Record learning, then choose next campaign
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <div className="mt-4 rounded border border-cyan-300/30 bg-slate-950/30 p-3 text-sm font-semibold text-slate-50">
+                What should I publish next? Edit this draft, copy it, publish,
+                then save the post URL.
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+            <Section title={hasPosted ? 'Posted campaign' : 'Editable draft'}>
+              <div className="rounded border border-slate-800/80 bg-slate-950/60 p-3">
+                <label className="text-xs text-slate-400">
+                  Hook
+                  <input
+                    value={editFields.hook}
+                    onChange={(event) => updateField('hook', event.target.value)}
+                    disabled={!canPublish}
+                    className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                  />
+                </label>
+                <label className="mt-3 block text-xs text-slate-400">
+                  Full post body
+                  <textarea
+                    value={editFields.postBody}
+                    onChange={(event) =>
+                      updateField('postBody', event.target.value)
+                    }
+                    disabled={!canPublish}
+                    className="mt-1 min-h-72 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm leading-6 text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                  />
+                </label>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <label className="text-xs text-slate-400">
-                    Posted URL
+                    Intended audience
                     <input
-                      value={postUrl}
-                      onChange={(event) => setPostUrl(event.target.value)}
-                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                      placeholder="LinkedIn URL after publishing"
+                      value={editFields.audience}
+                      onChange={(event) =>
+                        updateField('audience', event.target.value)
+                      }
+                      disabled={!canPublish}
+                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
                     />
                   </label>
-                  <div className="flex items-end gap-2">
+                  <label className="text-xs text-slate-400">
+                    Target URL
+                    <input
+                      value={editFields.targetUrl}
+                      onChange={(event) =>
+                        updateField('targetUrl', event.target.value)
+                      }
+                      disabled={!canPublish}
+                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-400">
+                    Suggested screenshot
+                    <input
+                      value={editFields.suggestedScreenshot}
+                      onChange={(event) =>
+                        updateField('suggestedScreenshot', event.target.value)
+                      }
+                      disabled={!canPublish}
+                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-400">
+                    Feedback ask
+                    <input
+                      value={editFields.feedbackAsk}
+                      onChange={(event) =>
+                        updateField('feedbackAsk', event.target.value)
+                      }
+                      disabled={!canPublish}
+                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 block text-xs text-slate-400">
+                  Hypothesis
+                  <textarea
+                    value={editFields.hypothesis}
+                    onChange={(event) =>
+                      updateField('hypothesis', event.target.value)
+                    }
+                    disabled={!canPublish}
+                    className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                  />
+                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void copyPost()}
+                    className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20"
+                  >
+                    Copy selected draft
+                  </button>
+                  {canPublish && (
                     <button
                       type="button"
-                      disabled={isSaving || !postUrl.trim()}
-                      onClick={() => onMarkPosted?.({ postUrl })}
-                      className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isSaving}
+                      onClick={() => onUpdateCampaign?.(campaign.id, editFields)}
+                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Save draft edits
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Section>
+
+            <div className="space-y-4">
+              <Section title="Angle being tested">
+                <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-sm text-slate-200">
+                  <div className="font-semibold text-slate-100">
+                    {campaign.angle}
+                  </div>
+                  <div className="mt-2 text-xs leading-5 text-slate-300">
+                    {campaign.hypothesis}
+                  </div>
+                </div>
+              </Section>
+
+              <Section title="Success metric">
+                <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300">
+                  Primary: real-user visits to the target profile. Secondary:
+                  CTA clicks and sign-in attempts after the post.
+                </div>
+              </Section>
+
+              {canPublish && (
+                <Section title="Mark published">
+                  <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                    <label className="text-xs text-slate-400">
+                      Posted URL
+                      <input
+                        value={postedUrl}
+                        onChange={(event) => setPostedUrl(event.target.value)}
+                        className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                        placeholder="LinkedIn URL after publishing"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSaving || !postedUrl.trim()}
+                      onClick={() =>
+                        onMarkPosted?.({
+                          campaignId: campaign.id,
+                          postedUrl,
+                        })
+                      }
+                      className="mt-3 rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Mark posted
                     </button>
                   </div>
-                </>
+                </Section>
               )}
-              <label className="text-xs text-slate-400">
-                What happened?
-                <textarea
-                  value={learningFields.learningWhatHappened}
-                  onChange={(event) =>
-                    setLearningFields((fields) => ({
-                      ...fields,
-                      learningWhatHappened: event.target.value,
-                    }))
-                  }
-                  className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs text-slate-400">
-                What was confusing?
-                <textarea
-                  value={learningFields.learningWhatWasConfusing}
-                  onChange={(event) =>
-                    setLearningFields((fields) => ({
-                      ...fields,
-                      learningWhatWasConfusing: event.target.value,
-                    }))
-                  }
-                  className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                />
-              </label>
-              <label className="text-xs text-slate-400 md:col-span-2">
-                Next message angle
-                <textarea
-                  value={learningFields.nextMessageAngle}
-                  onChange={(event) =>
-                    setLearningFields((fields) => ({
-                      ...fields,
-                      nextMessageAngle: event.target.value,
-                    }))
-                  }
-                  className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                />
-              </label>
-              <div className="md:col-span-2">
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => onSaveLearning?.(learningFields)}
-                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Save learning
-                </button>
-              </div>
             </div>
+          </div>
 
-            <div className="mt-4 rounded border border-slate-800 bg-slate-900/50 p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Next experiment options
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <Section title="Record learning">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300">
+                  {metricsWindowLabel}
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="text-xs text-slate-400">
+                    What happened after the last post?
+                    <textarea
+                      value={learningFields.learningWhatHappened}
+                      onChange={(event) =>
+                        setLearningFields((fields) => ({
+                          ...fields,
+                          learningWhatHappened: event.target.value,
+                        }))
+                      }
+                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-400">
+                    What was confusing?
+                    <textarea
+                      value={learningFields.learningWhatWasConfusing}
+                      onChange={(event) =>
+                        setLearningFields((fields) => ({
+                          ...fields,
+                          learningWhatWasConfusing: event.target.value,
+                        }))
+                      }
+                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-400 md:col-span-2">
+                    Next message angle
+                    <textarea
+                      value={learningFields.nextMessageAngle}
+                      onChange={(event) =>
+                        setLearningFields((fields) => ({
+                          ...fields,
+                          nextMessageAngle: event.target.value,
+                        }))
+                      }
+                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() =>
+                        onSaveLearning?.({
+                          campaignId: campaign.id,
+                          ...learningFields,
+                        })
+                      }
+                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Record learning
+                    </button>
+                  </div>
+                </div>
               </div>
-              <ul className="mt-2 grid gap-2 text-xs md:grid-cols-2">
-                {options.map((option) => (
-                  <li
-                    key={option.label}
-                    className={`rounded border p-2 ${
-                      option.active
-                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-50'
-                        : 'border-slate-800/80 bg-slate-950/40 text-slate-300'
-                    }`}
+            </Section>
+
+            <Section title="Choose next campaign">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="rounded border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-50">
+                  {recommendation}
+                </div>
+                <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
+                  {preparedHonestFitMarketingCampaignDrafts.map((draft) => (
+                    <button
+                      key={draft.id}
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => onStartNextCampaign?.(draft.id)}
+                      className="rounded border border-slate-800 bg-slate-900/50 p-2 text-left text-slate-300 hover:border-cyan-500/40 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <div className="font-semibold text-slate-100">
+                        {draft.angle}
+                      </div>
+                      <div className="mt-1 leading-5">{draft.hook}</div>
+                    </button>
+                  ))}
+                </div>
+                {campaign.status === 'learning_captured' && (
+                  <div className="mt-3 text-xs font-semibold text-emerald-100">
+                    Learning saved. Choose next campaign to create a fresh
+                    active draft while preserving this history.
+                  </div>
+                )}
+              </div>
+            </Section>
+          </div>
+
+          <Section title="Previous campaign learning">
+            <div className="grid gap-3 md:grid-cols-2">
+              {campaigns
+                .filter(
+                  (item) =>
+                    item.status === 'learning_captured' ||
+                    item.learningWhatHappened ||
+                    item.learningWhatWasConfusing,
+                )
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300"
                   >
-                    <div className="font-semibold">{option.label}</div>
-                    <div className="mt-1 leading-5">{option.recommendation}</div>
-                  </li>
+                    <div className="font-semibold text-slate-100">
+                      {item.title}
+                    </div>
+                    <div className="mt-2">
+                      {item.learningWhatHappened || 'No outcome saved.'}
+                    </div>
+                    <div className="mt-1 text-slate-500">
+                      {item.learningWhatWasConfusing ||
+                        'No confusion note saved.'}
+                    </div>
+                    <div className="mt-2 text-cyan-100">
+                      {item.nextMessageAngle || 'No next angle saved.'}
+                    </div>
+                  </div>
                 ))}
-              </ul>
-              {onResetExperiment && (
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={onResetExperiment}
-                  className="mt-3 rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Start next experiment
-                </button>
-              )}
             </div>
-          </div>
-        </Section>
-      </div>
+          </Section>
 
-      <Section title="Supporting metrics">
-        <div className="mb-2 text-xs text-slate-500">{metricsWindowLabel}</div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {metrics.map((metric) => (
-            <SignalMetric key={metric.label} {...metric} />
-          ))}
+          <Section title="Supporting metrics">
+            <div className="mb-2 text-xs text-slate-500">
+              {metricsWindowLabel}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+              {metrics.map((metric) => (
+                <SignalMetric key={metric.label} {...metric} />
+              ))}
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                  Traffic sources
+                </div>
+                <MarketingMetricList
+                  items={summary.marketing?.trafficSources24h ?? []}
+                  emptyLabel="No source signal yet"
+                />
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                  Campaigns
+                </div>
+                <MarketingMetricList
+                  items={summary.marketing?.campaigns24h ?? []}
+                  emptyLabel="No campaign signal yet"
+                />
+              </div>
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                  Top source
+                </div>
+                <div className="text-xs text-slate-300">
+                  {topSource
+                    ? `${metricName(topSource)}: ${formatNumber(
+                        topSource.visits,
+                      )}`
+                    : 'No source signal yet'}
+                </div>
+              </div>
+            </div>
+          </Section>
         </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-              Traffic sources
-            </div>
-            <MarketingMetricList
-              items={summary.marketing?.trafficSources24h ?? []}
-              emptyLabel="No source signal yet"
-            />
-          </div>
-          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-              Campaigns
-            </div>
-            <MarketingMetricList
-              items={summary.marketing?.campaigns24h ?? []}
-              emptyLabel="No campaign signal yet"
-            />
-          </div>
-          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-            <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-              Top source
-            </div>
-            <div className="text-xs text-slate-300">
-              {topSource
-                ? `${metricName(topSource)}: ${formatNumber(topSource.visits)}`
-                : 'No source signal yet'}
-            </div>
-          </div>
-        </div>
-      </Section>
+      </div>
     </section>
   )
 }
@@ -1186,30 +1450,45 @@ function OperatorBriefingCard({
 
 export function HonestFitTelemetryPanelView({
   result,
-  experiment = defaultExperimentForView(),
+  campaignState,
+  experiment,
   onMarkPosted,
   onSaveLearning,
-  onResetExperiment,
+  onUpdateCampaign,
+  onStartNextCampaign,
   isExperimentSaving = false,
   isLoading = false,
   error,
 }: Readonly<{
   result?: HonestFitMissionSummaryResult
+  campaignState?: HonestFitMarketingCampaignState
   experiment?: HonestFitMarketingExperiment
-  onMarkPosted?: (input: { postUrl: string }) => void
+  onMarkPosted?: (input: { campaignId: string; postedUrl: string }) => void
   onSaveLearning?: (
     input: Pick<
-      HonestFitMarketingExperiment,
+      HonestFitMarketingCampaign,
       | 'learningWhatHappened'
       | 'learningWhatWasConfusing'
       | 'nextMessageAngle'
-    >,
+    > & { campaignId: string },
   ) => void
+  onUpdateCampaign?: (
+    campaignId: string,
+    campaign: Partial<CampaignEditFields>,
+  ) => void
+  onStartNextCampaign?: (draftId: string) => void
   onResetExperiment?: () => void
   isExperimentSaving?: boolean
   isLoading?: boolean
   error?: Error | null
 }>) {
+  const resolvedCampaignState = campaignState ?? campaignStateForView(experiment)
+  const [selectedCampaignId, setSelectedCampaignId] = useState(
+    resolvedCampaignState.selectedCampaignId,
+  )
+  useEffect(() => {
+    setSelectedCampaignId(resolvedCampaignState.selectedCampaignId)
+  }, [resolvedCampaignState.selectedCampaignId])
   const summary = result?.status === 'success' ? result.summary : null
   const statusLabel = summary?.health.status ?? 'unavailable'
   const panelTone = summary
@@ -1261,10 +1540,13 @@ export function HonestFitTelemetryPanelView({
           <OperatorBriefingCard summary={summary} />
           <HonestFitMarketingWorkbench
             summary={summary}
-            experiment={experiment}
+            state={resolvedCampaignState}
+            selectedCampaignId={selectedCampaignId}
+            onSelectCampaign={setSelectedCampaignId}
             onMarkPosted={onMarkPosted}
             onSaveLearning={onSaveLearning}
-            onResetExperiment={onResetExperiment}
+            onUpdateCampaign={onUpdateCampaign}
+            onStartNextCampaign={onStartNextCampaign}
             isSaving={isExperimentSaving}
           />
           <LaunchFunnelCard summary={summary} />
@@ -1435,11 +1717,15 @@ export function HonestFitTelemetryPanel() {
     queryKey: ['honestfit-marketing-experiment'],
     queryFn: fetchHonestFitMarketingExperiment,
   })
-  const experiment = experimentQuery.data
+  const campaignState = experimentQuery.data
+  const selectedCampaign = campaignState?.campaigns.find(
+    (campaign) => campaign.id === campaignState.selectedCampaignId,
+  )
   const telemetrySince =
-    experiment?.status === 'waiting_for_data' ||
-    experiment?.status === 'learning_captured'
-      ? experiment.postedAt
+    selectedCampaign?.status === 'waiting_for_data' ||
+    selectedCampaign?.status === 'learning_captured' ||
+    selectedCampaign?.status === 'posted'
+      ? selectedCampaign.postedAt
       : null
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['honestfit-mission-summary', telemetrySince],
@@ -1463,14 +1749,23 @@ export function HonestFitTelemetryPanel() {
     <div className="space-y-2">
       <HonestFitTelemetryPanelView
         result={data}
-        experiment={experiment}
-        onMarkPosted={({ postUrl }) =>
-          experimentMutation.mutate({ action: 'mark_posted', postUrl })
+        campaignState={campaignState}
+        onMarkPosted={({ campaignId, postedUrl }) =>
+          experimentMutation.mutate({
+            action: 'mark_posted',
+            campaignId,
+            postedUrl,
+          })
         }
         onSaveLearning={(learning) =>
           experimentMutation.mutate({ action: 'save_learning', ...learning })
         }
-        onResetExperiment={() => experimentMutation.mutate({ action: 'reset' })}
+        onUpdateCampaign={(campaignId, campaign) =>
+          experimentMutation.mutate({ action: 'update', campaignId, campaign })
+        }
+        onStartNextCampaign={(draftId) =>
+          experimentMutation.mutate({ action: 'start_next_campaign', draftId })
+        }
         isExperimentSaving={experimentMutation.isPending}
         isLoading={isLoading || isFetching || experimentQuery.isLoading}
         error={(error || experimentQuery.error) as Error | null}
