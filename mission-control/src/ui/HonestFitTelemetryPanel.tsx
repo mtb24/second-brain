@@ -930,7 +930,69 @@ function HonestFitMarketingWorkbench({
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="mt-4 rounded-lg border border-cyan-400/40 bg-cyan-400/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
+              Current status / next action
+            </div>
+            <h4 className="mt-1 text-lg font-semibold leading-6 text-slate-50">
+              {campaign.title}
+            </h4>
+            <div className="mt-1 text-sm text-slate-300">
+              Testing {campaign.angle} for {campaign.audience}
+            </div>
+          </div>
+          <span className="rounded border border-cyan-300/40 bg-slate-950/40 px-2 py-1 text-xs font-semibold capitalize text-cyan-50">
+            {campaignStatusLabel(campaign.status)}
+          </span>
+        </div>
+
+        {hasPosted ? (
+          <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div className="min-w-0">
+              <dt className="text-slate-500">Post is live</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                {campaign.postedUrl ? (
+                  <a
+                    href={campaign.postedUrl}
+                    className="block truncate text-cyan-50 hover:text-white"
+                  >
+                    {campaign.postedUrl}
+                  </a>
+                ) : (
+                  'URL not saved'
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Posted time</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                {formatTimestamp(campaign.postedAt)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Check-after time</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                {formatTimestamp(checkAfter)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Next action</dt>
+              <dd className="mt-1 font-semibold text-slate-100">
+                Record learning, then choose next campaign
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <div className="mt-4 rounded border border-cyan-300/30 bg-slate-950/30 p-3 text-sm font-semibold text-slate-50">
+            What should I publish next? Edit this draft, copy it, publish, then
+            save the post URL.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
         <Section title="Campaign queue">
           <div className="space-y-3">
             {[
@@ -966,9 +1028,16 @@ function HonestFitMarketingWorkbench({
                               : 'border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700'
                           }`}
                         >
-                          <div className="font-semibold">{item.title}</div>
-                          <div className="mt-1 text-slate-500">
-                            {campaignStatusLabel(item.status)} · {item.angle}
+                          <div className="font-semibold leading-5 text-slate-100">
+                            {item.title}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded border border-slate-700 px-2 py-0.5 text-[11px] font-semibold capitalize text-slate-300">
+                              {campaignStatusLabel(item.status)}
+                            </span>
+                            <span className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300">
+                              {item.angle}
+                            </span>
                           </div>
                         </button>
                       ))
@@ -981,391 +1050,336 @@ function HonestFitMarketingWorkbench({
         </Section>
 
         <div className="space-y-4">
-          <div className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100">
-                  Selected campaign
-                </div>
-                <h4 className="mt-1 text-lg font-semibold leading-6 text-slate-50">
-                  {campaign.title}
-                </h4>
-                <div className="mt-1 text-sm text-slate-300">
-                  Testing {campaign.angle} for {campaign.audience}
-                </div>
+          <Section
+            title={hasPosted ? 'Posted campaign' : 'Selected campaign editor'}
+          >
+            <div className="rounded border border-slate-800/80 bg-slate-950/60 p-3">
+              <div className="mb-3 text-xs text-slate-500">
+                Editing draft: {campaign.title}
               </div>
-              <span className="rounded border border-cyan-300/40 bg-slate-950/40 px-2 py-1 text-xs font-semibold capitalize text-cyan-50">
-                {campaignStatusLabel(campaign.status)}
-              </span>
-            </div>
-
-            {hasPosted ? (
-              <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2 xl:grid-cols-4">
-                <div>
-                  <dt className="text-slate-500">Post is live</dt>
-                  <dd className="mt-1 font-semibold text-slate-100">
-                    {campaign.postedUrl ? (
-                      <a
-                        href={campaign.postedUrl}
-                        className="block truncate text-cyan-50 hover:text-white"
-                      >
-                        {campaign.postedUrl}
-                      </a>
-                    ) : (
-                      'URL not saved'
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Posted time</dt>
-                  <dd className="mt-1 font-semibold text-slate-100">
-                    {formatTimestamp(campaign.postedAt)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Check-after time</dt>
-                  <dd className="mt-1 font-semibold text-slate-100">
-                    {formatTimestamp(checkAfter)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Next action</dt>
-                  <dd className="mt-1 font-semibold text-slate-100">
-                    Record learning, then choose next campaign
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <div className="mt-4 rounded border border-cyan-300/30 bg-slate-950/30 p-3 text-sm font-semibold text-slate-50">
-                What should I publish next? Edit this draft, copy it, publish,
-                then save the post URL.
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-            <Section title={hasPosted ? 'Posted campaign' : 'Editable draft'}>
-              <div className="rounded border border-slate-800/80 bg-slate-950/60 p-3">
+              <label className="text-xs text-slate-400">
+                Hook
+                <input
+                  value={editFields.hook}
+                  onChange={(event) => updateField('hook', event.target.value)}
+                  disabled={!canPublish}
+                  className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                />
+              </label>
+              <label className="mt-3 block text-xs text-slate-400">
+                Full post body
+                <textarea
+                  value={editFields.postBody}
+                  onChange={(event) =>
+                    updateField('postBody', event.target.value)
+                  }
+                  disabled={!canPublish}
+                  className="mt-1 min-h-80 w-full rounded border border-slate-800 bg-slate-950 p-3 text-sm leading-6 text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                />
+              </label>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="text-xs text-slate-400">
-                  Hook
+                  Intended audience
                   <input
-                    value={editFields.hook}
-                    onChange={(event) => updateField('hook', event.target.value)}
+                    value={editFields.audience}
+                    onChange={(event) =>
+                      updateField('audience', event.target.value)
+                    }
                     disabled={!canPublish}
                     className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
                   />
                 </label>
-                <label className="mt-3 block text-xs text-slate-400">
-                  Full post body
-                  <textarea
-                    value={editFields.postBody}
+                <label className="text-xs text-slate-400">
+                  Target URL
+                  <input
+                    value={editFields.targetUrl}
                     onChange={(event) =>
-                      updateField('postBody', event.target.value)
+                      updateField('targetUrl', event.target.value)
                     }
                     disabled={!canPublish}
-                    className="mt-1 min-h-72 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm leading-6 text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                    className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
                   />
                 </label>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label className="text-xs text-slate-400">
-                    Intended audience
-                    <input
-                      value={editFields.audience}
-                      onChange={(event) =>
-                        updateField('audience', event.target.value)
-                      }
-                      disabled={!canPublish}
-                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    Target URL
-                    <input
-                      value={editFields.targetUrl}
-                      onChange={(event) =>
-                        updateField('targetUrl', event.target.value)
-                      }
-                      disabled={!canPublish}
-                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    Suggested screenshot
-                    <input
-                      value={editFields.suggestedScreenshot}
-                      onChange={(event) =>
-                        updateField('suggestedScreenshot', event.target.value)
-                      }
-                      disabled={!canPublish}
-                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    Feedback ask
-                    <input
-                      value={editFields.feedbackAsk}
-                      onChange={(event) =>
-                        updateField('feedbackAsk', event.target.value)
-                      }
-                      disabled={!canPublish}
-                      className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
-                    />
-                  </label>
-                </div>
-                <label className="mt-3 block text-xs text-slate-400">
-                  Hypothesis
-                  <textarea
-                    value={editFields.hypothesis}
+                <label className="text-xs text-slate-400">
+                  Suggested screenshot
+                  <input
+                    value={editFields.suggestedScreenshot}
                     onChange={(event) =>
-                      updateField('hypothesis', event.target.value)
+                      updateField('suggestedScreenshot', event.target.value)
                     }
                     disabled={!canPublish}
-                    className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                    className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
                   />
                 </label>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <label className="text-xs text-slate-400">
+                  Feedback ask
+                  <input
+                    value={editFields.feedbackAsk}
+                    onChange={(event) =>
+                      updateField('feedbackAsk', event.target.value)
+                    }
+                    disabled={!canPublish}
+                    className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                  />
+                </label>
+              </div>
+              <label className="mt-3 block text-xs text-slate-400">
+                Hypothesis
+                <textarea
+                  value={editFields.hypothesis}
+                  onChange={(event) =>
+                    updateField('hypothesis', event.target.value)
+                  }
+                  disabled={!canPublish}
+                  className="mt-1 min-h-24 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm leading-5 text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-60"
+                />
+              </label>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copyPost()}
+                  className="rounded border border-cyan-400/50 bg-cyan-400/15 px-4 py-2 text-sm font-semibold text-cyan-50 hover:bg-cyan-400/25"
+                >
+                  Copy post body
+                </button>
+                {canPublish && (
                   <button
                     type="button"
-                    onClick={() => void copyPost()}
-                    className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20"
+                    disabled={isSaving}
+                    onClick={() => onUpdateCampaign?.(campaign.id, editFields)}
+                    className="rounded border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Copy selected draft
+                    Save draft edits
                   </button>
-                  {canPublish && (
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => onUpdateCampaign?.(campaign.id, editFields)}
-                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Save draft edits
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Section>
-
-            <div className="space-y-4">
-              <Section title="Angle being tested">
-                <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-sm text-slate-200">
-                  <div className="font-semibold text-slate-100">
-                    {campaign.angle}
-                  </div>
-                  <div className="mt-2 text-xs leading-5 text-slate-300">
-                    {campaign.hypothesis}
-                  </div>
-                </div>
-              </Section>
-
-              <Section title="Success metric">
-                <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300">
-                  Primary: real-user visits to the target profile. Secondary:
-                  CTA clicks and sign-in attempts after the post.
-                </div>
-              </Section>
-
-              {canPublish && (
-                <Section title="Mark published">
-                  <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                    <label className="text-xs text-slate-400">
-                      Posted URL
-                      <input
-                        value={postedUrl}
-                        onChange={(event) => setPostedUrl(event.target.value)}
-                        className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                        placeholder="LinkedIn URL after publishing"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={isSaving || !postedUrl.trim()}
-                      onClick={() =>
-                        onMarkPosted?.({
-                          campaignId: campaign.id,
-                          postedUrl,
-                        })
-                      }
-                      className="mt-3 rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Mark posted
-                    </button>
-                  </div>
-                </Section>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <Section title="Record learning">
-              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                <div className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300">
-                  {metricsWindowLabel}
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-xs text-slate-400">
-                    What happened after the last post?
-                    <textarea
-                      value={learningFields.learningWhatHappened}
-                      onChange={(event) =>
-                        setLearningFields((fields) => ({
-                          ...fields,
-                          learningWhatHappened: event.target.value,
-                        }))
-                      }
-                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-400">
-                    What was confusing?
-                    <textarea
-                      value={learningFields.learningWhatWasConfusing}
-                      onChange={(event) =>
-                        setLearningFields((fields) => ({
-                          ...fields,
-                          learningWhatWasConfusing: event.target.value,
-                        }))
-                      }
-                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                    />
-                  </label>
-                  <label className="text-xs text-slate-400 md:col-span-2">
-                    Next message angle
-                    <textarea
-                      value={learningFields.nextMessageAngle}
-                      onChange={(event) =>
-                        setLearningFields((fields) => ({
-                          ...fields,
-                          nextMessageAngle: event.target.value,
-                        }))
-                      }
-                      className="mt-1 min-h-20 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                    />
-                  </label>
-                  <div className="md:col-span-2">
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() =>
-                        onSaveLearning?.({
-                          campaignId: campaign.id,
-                          ...learningFields,
-                        })
-                      }
-                      className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Record learning
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Section>
-
-            <Section title="Choose next campaign">
-              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                <div className="rounded border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-50">
-                  {recommendation}
-                </div>
-                <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
-                  {preparedHonestFitMarketingCampaignDrafts.map((draft) => (
-                    <button
-                      key={draft.id}
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => onStartNextCampaign?.(draft.id)}
-                      className="rounded border border-slate-800 bg-slate-900/50 p-2 text-left text-slate-300 hover:border-cyan-500/40 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <div className="font-semibold text-slate-100">
-                        {draft.angle}
-                      </div>
-                      <div className="mt-1 leading-5">{draft.hook}</div>
-                    </button>
-                  ))}
-                </div>
-                {campaign.status === 'learning_captured' && (
-                  <div className="mt-3 text-xs font-semibold text-emerald-100">
-                    Learning saved. Choose next campaign to create a fresh
-                    active draft while preserving this history.
-                  </div>
                 )}
               </div>
+            </div>
+          </Section>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Section title="Angle being tested">
+              <div className="min-h-full rounded border border-slate-800/80 bg-slate-950/40 p-3 text-sm text-slate-200">
+                <div className="font-semibold text-slate-100">
+                  {campaign.angle}
+                </div>
+                <div className="mt-2 text-xs leading-5 text-slate-300">
+                  {campaign.hypothesis}
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Success metric">
+              <div className="min-h-full rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300">
+                Primary: real-user visits to the target profile. Secondary: CTA
+                clicks and sign-in attempts after the post.
+              </div>
             </Section>
           </div>
 
-          <Section title="Previous campaign learning">
-            <div className="grid gap-3 md:grid-cols-2">
-              {campaigns
-                .filter(
-                  (item) =>
-                    item.status === 'learning_captured' ||
-                    item.learningWhatHappened ||
-                    item.learningWhatWasConfusing,
-                )
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300"
-                  >
-                    <div className="font-semibold text-slate-100">
-                      {item.title}
-                    </div>
-                    <div className="mt-2">
-                      {item.learningWhatHappened || 'No outcome saved.'}
-                    </div>
-                    <div className="mt-1 text-slate-500">
-                      {item.learningWhatWasConfusing ||
-                        'No confusion note saved.'}
-                    </div>
-                    <div className="mt-2 text-cyan-100">
-                      {item.nextMessageAngle || 'No next angle saved.'}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </Section>
+          {canPublish && (
+            <Section title="Posted state">
+              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+                <div className="mb-3 text-xs text-slate-500">
+                  After publishing, save the live post URL here so the
+                  workbench can switch into the learning window.
+                </div>
+                <label className="text-xs text-slate-400">
+                  Posted URL
+                  <input
+                    value={postedUrl}
+                    onChange={(event) => setPostedUrl(event.target.value)}
+                    className="mt-1 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    placeholder="LinkedIn URL after publishing"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={isSaving || !postedUrl.trim()}
+                  onClick={() =>
+                    onMarkPosted?.({
+                      campaignId: campaign.id,
+                      postedUrl,
+                    })
+                  }
+                  className="mt-3 rounded border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-50 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark posted
+                </button>
+              </div>
+            </Section>
+          )}
+        </div>
+      </div>
 
-          <Section title="Supporting metrics">
-            <div className="mb-2 text-xs text-slate-500">
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.75fr)]">
+        <Section title="Learning / posted state">
+          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+            <div className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-300">
               {metricsWindowLabel}
             </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-              {metrics.map((metric) => (
-                <SignalMetric key={metric.label} {...metric} />
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-xs text-slate-400">
+                What happened after the last post?
+                <textarea
+                  value={learningFields.learningWhatHappened}
+                  onChange={(event) =>
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      learningWhatHappened: event.target.value,
+                    }))
+                  }
+                  className="mt-1 min-h-24 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs text-slate-400">
+                What was confusing?
+                <textarea
+                  value={learningFields.learningWhatWasConfusing}
+                  onChange={(event) =>
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      learningWhatWasConfusing: event.target.value,
+                    }))
+                  }
+                  className="mt-1 min-h-24 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                />
+              </label>
+              <label className="text-xs text-slate-400 md:col-span-2">
+                Next message angle
+                <textarea
+                  value={learningFields.nextMessageAngle}
+                  onChange={(event) =>
+                    setLearningFields((fields) => ({
+                      ...fields,
+                      nextMessageAngle: event.target.value,
+                    }))
+                  }
+                  className="mt-1 min-h-24 w-full rounded border border-slate-800 bg-slate-950 p-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                />
+              </label>
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() =>
+                    onSaveLearning?.({
+                      campaignId: campaign.id,
+                      ...learningFields,
+                    })
+                  }
+                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Record learning
+                </button>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Choose next campaign">
+          <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+            <div className="rounded border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-50">
+              {recommendation}
+            </div>
+            <div className="mt-3 grid gap-2 text-xs">
+              {preparedHonestFitMarketingCampaignDrafts.map((draft) => (
+                <button
+                  key={draft.id}
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => onStartNextCampaign?.(draft.id)}
+                  className="rounded border border-slate-800 bg-slate-900/50 p-2 text-left text-slate-300 hover:border-cyan-500/40 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <div className="font-semibold text-slate-100">
+                    {draft.angle}
+                  </div>
+                  <div className="mt-1 leading-5">{draft.hook}</div>
+                </button>
               ))}
             </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-                  Traffic sources
-                </div>
-                <MarketingMetricList
-                  items={summary.marketing?.trafficSources24h ?? []}
-                  emptyLabel="No source signal yet"
-                />
+            {campaign.status === 'learning_captured' && (
+              <div className="mt-3 text-xs font-semibold text-emerald-100">
+                Learning saved. Choose next campaign to create a fresh active
+                draft while preserving this history.
               </div>
-              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-                  Campaigns
+            )}
+          </div>
+        </Section>
+      </div>
+
+      <div className="mt-5">
+        <Section title="Previous campaign learning">
+          <div className="grid gap-3 md:grid-cols-2">
+            {campaigns
+              .filter(
+                (item) =>
+                  item.status === 'learning_captured' ||
+                  item.learningWhatHappened ||
+                  item.learningWhatWasConfusing,
+              )
+              .map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-5 text-slate-300"
+                >
+                  <div className="font-semibold text-slate-100">
+                    {item.title}
+                  </div>
+                  <div className="mt-2">
+                    {item.learningWhatHappened || 'No outcome saved.'}
+                  </div>
+                  <div className="mt-1 text-slate-500">
+                    {item.learningWhatWasConfusing ||
+                      'No confusion note saved.'}
+                  </div>
+                  <div className="mt-2 text-cyan-100">
+                    {item.nextMessageAngle || 'No next angle saved.'}
+                  </div>
                 </div>
-                <MarketingMetricList
-                  items={summary.marketing?.campaigns24h ?? []}
-                  emptyLabel="No campaign signal yet"
-                />
+              ))}
+          </div>
+        </Section>
+      </div>
+
+      <div className="mt-5">
+        <Section title="Supporting metrics">
+          <div className="mb-2 text-xs text-slate-500">{metricsWindowLabel}</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+            {metrics.map((metric) => (
+              <SignalMetric key={metric.label} {...metric} />
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+            <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Traffic sources
               </div>
-              <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
-                  Top source
-                </div>
-                <div className="text-xs text-slate-300">
-                  {topSource
-                    ? `${metricName(topSource)}: ${formatNumber(
-                        topSource.visits,
-                      )}`
-                    : 'No source signal yet'}
-                </div>
+              <MarketingMetricList
+                items={summary.marketing?.trafficSources24h ?? []}
+                emptyLabel="No source signal yet"
+              />
+            </div>
+            <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Campaigns
+              </div>
+              <MarketingMetricList
+                items={summary.marketing?.campaigns24h ?? []}
+                emptyLabel="No campaign signal yet"
+              />
+            </div>
+            <div className="rounded border border-slate-800/80 bg-slate-950/40 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
+                Top source
+              </div>
+              <div className="text-xs text-slate-300">
+                {topSource
+                  ? `${metricName(topSource)}: ${formatNumber(topSource.visits)}`
+                  : 'No source signal yet'}
               </div>
             </div>
-          </Section>
-        </div>
+          </div>
+        </Section>
       </div>
     </section>
   )

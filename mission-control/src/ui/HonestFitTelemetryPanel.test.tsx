@@ -234,10 +234,13 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Draft campaigns')
     expect(html).toContain('Posted/waiting campaigns')
     expect(html).toContain('Learning captured')
-    expect(html).toContain('Selected campaign')
+    expect(html).toContain('Current status / next action')
+    expect(html).toContain('Selected campaign editor')
     expect(html).toContain('What should I publish next?')
     expect(html).toContain('https://honestfit.ai/c/ken-downey')
-    expect(html).toContain('Editable draft')
+    expect(html).toContain(
+      'Editing draft: Trust Layer public profile LinkedIn post',
+    )
     expect(html).toContain('Resumes make claims.')
     expect(html).toContain(
       'I just shipped the first live version of HonestFit',
@@ -246,9 +249,11 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Success metric')
     expect(html).toContain('Suggested screenshot')
     expect(html).toContain('Feedback ask')
-    expect(html).toContain('Mark published')
+    expect(html).toContain('Copy post body')
+    expect(html).toContain('Posted state')
     expect(html).toContain('Posted URL')
     expect(html).toContain('Mark posted')
+    expect(html).toContain('Learning / posted state')
     expect(html).toContain('Record learning')
     expect(html).toContain('What happened after the last post?')
     expect(html).toContain('What was confusing?')
@@ -269,10 +274,44 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Campaigns')
     expect(html).toContain('launch-post')
     expect(html).toContain('linkedin.com: 25')
+    expect(html).toContain(
+      'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]',
+    )
 
     expect(html.indexOf('Supporting metrics')).toBeGreaterThan(
-      html.indexOf('Editable draft'),
+      html.indexOf('Selected campaign editor'),
     )
+  })
+
+  it('renders the selected campaign in the editor while keeping the queue readable', () => {
+    const active = experiment({
+      id: 'active-problem-first',
+      title: 'Active problem-first campaign',
+      angle: 'Problem-first',
+      hook: 'Active hook',
+      postBody: 'Active draft body',
+    })
+    const selected = experiment({
+      id: 'selected-recruiter-value',
+      title: 'Selected recruiter-value campaign',
+      status: 'ready',
+      angle: 'Recruiter-value',
+      hook: 'Selected hook',
+      postBody: 'Selected draft body',
+    })
+
+    const html = renderToStaticMarkup(
+      <HonestFitTelemetryPanelView
+        result={{ status: 'success', summary }}
+        campaignState={campaignState(selected, [active])}
+      />,
+    )
+
+    expect(html).toContain('Active problem-first campaign')
+    expect(html).toContain('Selected recruiter-value campaign')
+    expect(html).toContain('Recruiter-value')
+    expect(html).toContain('Selected draft body')
+    expect(html).not.toContain('Active draft body</textarea>')
   })
 
   it('renders an empty traffic state when attribution has no activity', () => {
