@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg'
+import { Temporal } from '@js-temporal/polyfill'
 import {
   addDays,
   dateInTimeZone,
@@ -14,12 +15,14 @@ import type {
   SetEntry,
   SetEntryInput,
   Source,
+  StrengthTrendEntry,
   WorkoutAnalytics,
   WorkoutDashboard,
   WorkoutProfile,
   WorkoutSession,
 } from './types'
 import { getWorkoutPool, withWorkoutTransaction } from './db'
+import { resolveExerciseName, type ExerciseResolution } from './exercise-resolver'
 
 type Queryable = Pick<PoolClient, 'query'>
 type WorkoutProfilePatch = Partial<Omit<WorkoutProfile, 'accessibilitySettings'>> & {
@@ -225,21 +228,16 @@ export async function findExerciseByName(
   name: string,
   client: Queryable = getWorkoutPool(),
 ): Promise<Exercise | null> {
-  const normalized = normalizeName(name)
+  const resolution = await resolveExerciseByName(name, client)
+  return resolution.matches[0]?.exercise ?? null
+}
+
+export async function resolveExerciseByName(
+  name: string,
+  client: Queryable = getWorkoutPool(),
+): Promise<ExerciseResolution> {
   const exercises = await getExercises(client)
-
-  const exact = exercises.find((exercise) => {
-    if (normalizeName(exercise.canonicalName) === normalized) return true
-    return exercise.aliases.some((alias) => normalizeName(alias) === normalized)
-  })
-  if (exact) return exact
-
-  const partial = exercises.find((exercise) => {
-    const names = [exercise.canonicalName, ...exercise.aliases].map(normalizeName)
-    return names.some((candidate) => candidate.includes(normalized) || normalized.includes(candidate))
-  })
-
-  return partial ?? null
+  return resolveExerciseName(name, exercises)
 }
 
 export async function generateWeekPlan(source: Source = 'ui'): Promise<WorkoutSession[]> {
@@ -800,18 +798,45 @@ export async function getPrs(exerciseName?: string): Promise<PrRecord[]> {
     type: row.type,
     value: Number(row.value),
     unit: row.unit,
-    achievedAt: isoOrNull(row.achieved_at) ?? new Date().toISOString(),
+    achievedAt: isoOrNull(row.achieved_at) ?? Temporal.Now.instant().toString(),
   }))
 }
 
-export async function getRecentBodyMetrics(): Promise<BodyMetricEntry[]> {
+export async function getRecentBodyMetrics(limit = 180): Promise<BodyMetricEntry[]> {
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 500)
   const { rows } = await getWorkoutPool().query(`
     SELECT *
     FROM workout_body_metric_entries
     ORDER BY measured_at DESC, created_at DESC
-    LIMIT 12
-  `)
+    LIMIT $1
+  `, [safeLimit])
   return rows.map(mapBodyMetric)
+}
+
+export async function getStrengthTrends(limit = 240): Promise<StrengthTrendEntry[]> {
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 500)
+  const { rows } = await getWorkoutPool().query(`
+    SELECT
+      se.id,
+      ep.exercise_id,
+      ex.canonical_name,
+      se.reps,
+      se.load,
+      se.unit,
+      se.performed_at,
+      ws.scheduled_for::text AS performed_date
+    FROM workout_set_entries se
+    JOIN workout_exercise_performances ep ON ep.id = se.exercise_performance_id
+    JOIN workout_sessions ws ON ws.id = ep.workout_session_id
+    JOIN workout_exercises ex ON ex.id = ep.exercise_id
+    WHERE se.deleted_at IS NULL
+      AND se.completed = true
+      AND se.is_warmup = false
+      AND se.load IS NOT NULL
+    ORDER BY ws.scheduled_for DESC, se.performed_at DESC
+    LIMIT $1
+  `, [safeLimit])
+  return rows.map(mapStrengthTrend)
 }
 
 export async function getAuditLog(limit = 100) {
@@ -1614,7 +1639,7 @@ function mapSet(row: Record<string, unknown>): SetEntry {
     isFailure: Boolean(row.is_failure),
     notes: String(row.notes ?? ''),
     source: String(row.source ?? 'ui'),
-    performedAt: isoOrNull(row.performed_at) ?? new Date().toISOString(),
+    performedAt: isoOrNull(row.performed_at) ?? Temporal.Now.instant().toString(),
   }
 }
 
@@ -1625,9 +1650,25 @@ function mapBodyMetric(row: Record<string, unknown>): BodyMetricEntry {
     bodyPart: nullableString(row.body_part),
     value: Number(row.value),
     unit: String(row.unit),
-    measuredAt: String(row.measured_at),
+    measuredAt: dateOnly(row.measured_at),
     source: String(row.source ?? 'ui'),
     notes: String(row.notes ?? ''),
+  }
+}
+
+function mapStrengthTrend(row: Record<string, unknown>): StrengthTrendEntry {
+  const reps = Number(row.reps)
+  const load = Number(row.load)
+  return {
+    id: String(row.id),
+    exerciseId: String(row.exercise_id),
+    exerciseName: String(row.canonical_name),
+    reps,
+    load,
+    unit: String(row.unit ?? 'lb'),
+    estimated1Rm: roundLoad(load * (1 + reps / 30)),
+    performedAt: isoOrNull(row.performed_at) ?? '',
+    performedDate: dateOnly(row.performed_date),
   }
 }
 
@@ -1671,8 +1712,28 @@ function nullableString(value: unknown): string | null {
 
 function isoOrNull(value: unknown): string | null {
   if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  return new Date(String(value)).toISOString()
+  if (value instanceof Date) {
+    return Temporal.Instant.fromEpochMilliseconds(value.getTime()).toString()
+  }
+  try {
+    return Temporal.Instant.from(String(value)).toString()
+  } catch {
+    return null
+  }
+}
+
+function dateOnly(value: unknown): string {
+  if (value instanceof Date) {
+    return Temporal.Instant
+      .fromEpochMilliseconds(value.getTime())
+      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+      .toPlainDate()
+      .toString()
+  }
+  const text = String(value ?? '')
+  const match = text.match(/^\d{4}-\d{2}-\d{2}/)
+  if (match) return Temporal.PlainDate.from(match[0]).toString()
+  return text
 }
 
 function normalizeName(value: string) {

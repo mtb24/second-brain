@@ -1,65 +1,62 @@
 import fs from 'node:fs'
 import { execFileSync } from 'node:child_process'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig, devices } from '@playwright/test'
 
 const configDir = path.dirname(fileURLToPath(import.meta.url))
-const localDevPasswordHash = '$2b$10$6xqNjJV2KgF6rpn1YqEC7uM0HTHI7y5/9GDu4pVW/KFuDSMAkir1O'
 
 loadEnv(path.resolve(configDir, '..', '.env'))
 loadEnv(path.resolve(configDir, '.env'))
 
-export default defineConfig(({ command }) => {
-  if (command === 'serve') {
-    applyLocalDevDefaults()
-  }
-
-  return {
-    server: {
-      port: 4173,
-      proxy: {
-        '/openclaw': {
-          target: process.env.OPENCLAW_DEV_PROXY_TARGET ?? 'http://127.0.0.1:18789',
-          changeOrigin: true,
-          ws: true,
-          headers: {
-            'X-Forwarded-User': process.env.OPENCLAW_DEV_PROXY_USER ?? 'iframeuser',
-          },
-        },
-      },
-    },
-    resolve: {
-      alias: {
-        '@': path.resolve(configDir, 'src'),
-        'app': path.resolve(configDir, 'app'),
-      },
-    },
-    plugins: [
-      tanstackStart(),
-      nitroV2Plugin({ preset: 'node-server' }),
-      react(),
-    ],
-  }
-})
-
-function applyLocalDevDefaults() {
-  const workoutTestDbUrl = process.env.WORKOUT_TEST_DB_URL ?? resolveWorkoutTestDbUrlFromDocker()
-  if (workoutTestDbUrl) {
-    process.env.DB_URL = workoutTestDbUrl
-    process.env.DATABASE_URL = workoutTestDbUrl
-  }
-
-  process.env.OPENCLAW_GATEWAY_URL ??= 'ws://127.0.0.1:1'
-  process.env.MCP_URL ??= 'http://127.0.0.1:1'
-  process.env.MCP_TOKEN ??= 'local-dev'
-  process.env.MC_USERNAME ??= 'local-dev'
-  process.env.MC_PASSWORD_HASH ??= localDevPasswordHash
-  process.env.MC_SESSION_SECRET ??= 'local-dev-session-secret-at-least-32-chars'
+const port = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
+const baseURL = `http://127.0.0.1:${port}`
+const workoutTestDbUrl = process.env.WORKOUT_TEST_DB_URL ?? resolveWorkoutTestDbUrlFromDocker()
+const webServerEnv = {
+  ...stringEnv(process.env),
+  ...(workoutTestDbUrl ? { DB_URL: workoutTestDbUrl, DATABASE_URL: workoutTestDbUrl } : {}),
+  MC_USERNAME: process.env.MC_USERNAME ?? 'playwright-smoke',
+  MC_SESSION_SECRET: process.env.MC_SESSION_SECRET ?? 'local-playwright-session-secret-32-chars',
+  OPENCLAW_GATEWAY_URL: process.env.OPENCLAW_GATEWAY_URL ?? 'ws://127.0.0.1:1',
+  MCP_URL: process.env.MCP_URL ?? 'http://127.0.0.1:1',
+  MCP_TOKEN: process.env.MCP_TOKEN ?? 'local-playwright-smoke',
 }
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  testMatch: '**/*.playwright.ts',
+  timeout: 30_000,
+  expect: {
+    timeout: 5_000,
+  },
+  use: {
+    baseURL,
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium-desktop',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      name: 'chromium-mobile',
+      use: {
+        ...devices['Pixel 7'],
+      },
+    },
+  ],
+  webServer: {
+    command: `pnpm exec vite dev --host 127.0.0.1 --port ${port}`,
+    cwd: configDir,
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+    env: webServerEnv,
+  },
+})
 
 function loadEnv(filePath: string) {
   if (!fs.existsSync(filePath)) return
@@ -73,6 +70,12 @@ function loadEnv(filePath: string) {
     if (process.env[key]) continue
     process.env[key] = rawValue.replace(/^['"]|['"]$/g, '')
   }
+}
+
+function stringEnv(env: NodeJS.ProcessEnv) {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  )
 }
 
 function resolveWorkoutTestDbUrlFromDocker() {

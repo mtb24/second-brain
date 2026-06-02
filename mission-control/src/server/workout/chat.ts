@@ -13,11 +13,13 @@ import {
   logBodyMetric,
   markPerformanceComplete,
   rescheduleSession,
+  resolveExerciseByName,
   setEquipmentProfile,
   startExerciseByName,
   swapExerciseInNextSession,
 } from './repository'
 import { addDays } from './date'
+import { parseDeterministicWorkoutCommand, type ParsedWorkoutCommand } from './command-parser'
 import type {
   ChatCommandInput,
   ChatCommandResult,
@@ -99,6 +101,14 @@ export async function executeWorkoutChatCommand(
       message: `Logged ${metric.metricType}${metric.bodyPart ? ` for ${metric.bodyPart}` : ''}: ${metric.value} ${metric.unit} on ${metric.measuredAt}.`,
       data: { metric },
     }
+  }
+
+  const deterministicCommand = parseDeterministicWorkoutCommand(text)
+  if (deterministicCommand) {
+    return executeDeterministicCommand(deterministicCommand, {
+      source,
+      sourceMessageId,
+    })
   }
 
   const recordManySets = text.match(/record\s+(\d+)\s*x\s*(\d+)\s+(?:at\s+)?(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds|kg)?\s+(?:on|for)\s+(.+)/i)
@@ -319,6 +329,141 @@ export async function executeWorkoutChatCommand(
     ok: false,
     intent: 'unknown',
     message: 'I did not recognize that workout command yet. Try "what is next?", "record 5x5 at 185 on squat", or "log this set: 10 reps at 275".',
+  }
+}
+
+async function executeDeterministicCommand(
+  command: ParsedWorkoutCommand,
+  context: {
+    source: ChatCommandInput['source']
+    sourceMessageId?: string
+  },
+): Promise<ChatCommandResult> {
+  const { source, sourceMessageId } = context
+
+  if (command.intent === 'exercise.start') {
+    const resolution = await resolveExerciseByName(command.exerciseName)
+    if (resolution.status === 'unmatched') {
+      return {
+        ok: false,
+        intent: command.intent,
+        confidence: command.confidence,
+        message: `I could not find an exercise matching "${command.exerciseName}".`,
+        entities: { exerciseName: command.exerciseName },
+      }
+    }
+    if (resolution.status === 'ambiguous') {
+      const options = resolution.matches.slice(0, 3).map((match) => ({
+        id: match.exercise.id,
+        label: match.exercise.canonicalName,
+      }))
+      return {
+        ok: false,
+        intent: command.intent,
+        confidence: resolution.matches[0]?.confidence ?? command.confidence,
+        needsConfirmation: true,
+        message: `Do you mean ${options.map((option) => option.label).join(' or ')}?`,
+        clarificationOptions: options,
+        entities: { exerciseName: command.exerciseName },
+      }
+    }
+
+    const exercise = resolution.matches[0]?.exercise
+    const performance = await startExerciseByName(exercise?.canonicalName ?? command.exerciseName, source)
+    return {
+      ok: true,
+      intent: command.intent,
+      confidence: resolution.matches[0]?.confidence ?? command.confidence,
+      message: `Started ${performance.exerciseName}. Suggested start: ${performance.suggestedLoad ?? 'choose a conservative load'}${performance.suggestedLoad ? ' lb' : ''}.`,
+      data: { performance, resolution },
+      entities: {
+        exerciseId: performance.exerciseId,
+        exerciseName: performance.exerciseName,
+      },
+    }
+  }
+
+  if (command.intent === 'set.log') {
+    const current = await getCurrentPerformance()
+    if (!current) {
+      return {
+        ok: false,
+        intent: command.intent,
+        confidence: command.confidence,
+        message: 'No active exercise is ready. Start an exercise first, then log the set.',
+      }
+    }
+
+    const result = await addSetToPerformance(current.id, {
+      reps: command.reps,
+      load: command.load,
+      unit: command.unit,
+      rpe: command.rpe,
+      completed: true,
+      isWarmup: false,
+      isFailure: command.isFailure,
+      notes: '',
+      source,
+      sourceMessageId,
+      idempotencyKey: sourceMessageId ? `set:${source}:${sourceMessageId}` : undefined,
+    })
+    return {
+      ok: true,
+      intent: command.intent,
+      confidence: command.confidence,
+      message: `Set ${result.set.setNumber}: ${command.load} ${command.unit} x ${command.reps} for ${current.exerciseName}.`,
+      data: result,
+      entities: {
+        exercisePerformanceId: current.id,
+        exerciseName: current.exerciseName,
+        reps: command.reps,
+        load: command.load,
+        unit: command.unit,
+      },
+    }
+  }
+
+  const current = await getCurrentPerformance()
+  if (!current) {
+    return {
+      ok: false,
+      intent: command.intent,
+      confidence: command.confidence,
+      message: 'No active exercise is ready. Start an exercise first, then record multiple sets.',
+    }
+  }
+
+  let lastResult = null
+  for (let setNumber = 1; setNumber <= command.sets; setNumber += 1) {
+    lastResult = await addSetToPerformance(current.id, {
+      reps: command.reps,
+      load: command.load,
+      unit: command.unit,
+      rpe: command.rpe,
+      completed: true,
+      isWarmup: false,
+      isFailure: false,
+      notes: '',
+      source,
+      sourceMessageId,
+      idempotencyKey: sourceMessageId ? `set:${source}:${sourceMessageId}:${setNumber}` : undefined,
+    })
+  }
+
+  return {
+    ok: true,
+    intent: command.intent,
+    confidence: command.confidence,
+    message: `Recorded ${command.sets}x${command.reps} at ${command.load} ${command.unit} for ${current.exerciseName}.`,
+    data: lastResult,
+    entities: {
+      exercisePerformanceId: current.id,
+      exerciseName: current.exerciseName,
+      sets: command.sets,
+      reps: command.reps,
+      load: command.load,
+      unit: command.unit,
+    },
   }
 }
 

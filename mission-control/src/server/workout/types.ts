@@ -108,6 +108,18 @@ export type PrRecord = {
   achievedAt: string
 }
 
+export type StrengthTrendEntry = {
+  id: string
+  exerciseId: string
+  exerciseName: string
+  reps: number
+  load: number
+  unit: string
+  estimated1Rm: number
+  performedAt: string
+  performedDate: string
+}
+
 export type WorkoutAnalytics = {
   range: 'week' | 'month' | 'quarter'
   totalVolume: number
@@ -196,4 +208,10 @@ export type ChatCommandResult = {
   message: string
   data?: unknown
   needsConfirmation?: boolean
+  confidence?: number
+  entities?: Record<string, unknown>
+  clarificationOptions?: Array<{
+    id: string
+    label: string
+  }>
 }

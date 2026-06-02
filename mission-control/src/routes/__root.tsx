@@ -35,6 +35,7 @@ export const Route = createRootRoute({
 function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const bareShell = pathname === '/login' || pathname === '/logout'
+  const fullBleedShell = pathname === '/openclaw'
 
   return (
     <RootDocument>
@@ -42,17 +43,17 @@ function RootComponent() {
         {bareShell ? (
           <Outlet />
         ) : (
-          <div className="min-h-screen bg-slate-950 text-slate-100">
+          <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
             <header className="z-10 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-              <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-2">
+              <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   <span className="text-sm font-semibold tracking-wide text-slate-100">
                     Mission Control
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  <nav className="flex flex-wrap gap-4 text-sm text-slate-300">
+                <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+                  <nav className="flex min-w-0 flex-wrap gap-3 text-sm text-slate-300 sm:gap-4">
                     <Link to="/" className="[&.active]:text-emerald-400">
                       Dashboard
                     </Link>
@@ -65,9 +66,9 @@ function RootComponent() {
                     <Link to="/workout" className="[&.active]:text-emerald-400">
                       Workout
                     </Link>
-                    <Link to="/openclaw" className="[&.active]:text-emerald-400">
+                    <a href="/openclaw/" className="text-slate-300 hover:text-emerald-400">
                       OpenClaw
-                    </Link>
+                    </a>
                   </nav>
                   <form method="post" action="/logout">
                     <button
@@ -80,7 +81,10 @@ function RootComponent() {
                 </div>
               </div>
             </header>
-            <main className="mx-auto max-w-7xl px-4 py-6">
+            <main className={fullBleedShell
+              ? 'min-h-0 w-full flex-1 overflow-hidden'
+              : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6'}
+            >
               <Outlet />
             </main>
           </div>

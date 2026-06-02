@@ -9,7 +9,9 @@ export const Route = createFileRoute('/api/workout/body-metrics')({
       GET: async ({ request }) => {
         const denied = guardWorkoutApi(request)
         if (denied) return denied
-        return Response.json({ metrics: await getRecentBodyMetrics() })
+        const url = new URL(request.url)
+        const limit = Number(url.searchParams.get('limit') ?? '180')
+        return Response.json({ metrics: await getRecentBodyMetrics(limit) })
       },
       POST: async ({ request }) => {
         const denied = guardWorkoutApi(request)

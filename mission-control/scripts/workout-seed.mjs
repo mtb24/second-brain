@@ -17,6 +17,7 @@ const pool = new Pool({ connectionString })
 const exercises = [
   ['Barbell Back Squat', ['squat', 'back squat'], 'squat', ['quads', 'glutes', 'hamstrings'], 'barbell', 150],
   ['Incline Bench Machine', ['incline bench', 'incline machine', 'chest press'], 'horizontal_push', ['chest', 'triceps', 'front_delts'], 'machine', 120],
+  ['Hammer Strength Decline Press', ['hammer decline press', 'hammer strength decline', 'hammersmith decline press', 'hs decline press', 'plate-loaded decline press'], 'horizontal_push', ['chest', 'triceps', 'front_delts'], 'plate_loaded_machine', 120],
   ['Romanian Deadlift', ['rdl', 'dumbbell rdl'], 'hinge', ['hamstrings', 'glutes', 'back'], 'barbell_or_dumbbell', 120],
   ['Trap Bar Deadlift', ['deadlift', 'trap deadlift'], 'hinge', ['glutes', 'hamstrings', 'back', 'quads'], 'trap_bar', 150],
   ['Leg Press', ['sled press'], 'squat', ['quads', 'glutes'], 'machine', 120],

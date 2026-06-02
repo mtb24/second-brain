@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Activity,
@@ -12,6 +12,7 @@ import {
   Plus,
   Ruler,
   Scale,
+  Send,
   SkipForward,
 } from 'lucide-react'
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
@@ -22,6 +23,7 @@ import type {
   WorkoutDashboard,
   WorkoutSession,
 } from '@/server/workout/types'
+import { bodyMeasurementParts, formatBodyPartLabel } from '@/workout/body-measurements'
 
 export const Route = createFileRoute('/workout')({
   component: WorkoutPage,
@@ -48,8 +50,9 @@ function WorkoutPage() {
   const [setLoad, setSetLoad] = useState('')
   const [setRpe, setSetRpe] = useState('')
   const [bodyWeight, setBodyWeight] = useState('')
-  const [measurementPart, setMeasurementPart] = useState('chest')
-  const [measurementValue, setMeasurementValue] = useState('')
+  const [bodyFat, setBodyFat] = useState('')
+  const [measurementDate, setMeasurementDate] = useState('')
+  const [measurementValues, setMeasurementValues] = useState<Record<string, string>>({})
   const [chatText, setChatText] = useState('')
   const [chatResult, setChatResult] = useState<ChatCommandResult | null>(null)
 
@@ -99,15 +102,26 @@ function WorkoutPage() {
   })
 
   const logBodyMetricMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api('/api/workout/body-metrics', {
-      method: 'POST',
-      body: JSON.stringify({ ...body, source: 'ui' }),
-    }),
-    onSuccess: () => {
-      setBodyWeight('')
-      setMeasurementValue('')
-      invalidate()
+    mutationFn: async (body: Record<string, unknown> | Array<Record<string, unknown>>) => {
+      const entries = Array.isArray(body) ? body : [body]
+      return Promise.all(entries.map((entry) => api('/api/workout/body-metrics', {
+        method: 'POST',
+        body: JSON.stringify({ ...entry, source: 'ui' }),
+      })))
     },
+    onSuccess: invalidate,
+  })
+
+  const updateMeasurementValue = (bodyPart: string, value: string) => {
+    setMeasurementValues((current) => ({
+      ...current,
+      [bodyPart]: value,
+    }))
+  }
+
+  const hasMeasurementsToSave = bodyMeasurementParts.some((bodyPart) => {
+    const value = Number(measurementValues[bodyPart])
+    return Number.isFinite(value) && value > 0
   })
 
   const chatMutation = useMutation({
@@ -166,17 +180,43 @@ function WorkoutPage() {
       bodyPart: null,
       value: Number(bodyWeight),
       unit: preferredUnits,
+    }, {
+      onSuccess: () => setBodyWeight(''),
     })
   }
 
-  function submitMeasurement(event: FormEvent) {
+  function submitBodyFat(event: FormEvent) {
     event.preventDefault()
-    if (!measurementPart || !measurementValue) return
+    const value = Number(bodyFat)
+    if (!Number.isFinite(value) || value <= 0) return
     logBodyMetricMutation.mutate({
-      metricType: 'measurement',
-      bodyPart: measurementPart,
-      value: Number(measurementValue),
-      unit: preferredUnits === 'kg' ? 'cm' : 'in',
+      metricType: 'bodyfat',
+      bodyPart: null,
+      value,
+      unit: '%',
+    }, {
+      onSuccess: () => setBodyFat(''),
+    })
+  }
+
+  function submitMeasurements(event: FormEvent) {
+    event.preventDefault()
+    const unit = preferredUnits === 'kg' ? 'cm' : 'in'
+    const measuredAt = measurementDate || dashboard.data?.today
+    const entries = bodyMeasurementParts.flatMap((bodyPart) => {
+      const value = Number(measurementValues[bodyPart])
+      if (!Number.isFinite(value) || value <= 0) return []
+      return [{
+        metricType: 'measurement',
+        bodyPart,
+        value,
+        unit,
+        measuredAt,
+      }]
+    })
+    if (!entries.length) return
+    logBodyMetricMutation.mutate(entries, {
+      onSuccess: () => setMeasurementValues({}),
     })
   }
 
@@ -229,8 +269,8 @@ function WorkoutPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+        <section className="min-w-0 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-300">
@@ -257,6 +297,15 @@ function WorkoutPage() {
               </div>
             )}
           </div>
+
+          <GymCommandPanel
+            activePerformance={activePerformance}
+            chatText={chatText}
+            chatResult={chatResult}
+            pending={chatMutation.isPending}
+            onTextChange={setChatText}
+            onSubmit={submitChat}
+          />
 
           {activePerformance && (
             <form onSubmit={submitSet} className="mt-4 grid gap-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
@@ -325,72 +374,100 @@ function WorkoutPage() {
           )}
         </section>
 
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           <Panel title="Body Metrics" icon={<Scale className="h-4 w-4" />}>
-            <form onSubmit={submitBodyWeight} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <Field label={`Bodyweight (${data.profile.preferredUnits})`}>
+            <div className="mb-3 flex justify-end">
+              <Link
+                to="/workout/metrics"
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-700 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+              >
+                View trends
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <form onSubmit={submitBodyWeight} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Field label={`Bodyweight (${data.profile.preferredUnits})`}>
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    value={bodyWeight}
+                    onChange={(event) => setBodyWeight(event.target.value)}
+                  />
+                </Field>
+                <button
+                  className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-600 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={logBodyMetricMutation.isPending || !bodyWeight}
+                  aria-label="Add bodyweight"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+              </form>
+              <form onSubmit={submitBodyFat} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Field label="Body fat (%)">
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    value={bodyFat}
+                    onChange={(event) => setBodyFat(event.target.value)}
+                  />
+                </Field>
+                <button
+                  className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-600 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={logBodyMetricMutation.isPending || !bodyFat}
+                  aria-label="Add body fat"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+              </form>
+            </div>
+            <form onSubmit={submitMeasurements} className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <input
-                  className="input"
-                  inputMode="decimal"
-                  value={bodyWeight}
-                  onChange={(event) => setBodyWeight(event.target.value)}
+                  type="date"
+                  className="input max-w-44"
+                  value={measurementDate || data.today}
+                  onChange={(event) => setMeasurementDate(event.target.value)}
+                  aria-label="Measurement date"
                 />
-              </Field>
-              <button className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-600 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800">
-                <Plus className="h-4 w-4" />
-                Add
-              </button>
-            </form>
-            <form onSubmit={submitMeasurement} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-              <Field label="Body part">
-                <input
-                  className="input"
-                  value={measurementPart}
-                  onChange={(event) => setMeasurementPart(event.target.value)}
-                />
-              </Field>
-              <Field label={`Value (${data.profile.preferredUnits === 'kg' ? 'cm' : 'in'})`}>
-                <input
-                  className="input"
-                  inputMode="decimal"
-                  value={measurementValue}
-                  onChange={(event) => setMeasurementValue(event.target.value)}
-                />
-              </Field>
-              <button className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-600 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800">
-                <Ruler className="h-4 w-4" />
-                Add
-              </button>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-600 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={logBodyMetricMutation.isPending || !hasMeasurementsToSave}
+                >
+                  <Ruler className="h-4 w-4" />
+                  Save measurements
+                </button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {bodyMeasurementParts.map((bodyPart) => (
+                  <label key={bodyPart} className="block">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {formatBodyPartLabel(bodyPart)}
+                    </span>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        className="input"
+                        inputMode="decimal"
+                        value={measurementValues[bodyPart] ?? ''}
+                        onChange={(event) => updateMeasurementValue(bodyPart, event.target.value)}
+                        aria-label={`${formatBodyPartLabel(bodyPart)} measurement`}
+                      />
+                      <span className="w-8 shrink-0 text-xs text-slate-400">
+                        {data.profile.preferredUnits === 'kg' ? 'cm' : 'in'}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </form>
             <MetricList metrics={data.analytics.recentBodyMetrics} />
-          </Panel>
-
-          <Panel title="Cortex Command" icon={<MessageSquareText className="h-4 w-4" />}>
-            <form onSubmit={submitChat} className="grid gap-2">
-              <input
-                className="input"
-                value={chatText}
-                onChange={(event) => setChatText(event.target.value)}
-                placeholder="what's next?"
-              />
-              <button
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-100 px-3 text-sm font-semibold text-slate-950 hover:bg-white"
-                disabled={chatMutation.isPending}
-              >
-                <MessageSquareText className="h-4 w-4" />
-                Run
-              </button>
-            </form>
-            {chatResult && (
-              <div className={`mt-3 rounded-md border px-3 py-2 text-sm ${chatResult.ok ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-100' : 'border-amber-500/40 bg-amber-950/20 text-amber-100'}`}>
-                {chatResult.message}
-              </div>
-            )}
           </Panel>
         </section>
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid min-w-0 gap-4 lg:grid-cols-3">
         <Panel title="Volume" icon={<BarChart3 className="h-4 w-4" />}>
           <div className="text-3xl font-semibold text-white">
             {Math.round(data.analytics.totalVolume).toLocaleString()}
@@ -432,6 +509,72 @@ function WorkoutPage() {
           </div>
         </Panel>
       </section>
+    </div>
+  )
+}
+
+function GymCommandPanel({
+  activePerformance,
+  chatText,
+  chatResult,
+  pending,
+  onTextChange,
+  onSubmit,
+}: {
+  activePerformance: ExercisePerformance | null
+  chatText: string
+  chatResult: ChatCommandResult | null
+  pending: boolean
+  onTextChange: (value: string) => void
+  onSubmit: (event: FormEvent) => void
+}) {
+  const lastSet = activePerformance?.sets.at(-1) ?? null
+  return (
+    <div className="mt-4 rounded-lg border border-emerald-500/30 bg-slate-950/70 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-300">
+          <MessageSquareText className="h-4 w-4" />
+          Gym command
+        </div>
+        {activePerformance && (
+          <div className="truncate text-sm text-slate-300">
+            {activePerformance.exerciseName}
+          </div>
+        )}
+      </div>
+      <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          className="input-lg flex-1"
+          value={chatText}
+          onChange={(event) => onTextChange(event.target.value)}
+          placeholder={activePerformance?.suggestedLoad ? `did 10 at ${activePerformance.suggestedLoad}` : 'start Hammer Strength decline press'}
+          autoComplete="off"
+          enterKeyHint="send"
+          aria-label="Workout command"
+        />
+        <button
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-slate-100 px-4 text-base font-semibold text-slate-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={pending || !chatText.trim()}
+        >
+          <Send className="h-5 w-5" />
+          Send
+        </button>
+      </form>
+      {chatResult && (
+        <div className={`mt-3 rounded-md border px-3 py-2 text-sm ${chatResult.ok ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-100' : 'border-amber-500/40 bg-amber-950/20 text-amber-100'}`}>
+          {chatResult.message}
+        </div>
+      )}
+      {lastSet && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+          <span className="rounded bg-slate-800 px-2 py-1 text-slate-100">
+            Last set
+          </span>
+          <span>
+            {lastSet.setNumber}: {lastSet.load ?? '-'} {lastSet.unit} x {lastSet.reps}{lastSet.rpe ? ` @${lastSet.rpe}` : ''}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -480,7 +623,7 @@ function Panel({
   children: ReactNode
 }) {
   return (
-    <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+    <section className="min-w-0 rounded-lg border border-slate-800 bg-slate-900/70 p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-300">
         {icon}
         {title}
@@ -549,10 +692,10 @@ function MetricList({ metrics }: { metrics: BodyMetricEntry[] }) {
   }
   return (
     <div className="mt-3 space-y-2">
-      {metrics.slice(0, 4).map((metric) => (
-        <div key={metric.id} className="flex items-center justify-between gap-3 rounded-md bg-slate-950/70 px-3 py-2 text-sm">
-          <span className="min-w-0 truncate text-slate-200">
-            {metric.bodyPart ?? metric.metricType} · {metric.measuredAt}
+      {metrics.slice(0, 6).map((metric) => (
+        <div key={metric.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-slate-950/70 px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate text-slate-200">
+            {formatMetricLabel(metric)} · {metric.measuredAt}
           </span>
           <span className="shrink-0 font-semibold text-white">
             {metric.value} {metric.unit}
@@ -561,6 +704,12 @@ function MetricList({ metrics }: { metrics: BodyMetricEntry[] }) {
       ))}
     </div>
   )
+}
+
+function formatMetricLabel(metric: BodyMetricEntry) {
+  if (metric.metricType === 'bodyweight') return 'Bodyweight'
+  if (metric.metricType === 'bodyfat') return 'Body Fat'
+  return formatBodyPartLabel(metric.bodyPart ?? metric.metricType)
 }
 
 function Meter({ label, value, max }: { label: string; value: number; max: number }) {

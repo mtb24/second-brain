@@ -16,6 +16,8 @@ import { Route as OpenclawRouteImport } from './routes/openclaw'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkoutMetricsRouteImport } from './routes/workout_.metrics'
+import { Route as ApiWorkoutStrengthTrendsRouteImport } from './routes/api/workout/strength-trends'
 import { Route as ApiWorkoutSessionsRouteImport } from './routes/api/workout/sessions'
 import { Route as ApiWorkoutProfileRouteImport } from './routes/api/workout/profile'
 import { Route as ApiWorkoutExercisesRouteImport } from './routes/api/workout/exercises'
@@ -80,6 +82,17 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkoutMetricsRoute = WorkoutMetricsRouteImport.update({
+  id: '/workout_/metrics',
+  path: '/workout/metrics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkoutStrengthTrendsRoute =
+  ApiWorkoutStrengthTrendsRouteImport.update({
+    id: '/api/workout/strength-trends',
+    path: '/api/workout/strength-trends',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWorkoutSessionsRoute = ApiWorkoutSessionsRouteImport.update({
   id: '/api/workout/sessions',
   path: '/api/workout/sessions',
@@ -237,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
+  '/workout/metrics': typeof WorkoutMetricsRoute
   '/api/honestfit/marketing-experiment': typeof ApiHonestfitMarketingExperimentRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
@@ -252,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
   '/api/workout/profile': typeof ApiWorkoutProfileRoute
   '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
+  '/api/workout/strength-trends': typeof ApiWorkoutStrengthTrendsRoute
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
@@ -274,6 +289,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
+  '/workout/metrics': typeof WorkoutMetricsRoute
   '/api/honestfit/marketing-experiment': typeof ApiHonestfitMarketingExperimentRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
@@ -289,6 +305,7 @@ export interface FileRoutesByTo {
   '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
   '/api/workout/profile': typeof ApiWorkoutProfileRoute
   '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
+  '/api/workout/strength-trends': typeof ApiWorkoutStrengthTrendsRoute
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
@@ -312,6 +329,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
+  '/workout_/metrics': typeof WorkoutMetricsRoute
   '/api/honestfit/marketing-experiment': typeof ApiHonestfitMarketingExperimentRoute
   '/api/honestfit/mission-summary': typeof ApiHonestfitMissionSummaryRoute
   '/api/mcp/search-brain': typeof ApiMcpSearchBrainRoute
@@ -327,6 +345,7 @@ export interface FileRoutesById {
   '/api/workout/exercises': typeof ApiWorkoutExercisesRoute
   '/api/workout/profile': typeof ApiWorkoutProfileRoute
   '/api/workout/sessions': typeof ApiWorkoutSessionsRouteWithChildren
+  '/api/workout/strength-trends': typeof ApiWorkoutStrengthTrendsRoute
   '/api/ingest/thoughts/activity': typeof ApiIngestThoughtsActivityRoute
   '/api/ingest/thoughts/recent': typeof ApiIngestThoughtsRecentRoute
   '/api/ingest/trading/bracket': typeof ApiIngestTradingBracketRoute
@@ -351,6 +370,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/trading'
     | '/workout'
+    | '/workout/metrics'
     | '/api/honestfit/marketing-experiment'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
@@ -366,6 +386,7 @@ export interface FileRouteTypes {
     | '/api/workout/exercises'
     | '/api/workout/profile'
     | '/api/workout/sessions'
+    | '/api/workout/strength-trends'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
@@ -388,6 +409,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/trading'
     | '/workout'
+    | '/workout/metrics'
     | '/api/honestfit/marketing-experiment'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
@@ -403,6 +425,7 @@ export interface FileRouteTypes {
     | '/api/workout/exercises'
     | '/api/workout/profile'
     | '/api/workout/sessions'
+    | '/api/workout/strength-trends'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
@@ -425,6 +448,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/trading'
     | '/workout'
+    | '/workout_/metrics'
     | '/api/honestfit/marketing-experiment'
     | '/api/honestfit/mission-summary'
     | '/api/mcp/search-brain'
@@ -440,6 +464,7 @@ export interface FileRouteTypes {
     | '/api/workout/exercises'
     | '/api/workout/profile'
     | '/api/workout/sessions'
+    | '/api/workout/strength-trends'
     | '/api/ingest/thoughts/activity'
     | '/api/ingest/thoughts/recent'
     | '/api/ingest/trading/bracket'
@@ -463,6 +488,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   TradingRoute: typeof TradingRoute
   WorkoutRoute: typeof WorkoutRoute
+  WorkoutMetricsRoute: typeof WorkoutMetricsRoute
   ApiHonestfitMarketingExperimentRoute: typeof ApiHonestfitMarketingExperimentRoute
   ApiHonestfitMissionSummaryRoute: typeof ApiHonestfitMissionSummaryRoute
   ApiMcpSearchBrainRoute: typeof ApiMcpSearchBrainRoute
@@ -478,6 +504,7 @@ export interface RootRouteChildren {
   ApiWorkoutExercisesRoute: typeof ApiWorkoutExercisesRoute
   ApiWorkoutProfileRoute: typeof ApiWorkoutProfileRoute
   ApiWorkoutSessionsRoute: typeof ApiWorkoutSessionsRouteWithChildren
+  ApiWorkoutStrengthTrendsRoute: typeof ApiWorkoutStrengthTrendsRoute
   ApiIngestThoughtsActivityRoute: typeof ApiIngestThoughtsActivityRoute
   ApiIngestThoughtsRecentRoute: typeof ApiIngestThoughtsRecentRoute
   ApiIngestTradingBracketRoute: typeof ApiIngestTradingBracketRoute
@@ -538,6 +565,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workout_/metrics': {
+      id: '/workout_/metrics'
+      path: '/workout/metrics'
+      fullPath: '/workout/metrics'
+      preLoaderRoute: typeof WorkoutMetricsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workout/strength-trends': {
+      id: '/api/workout/strength-trends'
+      path: '/api/workout/strength-trends'
+      fullPath: '/api/workout/strength-trends'
+      preLoaderRoute: typeof ApiWorkoutStrengthTrendsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/workout/sessions': {
@@ -773,6 +814,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   TradingRoute: TradingRoute,
   WorkoutRoute: WorkoutRoute,
+  WorkoutMetricsRoute: WorkoutMetricsRoute,
   ApiHonestfitMarketingExperimentRoute: ApiHonestfitMarketingExperimentRoute,
   ApiHonestfitMissionSummaryRoute: ApiHonestfitMissionSummaryRoute,
   ApiMcpSearchBrainRoute: ApiMcpSearchBrainRoute,
@@ -788,6 +830,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWorkoutExercisesRoute: ApiWorkoutExercisesRoute,
   ApiWorkoutProfileRoute: ApiWorkoutProfileRoute,
   ApiWorkoutSessionsRoute: ApiWorkoutSessionsRouteWithChildren,
+  ApiWorkoutStrengthTrendsRoute: ApiWorkoutStrengthTrendsRoute,
   ApiIngestThoughtsActivityRoute: ApiIngestThoughtsActivityRoute,
   ApiIngestThoughtsRecentRoute: ApiIngestThoughtsRecentRoute,
   ApiIngestTradingBracketRoute: ApiIngestTradingBracketRoute,
