@@ -1,21 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SystemHealthPanel } from '@/ui/SystemHealthPanel'
-import { HonestFitTelemetryPanel } from '@/ui/HonestFitTelemetryPanel'
+import { TodayFoundation } from '@/ui/mission/WorkspaceFoundations'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  return (
-    <div className="grid gap-6 xl:grid-cols-3">
-      <section className="space-y-4 xl:col-span-2">
-        <HonestFitTelemetryPanel />
-      </section>
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-slate-200">System health</h2>
-        <SystemHealthPanel />
-      </section>
-    </div>
-  )
+  return <TodayFoundation />
 }

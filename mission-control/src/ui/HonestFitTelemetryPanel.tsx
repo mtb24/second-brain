@@ -16,13 +16,8 @@ import type {
   HonestFitMissionSummaryResult,
 } from '@/server/honestFitMissionSummary'
 
-async function fetchHonestFitTelemetry(
-  since?: string | null,
-): Promise<HonestFitMissionSummaryResult> {
-  const params = new URLSearchParams()
-  if (since) params.set('since', since)
-  const suffix = params.size ? `?${params.toString()}` : ''
-  const res = await fetch(`/api/honestfit/mission-summary${suffix}`, {
+async function fetchHonestFitTelemetry(): Promise<HonestFitMissionSummaryResult> {
+  const res = await fetch('/api/honestfit/mission-summary', {
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -868,9 +863,8 @@ function HonestFitMarketingWorkbench({
     nextMessageAngle: campaign.nextMessageAngle,
   })
   const checkAfter = checkAfterTimestampForCampaign(campaign)
-  const metricsWindowLabel = hasPosted
-    ? `Since active campaign posted ${formatTimestamp(campaign.postedAt)}`
-    : 'Last 24 hours until active campaign is posted'
+  const metricsWindowLabel =
+    'Rolling 24 hours · campaign post time does not filter telemetry'
   const recommendation = recommendationForResults(summary, campaign)
 
   useEffect(() => {
@@ -1668,26 +1662,23 @@ export function HonestFitTelemetryPanelView({
                 <Metric label="Critical" value={summary.errors.critical24h} />
               </div>
               <ul className="space-y-2 text-xs">
-                {summary.errors.recent.slice(0, 3).map((item) => (
+                {summary.errors.incidents.slice(0, 3).map((item) => (
                   <li
-                    key={`${item.at}-${item.route}-${item.requestId ?? item.status}`}
+                    key={item.reference}
                     className="rounded border border-red-900/50 bg-red-950/20 p-2 text-red-100"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="truncate font-mono">{item.route}</span>
-                      <span className="shrink-0 font-mono">{item.status}</span>
+                      <span className="truncate font-mono">
+                        {item.normalizedRoute}
+                      </span>
+                      <span className="shrink-0 font-mono">{item.reference}</span>
                     </div>
                     <div className="mt-1 truncate text-red-100/80">
-                      {item.message}
+                      {item.category} · {item.severity}
                     </div>
-                    {item.requestId && (
-                      <div className="mt-1 truncate font-mono text-red-100/60">
-                        {item.requestId}
-                      </div>
-                    )}
                   </li>
                 ))}
-                {summary.errors.recent.length === 0 && (
+                {summary.errors.incidents.length === 0 && (
                   <li className="text-xs text-slate-500">No recent errors.</li>
                 )}
               </ul>
@@ -1732,18 +1723,9 @@ export function HonestFitTelemetryPanel() {
     queryFn: fetchHonestFitMarketingExperiment,
   })
   const campaignState = experimentQuery.data
-  const selectedCampaign = campaignState?.campaigns.find(
-    (campaign) => campaign.id === campaignState.selectedCampaignId,
-  )
-  const telemetrySince =
-    selectedCampaign?.status === 'waiting_for_data' ||
-    selectedCampaign?.status === 'learning_captured' ||
-    selectedCampaign?.status === 'posted'
-      ? selectedCampaign.postedAt
-      : null
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['honestfit-mission-summary', telemetrySince],
-    queryFn: () => fetchHonestFitTelemetry(telemetrySince),
+    queryKey: ['honestfit-mission-summary'],
+    queryFn: fetchHonestFitTelemetry,
     refetchInterval: 60_000,
     enabled: !experimentQuery.isLoading,
   })

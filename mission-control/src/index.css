@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --mc-shell: 7 20 46;
+  --mc-rail: 12 33 73;
+  --mc-cobalt: 29 76 164;
+  --mc-gold: 194 139 39;
+  --mc-canvas: 242 244 248;
+  --mc-surface: 255 255 255;
+  --mc-ink: 25 35 55;
+  --mc-muted: 92 105 124;
+  --mc-border: 207 214 225;
+}
+
 html,
 body,
 #root {
@@ -9,7 +21,12 @@ body,
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-mission-canvas text-mission-ink antialiased;
+}
+
+*:focus-visible {
+  outline: 3px solid rgb(var(--mc-gold));
+  outline-offset: 2px;
 }
 
 @layer components {
@@ -19,5 +36,28 @@ body {
 
   .input-lg {
     @apply min-h-12 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-lg font-semibold text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/25;
+  }
+
+  .mission-card {
+    @apply rounded-xl border border-mission-border bg-mission-surface shadow-sm;
+  }
+
+  .mission-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-mission-cobalt;
+  }
+
+  .mission-meta {
+    @apply text-sm leading-6 text-mission-muted;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

@@ -132,7 +132,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('Capture saved')
     expect(html).toContain('Fit viewed')
     expect(html).toContain('Fit/report action')
-    expect(html).toContain('blocked')
+    expect(html).toContain('degraded')
     expect(html).toContain('Real-user estimate')
     expect(html).toContain('Raw page views')
     expect(html).toContain('Testing/smoke/admin')
@@ -141,7 +141,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).toContain('linkedin.com')
     expect(html).toContain('Free total')
     expect(html).toContain('Magic requested')
-    expect(html).toContain('/api/fit/reports')
+    expect(html).not.toContain('/api/fit/reports')
     expect(html).toContain('Webhook failures')
   })
 
@@ -454,7 +454,9 @@ describe('HonestFitTelemetryPanelView', () => {
     )
     expect(html).toContain('Posted time')
     expect(html).toContain('Check-after time')
-    expect(html).toContain('Since active campaign posted')
+    expect(html).toContain(
+      'Rolling 24 hours · campaign post time does not filter telemetry',
+    )
     expect(html).toContain('Posted campaign')
     expect(html).toContain('Choose next campaign')
     expect(html).not.toContain('Mark posted')
@@ -748,7 +750,7 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).not.toContain('raw profile content')
   })
 
-  it('uses future briefing fields without rendering private action text', () => {
+  it('uses controlled funnel insight without rendering private action text', () => {
     const futureSummary = honestFitMissionSummarySchema.parse({
       ...summary,
       funnelGraph: {
@@ -775,9 +777,7 @@ describe('HonestFitTelemetryPanelView', () => {
     )
 
     expect(html).toContain('Sign-in requested, but not consumed.')
-    expect(html).toContain(
-      'Check email delivery: Check delivery for [redacted] from [redacted].',
-    )
+    expect(html).not.toContain('Check email delivery')
     expect(html).not.toContain('ken@example.com')
     expect(html).not.toContain('203.0.113.5')
   })

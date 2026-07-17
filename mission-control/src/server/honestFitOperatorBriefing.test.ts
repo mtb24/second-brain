@@ -221,7 +221,7 @@ describe('buildHonestFitOperatorBriefing', () => {
     expect(briefing.canIgnore).toContain('No Stripe webhook failures.')
   })
 
-  it('uses future ops.actionItems for attention items', () => {
+  it('ignores uncontrolled ops action text', () => {
     const briefing = buildHonestFitOperatorBriefing(
       summary({
         ops: {
@@ -235,9 +235,7 @@ describe('buildHonestFitOperatorBriefing', () => {
       }),
     )
 
-    expect(briefing.needsAttention).toEqual([
-      'Review recent errors: 2 in the last 24 hours.',
-    ])
+    expect(briefing.needsAttention).toEqual(['No urgent action needed.'])
   })
 
   it('uses future funnelGraph.insight for stuck analysis', () => {

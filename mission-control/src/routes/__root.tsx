@@ -5,12 +5,15 @@ import {
   HeadContent,
   Scripts,
   createRootRoute,
-  Link,
   redirect,
   useRouterState,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getMcAuthOk } from '@/server/mcAuthFn'
+import {
+  MissionShell,
+  operatorWorkspacePaths,
+} from '@/ui/mission/MissionShell'
 import '../index.css'
 
 const queryClient = new QueryClient()
@@ -36,58 +39,30 @@ function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const bareShell = pathname === '/login' || pathname === '/logout'
   const fullBleedShell = pathname === '/openclaw'
+  const darkUtility =
+    pathname === '/search' ||
+    pathname === '/trading' ||
+    pathname === '/workout' ||
+    pathname.startsWith('/workout/')
 
   return (
     <RootDocument>
       <QueryClientProvider client={queryClient}>
         {bareShell ? (
           <Outlet />
-        ) : (
-          <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-            <header className="z-10 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-              <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span className="text-sm font-semibold tracking-wide text-slate-100">
-                    Mission Control
-                  </span>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
-                  <nav className="flex min-w-0 flex-wrap gap-3 text-sm text-slate-300 sm:gap-4">
-                    <Link to="/" className="[&.active]:text-emerald-400">
-                      Dashboard
-                    </Link>
-                    <Link to="/search" className="[&.active]:text-emerald-400">
-                      Search
-                    </Link>
-                    <Link to="/trading" className="[&.active]:text-emerald-400">
-                      Trading
-                    </Link>
-                    <Link to="/workout" className="[&.active]:text-emerald-400">
-                      Workout
-                    </Link>
-                    <a href="/openclaw/" className="text-slate-300 hover:text-emerald-400">
-                      OpenClaw
-                    </a>
-                  </nav>
-                  <form method="post" action="/logout">
-                    <button
-                      type="submit"
-                      className="rounded-md border border-slate-600 bg-slate-800/80 px-3 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white"
-                    >
-                      Log out
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </header>
-            <main className={fullBleedShell
-              ? 'min-h-0 w-full flex-1 overflow-hidden'
-              : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6'}
-            >
+        ) : fullBleedShell ? (
+          <div className="min-h-screen bg-slate-950 text-slate-100">
+            <main className="min-h-screen w-full overflow-hidden">
               <Outlet />
             </main>
           </div>
+        ) : (
+          <MissionShell
+            showOperatorHeader={operatorWorkspacePaths.has(pathname)}
+            darkContent={darkUtility}
+          >
+            <Outlet />
+          </MissionShell>
         )}
       </QueryClientProvider>
       <Scripts />
