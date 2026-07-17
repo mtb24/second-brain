@@ -7,6 +7,7 @@ import {
 import {
   missionOperationalState,
   openIncidents,
+  todayAttentionItems,
   unreadFeedbackCount,
 } from './missionViewModel'
 
@@ -64,5 +65,90 @@ describe('Mission HonestFit view model', () => {
       },
     })
     expect(openIncidents(summary)).toEqual([])
+  })
+
+  it('prioritizes at most three operator actions without inventing feedback', () => {
+    const summary = honestFitMissionSummarySchema.parse({
+      ...newMainSummaryFixture,
+      health: {
+        ...newMainSummaryFixture.health,
+        status: 'degraded',
+      },
+      errors: {
+        ...newMainSummaryFixture.errors,
+        incidents: [
+          {
+            ...newMainSummaryFixture.errors.incidents[0],
+            severity: 'critical',
+            status: 'open',
+          },
+        ],
+        subsystems: {
+          ...newMainSummaryFixture.errors.subsystems,
+          source_processing: { status: 'degraded', occurrences24h: 4 },
+        },
+      },
+      billing: {
+        ...newMainSummaryFixture.billing,
+        campaign: {
+          ...newMainSummaryFixture.billing.campaign,
+          paymentFailures24h: 2,
+          activationFailures24h: 1,
+        },
+      },
+      previous: {
+        traffic: { pageViews24h: 40 },
+      },
+    })
+
+    const actions = todayAttentionItems(summary)
+    expect(actions).toHaveLength(3)
+    expect(actions.map((action) => action.id)).toEqual([
+      'critical-incidents',
+      'campaign-failures',
+      'unread-feedback',
+    ])
+  })
+
+  it('surfaces unavailable incident detail without treating feedback as zero', () => {
+    const summary = honestFitMissionSummarySchema.parse({
+      ...currentProductionSummaryFixture,
+      errors: {
+        total24h: 2,
+        critical24h: 0,
+      },
+    })
+
+    expect(todayAttentionItems(summary)[0]).toMatchObject({
+      id: 'incident-contract',
+      href: '/operations',
+    })
+    expect(unreadFeedbackCount(summary)).toBeNull()
+  })
+
+  it('reports a comparable traffic drop as event evidence only', () => {
+    const summary = honestFitMissionSummarySchema.parse({
+      ...newMainSummaryFixture,
+      errors: {
+        ...newMainSummaryFixture.errors,
+        incidents: [],
+      },
+      feedback: {
+        ...newMainSummaryFixture.feedback,
+        items: [],
+        counts: { scope: 'returned_items', new: 0, reviewed: 0, closed: 0 },
+      },
+      previous: {
+        traffic: { pageViews24h: 30 },
+      },
+      traffic: {
+        ...newMainSummaryFixture.traffic,
+        pageViews24h: 10,
+      },
+    })
+
+    expect(todayAttentionItems(summary)).toContainEqual(
+      expect.objectContaining({ id: 'traffic-drop', href: '/product' }),
+    )
   })
 })
