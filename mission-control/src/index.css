@@ -46,9 +46,25 @@ body {
     @apply text-xs font-semibold uppercase tracking-[0.14em] text-mission-cobalt;
   }
 
-  .mission-meta {
-    @apply text-sm leading-6 text-mission-muted;
-  }
+.mission-meta {
+  @apply text-sm leading-6 text-mission-muted;
+}
+
+.campaign-editor button,
+.campaign-editor input,
+.campaign-editor select,
+.campaign-editor a {
+  min-height: 44px;
+}
+
+.campaign-editor a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.campaign-editor textarea {
+  min-height: 96px;
+}
 }
 
 @media (prefers-reduced-motion: reduce) {

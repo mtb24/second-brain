@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { HonestFitMarketingExperiment } from '@/lib/honestFitMarketingExperiment'
 import { honestFitMissionSummarySchema } from '@/server/honestFitMissionSummary'
-import { HonestFitTelemetryPanelView } from './HonestFitTelemetryPanel'
+import {
+  HonestFitCampaignEditorView,
+  HonestFitTelemetryPanelView,
+} from './HonestFitTelemetryPanel'
 
 const summary = honestFitMissionSummarySchema.parse({
   generatedAt: '2026-04-29T08:00:00Z',
@@ -780,5 +783,23 @@ describe('HonestFitTelemetryPanelView', () => {
     expect(html).not.toContain('Check email delivery')
     expect(html).not.toContain('ken@example.com')
     expect(html).not.toContain('203.0.113.5')
+  })
+
+  it('preserves campaign editing while retiring the legacy telemetry wall', () => {
+    const draft = experiment()
+    const html = renderToStaticMarkup(
+      <HonestFitCampaignEditorView
+        result={{ status: 'success', summary }}
+        campaignState={campaignState(draft)}
+      />,
+    )
+
+    expect(html).toContain('Campaign editor')
+    expect(html).toContain('HonestFit Marketing Workbench')
+    expect(html).toContain('Copy post body')
+    expect(html).toContain('Save draft edits')
+    expect(html).not.toContain('HonestFit Launch Telemetry')
+    expect(html).not.toContain('HonestFit Launch Funnel')
+    expect(html).not.toContain('Operator Briefing')
   })
 })

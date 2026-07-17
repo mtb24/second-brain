@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, CircleDashed, RefreshCw } from 'lucide-rea
 import { useHonestFitMissionSummary } from './useHonestFitMissionSummary'
 import {
   formattedTimestamp,
+  isMissionSummaryStale,
   missionOperationalState,
   openIncidents,
   unreadFeedbackCount,
@@ -52,6 +53,7 @@ export function HonestFitGlobalHeader() {
   const summary = result.summary
   const state = missionOperationalState(summary)
   const incidents = openIncidents(summary)
+  const stale = isMissionSummaryStale(summary)
   const unread = unreadFeedbackCount(summary)
   const stateLabel =
     state === 'healthy' ? 'Operating normally' : state === 'watch' ? 'Watch closely' : 'Needs attention'
@@ -73,7 +75,7 @@ export function HonestFitGlobalHeader() {
             <div className="text-xs leading-5 opacity-75">
               {incidents.length} active {incidents.length === 1 ? 'incident' : 'incidents'} ·{' '}
               {unread == null ? 'feedback contract pending deployment' : `${unread} unread feedback`} ·{' '}
-              updated {formattedTimestamp(summary.generatedAt)}
+              {stale ? 'source data stale' : `updated ${formattedTimestamp(summary.generatedAt)}`}
             </div>
           </div>
         </div>

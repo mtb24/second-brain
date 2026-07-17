@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { HonestFitTelemetryPanel } from '@/ui/HonestFitTelemetryPanel'
+import { HonestFitCampaignEditor } from '@/ui/HonestFitTelemetryPanel'
 
 export const Route = createFileRoute('/campaigns')({ component: CampaignsPage })
 
@@ -16,7 +16,7 @@ function CampaignsPage() {
         </p>
       </header>
       <div className="rounded-xl bg-mission-shell p-2 sm:p-4">
-        <HonestFitTelemetryPanel />
+        <HonestFitCampaignEditor />
       </div>
     </div>
   )

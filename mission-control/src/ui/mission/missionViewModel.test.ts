@@ -6,6 +6,7 @@ import {
 } from '@/test-fixtures/honestFitMissionSummary'
 import {
   missionOperationalState,
+  isMissionSummaryStale,
   openIncidents,
   todayAttentionItems,
   unreadFeedbackCount,
@@ -150,5 +151,19 @@ describe('Mission HonestFit view model', () => {
     expect(todayAttentionItems(summary)).toContainEqual(
       expect.objectContaining({ id: 'traffic-drop', href: '/product' }),
     )
+  })
+
+  it('treats stale protected source data as a watch condition', () => {
+    const summary = honestFitMissionSummarySchema.parse({
+      ...newMainSummaryFixture,
+      errors: {
+        ...newMainSummaryFixture.errors,
+        incidents: [],
+      },
+    })
+    const now = Date.parse('2026-07-17T13:06:00.000Z')
+
+    expect(isMissionSummaryStale(summary, now)).toBe(true)
+    expect(missionOperationalState(summary, now)).toBe('watch')
   })
 })

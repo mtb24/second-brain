@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   CircleDashed,
   GitCommitHorizontal,
   ShieldCheck,
@@ -122,20 +123,20 @@ export function TodaySummary({
               <p className="mission-meta mt-1 max-w-2xl">{stateText.detail}</p>
             </div>
           </div>
-          <div className="shrink-0 rounded-lg border border-mission-border bg-mission-canvas px-4 py-3 text-sm">
+          <div className="shrink-0 text-xs leading-5 text-mission-muted sm:rounded-lg sm:border sm:border-mission-border sm:bg-mission-canvas sm:px-4 sm:py-3 sm:text-sm">
             <div className="font-semibold text-mission-ink">Updated {formattedTimestamp(summary.generatedAt)}</div>
-            <div className="mt-0.5 text-xs text-mission-muted">Production · protected read only</div>
+            <div>Production · protected read only</div>
           </div>
         </div>
-        <dl className="mt-6 grid gap-3 sm:grid-cols-3">
+        <dl className="mt-5 divide-y divide-mission-border border-y border-mission-border sm:grid sm:grid-cols-3 sm:gap-3 sm:divide-y-0 sm:border-0">
           <Signal label="Active incidents" value={`${incidents.length}`} detail={summary.contract.incidents === 'available' ? 'Sanitized contract available' : 'Incident contract unavailable'} />
           <Signal label="Campaign failures" value={campaign ? `${campaign.paymentFailures24h + campaign.activationFailures24h}` : 'Unavailable'} detail={campaign ? 'Rolling 24 hours' : 'Campaign aggregate missing'} />
           <Signal label="Unread feedback" value={unread == null ? 'Unavailable' : `${unread}`} detail={unread == null ? 'Awaiting production contract deployment' : 'Bounded read-only projection'} />
         </dl>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
-        <section className="mission-card p-5 sm:p-6" aria-labelledby="today-attention">
+      <div className="min-w-0 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+        <section className="min-w-0 mission-card p-4 sm:p-6" aria-labelledby="today-attention">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="mission-eyebrow">Decision queue</div>
@@ -157,7 +158,7 @@ export function TodaySummary({
             <ol className="mt-4 divide-y divide-mission-border">
               {actions.map((item, index) => (
                 <li key={item.id} className="grid gap-3 py-4 first:pt-0 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-center">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mission-navy text-sm font-semibold text-white" aria-hidden="true">{index + 1}</span>
+                  <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-mission-navy text-sm font-semibold text-white sm:flex" aria-hidden="true">{index + 1}</span>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-mission-ink">{item.title}</h3>
@@ -165,7 +166,7 @@ export function TodaySummary({
                     </div>
                     <p className="mission-meta mt-1">{item.detail}</p>
                   </div>
-                  <Link to={item.href} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-mission-border bg-white px-3 text-sm font-semibold text-mission-cobalt hover:border-mission-cobalt hover:bg-blue-50">
+                  <Link to={item.href} className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-mission-border bg-white px-3 text-sm font-semibold text-mission-cobalt hover:border-mission-cobalt hover:bg-blue-50 sm:w-auto">
                     {item.action}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
@@ -175,14 +176,14 @@ export function TodaySummary({
           )}
         </section>
 
-        <section className="mission-card p-5 sm:p-6" aria-labelledby="today-release">
+        <section className="min-w-0 mission-card p-4 sm:p-6" aria-labelledby="today-release">
           <div className="mission-eyebrow">Release authority</div>
           <h2 id="today-release" className="mt-2 text-xl font-semibold text-mission-ink">Production build state</h2>
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-mission-border bg-mission-canvas p-4">
+          <div className="mt-3 flex min-w-0 items-start gap-3 sm:rounded-xl sm:border sm:border-mission-border sm:bg-mission-canvas sm:p-4">
             <GitCommitHorizontal className="mt-0.5 h-5 w-5 shrink-0 text-mission-cobalt" aria-hidden="true" />
             <div>
               <div className="font-semibold text-mission-ink">App version {summary.health.appVersion ?? 'unavailable'}</div>
-              <p className="mission-meta mt-1">
+              <p className="mission-meta mt-1 break-all">
                 {knownBuilds.length > 0
                   ? `Active incident evidence references build ${knownBuilds.join(', ')}.`
                   : 'The protected summary does not declare a deployed build SHA.'}
@@ -196,21 +197,36 @@ export function TodaySummary({
         </section>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="mission-card p-5 sm:p-6" aria-labelledby="today-changed">
-          <div className="mission-eyebrow">What changed</div>
-          <h2 id="today-changed" className="mt-2 text-xl font-semibold text-mission-ink">Comparable 24-hour signals</h2>
-          <div className="mt-4 divide-y divide-mission-border">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <details className="group mission-card overflow-hidden">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 marker:hidden">
+            <span>
+              <span className="mission-eyebrow block">What changed</span>
+              <span className="mt-1 block text-base font-semibold text-mission-ink">Comparable 24-hour signals</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-mission-cobalt transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+          </summary>
+          <section className="border-t border-mission-border px-5 pb-5 pt-4" aria-labelledby="today-changed">
+            <h2 id="today-changed" className="sr-only">Comparable 24-hour signals</h2>
+            <div className="divide-y divide-mission-border">
             <ChangeRow label="Page-view events" value={summary.traffic.pageViews24h} detail={deltaLabel(summary.traffic.pageViews24h, summary.previous?.traffic?.pageViews24h)} />
             <ChangeRow label="Paid signup events" value={summary.signups.pro24h} detail={deltaLabel(summary.signups.pro24h, summary.previous?.signups?.pro24h)} />
             <ChangeRow label="Critical error events" value={summary.errors.critical24h} detail={deltaLabel(summary.errors.critical24h, summary.previous?.errors?.critical24h)} />
-          </div>
-          <p className="mission-meta mt-4">These are aggregate event counts, not unique users or conversion evidence.</p>
-        </section>
+            </div>
+            <p className="mission-meta mt-4">These are aggregate event counts, not unique users or conversion evidence.</p>
+          </section>
+        </details>
 
-        <section className="mission-card p-5 sm:p-6" aria-labelledby="today-systems">
-          <div className="mission-eyebrow">Systems</div>
-          <h2 id="today-systems" className="mt-2 text-xl font-semibold text-mission-ink">Healthy systems stay collapsed</h2>
+        <details className="group mission-card overflow-hidden">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 marker:hidden">
+            <span>
+              <span className="mission-eyebrow block">Systems</span>
+              <span className="mt-1 block text-base font-semibold text-mission-ink">{healthyCount == null ? 'Subsystem status unavailable' : `${healthyCount} healthy · ${degraded.length} degraded`}</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-mission-cobalt transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+          </summary>
+          <section className="border-t border-mission-border px-5 pb-5 pt-4" aria-labelledby="today-systems">
+          <h2 id="today-systems" className="sr-only">Healthy systems stay collapsed</h2>
           {healthyCount == null ? (
             <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
               <CircleDashed className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
@@ -242,7 +258,8 @@ export function TodaySummary({
               : 'No controlled testing, smoke, or admin traffic is classified in this window.'}{' '}
             Incident origin is not inferred when HonestFit does not declare it.
           </p>
-        </section>
+          </section>
+        </details>
       </div>
     </div>
   )
@@ -250,10 +267,10 @@ export function TodaySummary({
 
 function Signal({ label, value, detail }: Readonly<{ label: string; value: string; detail: string }>) {
   return (
-    <div className="rounded-xl border border-mission-border bg-mission-canvas p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-mission-muted">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums text-mission-ink">{value}</dd>
-      <dd className="mission-meta mt-1">{detail}</dd>
+    <div className="flex min-h-12 items-center justify-between gap-4 py-2.5 sm:block sm:rounded-xl sm:border sm:border-mission-border sm:bg-mission-canvas sm:p-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-mission-muted sm:text-xs">{label}</dt>
+      <dd className="text-xl font-semibold tabular-nums text-mission-ink sm:mt-1 sm:text-2xl">{value}</dd>
+      <dd className="mission-meta mt-1 hidden sm:block">{detail}</dd>
     </div>
   )
 }

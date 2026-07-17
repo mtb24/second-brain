@@ -72,6 +72,12 @@ export function MissionShell({
 }>) {
   return (
     <div className="flex min-h-screen flex-col bg-mission-canvas text-mission-ink">
+      <a
+        href="#mission-main"
+        className="fixed left-3 top-3 z-50 -translate-y-20 rounded-lg bg-mission-gold px-4 py-3 text-sm font-semibold text-mission-shell shadow-lg transition-transform focus:translate-y-0 motion-reduce:transition-none"
+      >
+        Skip to main content
+      </a>
       <header className="border-b border-white/10 bg-mission-shell text-white">
         <div className="mx-auto flex min-h-16 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -108,6 +114,13 @@ export function MissionShell({
           {workspaces.map((item) => (
             <NavLink key={item.to} {...item} mobile />
           ))}
+          <a
+            href="/openclaw/"
+            className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 px-2 text-xs font-semibold text-blue-100 hover:bg-white/10"
+          >
+            <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">OpenClaw</span>
+          </a>
         </nav>
       </header>
 
@@ -133,6 +146,8 @@ export function MissionShell({
           </nav>
         </aside>
         <main
+          id="mission-main"
+          tabIndex={-1}
           className={`min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 ${
             darkContent ? 'bg-slate-950 text-slate-100' : ''
           }`}
