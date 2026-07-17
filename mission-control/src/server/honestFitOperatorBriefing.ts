@@ -152,11 +152,7 @@ export function buildHonestFitOperatorBriefing(
     whereStuck.push('No obvious funnel drop-off yet.')
   }
 
-  const actionItems = summary.ops?.actionItems?.filter(Boolean) ?? []
-  const attentionItems =
-    actionItems.length > 0
-      ? actionItems
-      : [
+  const attentionItems = [
           healthBlockers > 0
             ? `Review health blockers: ${healthBlockers} active.`
             : '',

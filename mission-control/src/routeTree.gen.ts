@@ -12,9 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkoutRouteImport } from './routes/workout'
 import { Route as TradingRouteImport } from './routes/trading'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as RevenueRouteImport } from './routes/revenue'
+import { Route as ProductRouteImport } from './routes/product'
+import { Route as OperationsRouteImport } from './routes/operations'
 import { Route as OpenclawRouteImport } from './routes/openclaw'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as FeedbackRouteImport } from './routes/feedback'
+import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkoutMetricsRouteImport } from './routes/workout_.metrics'
 import { Route as ApiWorkoutStrengthTrendsRouteImport } from './routes/api/workout/strength-trends'
@@ -62,6 +67,21 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RevenueRoute = RevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductRoute = ProductRouteImport.update({
+  id: '/product',
+  path: '/product',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperationsRoute = OperationsRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OpenclawRoute = OpenclawRouteImport.update({
   id: '/openclaw',
   path: '/openclaw',
@@ -75,6 +95,16 @@ const LogoutRoute = LogoutRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackRoute = FeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignsRoute = CampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -244,9 +274,14 @@ const ApiWorkoutExercisePerformancesIdSetsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/campaigns': typeof CampaignsRoute
+  '/feedback': typeof FeedbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
+  '/operations': typeof OperationsRoute
+  '/product': typeof ProductRoute
+  '/revenue': typeof RevenueRoute
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
@@ -283,9 +318,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/campaigns': typeof CampaignsRoute
+  '/feedback': typeof FeedbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
+  '/operations': typeof OperationsRoute
+  '/product': typeof ProductRoute
+  '/revenue': typeof RevenueRoute
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
@@ -323,9 +363,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/campaigns': typeof CampaignsRoute
+  '/feedback': typeof FeedbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/openclaw': typeof OpenclawRoute
+  '/operations': typeof OperationsRoute
+  '/product': typeof ProductRoute
+  '/revenue': typeof RevenueRoute
   '/search': typeof SearchRoute
   '/trading': typeof TradingRoute
   '/workout': typeof WorkoutRoute
@@ -364,9 +409,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/campaigns'
+    | '/feedback'
     | '/login'
     | '/logout'
     | '/openclaw'
+    | '/operations'
+    | '/product'
+    | '/revenue'
     | '/search'
     | '/trading'
     | '/workout'
@@ -403,9 +453,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/campaigns'
+    | '/feedback'
     | '/login'
     | '/logout'
     | '/openclaw'
+    | '/operations'
+    | '/product'
+    | '/revenue'
     | '/search'
     | '/trading'
     | '/workout'
@@ -442,9 +497,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/campaigns'
+    | '/feedback'
     | '/login'
     | '/logout'
     | '/openclaw'
+    | '/operations'
+    | '/product'
+    | '/revenue'
     | '/search'
     | '/trading'
     | '/workout'
@@ -482,9 +542,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CampaignsRoute: typeof CampaignsRoute
+  FeedbackRoute: typeof FeedbackRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
   OpenclawRoute: typeof OpenclawRoute
+  OperationsRoute: typeof OperationsRoute
+  ProductRoute: typeof ProductRoute
+  RevenueRoute: typeof RevenueRoute
   SearchRoute: typeof SearchRoute
   TradingRoute: typeof TradingRoute
   WorkoutRoute: typeof WorkoutRoute
@@ -539,6 +604,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/revenue': {
+      id: '/revenue'
+      path: '/revenue'
+      fullPath: '/revenue'
+      preLoaderRoute: typeof RevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/product': {
+      id: '/product'
+      path: '/product'
+      fullPath: '/product'
+      preLoaderRoute: typeof ProductRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operations': {
+      id: '/operations'
+      path: '/operations'
+      fullPath: '/operations'
+      preLoaderRoute: typeof OperationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/openclaw': {
       id: '/openclaw'
       path: '/openclaw'
@@ -558,6 +644,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback': {
+      id: '/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof FeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campaigns': {
+      id: '/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof CampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -808,9 +908,14 @@ const ApiWorkoutSessionsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CampaignsRoute: CampaignsRoute,
+  FeedbackRoute: FeedbackRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
   OpenclawRoute: OpenclawRoute,
+  OperationsRoute: OperationsRoute,
+  ProductRoute: ProductRoute,
+  RevenueRoute: RevenueRoute,
   SearchRoute: SearchRoute,
   TradingRoute: TradingRoute,
   WorkoutRoute: WorkoutRoute,

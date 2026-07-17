@@ -1,35 +1,79 @@
 import { z } from 'zod'
 
-const numberMetric = z.number().finite().nonnegative().catch(0)
+const INCIDENT_CATEGORIES = [
+  'application',
+  'authentication',
+  'source_processing',
+  'billing_entitlement',
+  'stripe_webhook',
+  'voice',
+  'database',
+] as const
+
+const FEEDBACK_CATEGORIES = ['idea', 'problem', 'confusing', 'other'] as const
+const FEEDBACK_STATUSES = ['new', 'reviewed', 'closed'] as const
+const FEEDBACK_WORKSPACES = [
+  'career_memory',
+  'application_kit',
+  'practice',
+  'story_inbox',
+  'story_capture',
+  'account',
+  'settings',
+  'profile',
+  'public_profile',
+  'other',
+  'unknown',
+] as const
+
+const numberMetric = z.number().finite().nonnegative()
+const integerMetric = z.number().int().finite().nonnegative()
+const defaultNumberMetric = numberMetric.catch(0)
 const optionalDateString = z.string().datetime().nullable().catch(null)
-const displayString = z.string().transform(redactPrivateText)
-const optionalDisplayString = z.string().transform(redactPrivateText).optional()
-const flexibleDisplayString = z
-  .preprocess((value) => textFromUnknown(value) ?? '', z.string())
-  .transform(redactPrivateText)
-const optionalFlexibleDisplayString = z
-  .preprocess((value) => textFromUnknown(value), z.string().optional())
-  .transform((value) => (value ? redactPrivateText(value) : undefined))
 
 function redactPrivateText(value: string): string {
   return value
     .split(/[?#]/)[0]
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
     .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[redacted]')
+    .slice(0, 240)
 }
 
-function textFromUnknown(value: unknown): string | undefined {
-  if (typeof value === 'string') return value
-  if (!value || typeof value !== 'object') return undefined
+const displayString = z.string().transform(redactPrivateText)
+const optionalDisplayString = z.string().transform(redactPrivateText).optional()
 
-  const record = value as Record<string, unknown>
-  const title = typeof record.title === 'string' ? record.title : undefined
-  const detail = typeof record.detail === 'string' ? record.detail : undefined
-  const message =
-    typeof record.message === 'string' ? record.message : undefined
+function normalizedRoute(value: string): string {
+  const route = redactPrivateText(value)
+  if (!route.startsWith('/')) return '/unknown'
+  return route.slice(0, 240)
+}
 
-  if (title && detail) return `${title}: ${detail}`
-  return detail ?? message ?? title
+const routeString = z.string().transform(normalizedRoute)
+const buildSha = z
+  .string()
+  .regex(/^[0-9a-f]{7,64}$/i)
+  .nullable()
+  .catch(null)
+
+function controlledToken(value: string): string {
+  return /^[a-z0-9_:-]+$/i.test(value) ? value.slice(0, 120) : 'unknown'
+}
+
+const controlledString = z.string().transform(controlledToken)
+
+function safeSentryUrl(value: string): string | null {
+  try {
+    const url = new URL(value)
+    const host = url.hostname.toLowerCase()
+    const sentryHost =
+      host === 'sentry.io' ||
+      host.endsWith('.sentry.io') ||
+      host === 'sentry.com' ||
+      host.endsWith('.sentry.com')
+    return url.protocol === 'https:' && sentryHost ? url.toString() : null
+  } catch {
+    return null
+  }
 }
 
 function logHonestFitTelemetryIssue(
@@ -40,46 +84,285 @@ function logHonestFitTelemetryIssue(
 }
 
 const rankedMetricSchema = z.object({
-  path: optionalDisplayString,
+  path: routeString.optional(),
   source: optionalDisplayString,
-  views: numberMetric,
+  views: defaultNumberMetric,
 })
 
 const marketingRankedMetricSchema = z.object({
   source: optionalDisplayString,
   referrer: optionalDisplayString,
   campaign: optionalDisplayString,
-  visits: numberMetric,
+  visits: defaultNumberMetric,
 })
 
 const trafficClassificationSchema = z.object({
-  raw: numberMetric,
-  estimatedReal: numberMetric,
-  testingSmokeAdmin: numberMetric,
-  ambiguous: numberMetric,
+  raw: defaultNumberMetric,
+  estimatedReal: defaultNumberMetric,
+  testingSmokeAdmin: defaultNumberMetric,
+  ambiguous: defaultNumberMetric,
 })
 
-const recentErrorSchema = z.object({
-  at: z.string().datetime().catch(''),
-  source: displayString.catch('server'),
-  route: displayString.catch('unknown'),
-  status: z.number().int().catch(0),
-  message: displayString.catch('Redacted error'),
-  requestId: optionalDisplayString,
+const subsystemSchema = z.object({
+  status: z.enum(['ok', 'degraded']),
+  occurrences24h: defaultNumberMetric,
 })
+
+const subsystemMapSchema = z.object({
+  application: subsystemSchema,
+  authentication: subsystemSchema,
+  source_processing: subsystemSchema,
+  billing_entitlement: subsystemSchema,
+  stripe_webhook: subsystemSchema,
+  voice: subsystemSchema,
+  database: subsystemSchema,
+})
+
+const incidentSentrySchema = z
+  .object({
+    eventId: z.string().regex(/^[0-9a-f]{32}$/),
+    url: z.string(),
+  })
+  .transform((sentry) => {
+    const url = safeSentryUrl(sentry.url)
+    return url ? { eventId: sentry.eventId, url } : null
+  })
+  .nullable()
+  .catch(null)
+
+const incidentSchema = z.object({
+  reference: z.string().regex(/^HF-[0-9A-F]{4}$/),
+  sentry: incidentSentrySchema,
+  category: z.enum(INCIDENT_CATEGORIES),
+  affectedArea: controlledString,
+  severity: z.enum(['warning', 'error', 'critical']),
+  normalizedRoute: routeString,
+  buildSha,
+  environment: controlledString,
+  firstSeenAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime(),
+  occurrenceCount: integerMetric,
+  status: z.enum(['open', 'monitoring', 'resolved']),
+})
+
+const evidenceAvailabilitySchema = z.discriminatedUnion('availability', [
+  z.object({
+    availability: z.literal('available'),
+    zeroSemantics: z.literal('zero_observed_events'),
+  }),
+  z.object({
+    availability: z.literal('unavailable'),
+    reason: z.literal('not_instrumented'),
+  }),
+  z.object({
+    availability: z.literal('unsupported'),
+    reason: z.literal('unique_user_evidence_unavailable'),
+  }),
+  z.object({
+    availability: z.literal('insufficient_volume'),
+    reason: z.literal('below_minimum_sample'),
+  }),
+])
+
+const productEvidenceSchema = z.object({
+  evidenceKind: z.literal('event_count_only'),
+  availabilitySemantics: z.object({
+    unavailable: z.literal('not_instrumented'),
+    unsupported: z.literal('not_supported_by_current_contract'),
+    insufficient_volume: z.literal('instrumented_but_below_minimum_sample'),
+  }),
+  eventCounts: evidenceAvailabilitySchema,
+  uniqueUsers: evidenceAvailabilitySchema,
+  cohorts: evidenceAvailabilitySchema,
+  firstReviewedStory: evidenceAvailabilitySchema,
+  firstApplicationKit: evidenceAvailabilitySchema,
+  practiceEntry: evidenceAvailabilitySchema,
+  returnActivity: evidenceAvailabilitySchema,
+  retention: evidenceAvailabilitySchema,
+})
+
+const legacyProductEvidence = productEvidenceSchema.parse({
+  evidenceKind: 'event_count_only',
+  availabilitySemantics: {
+    unavailable: 'not_instrumented',
+    unsupported: 'not_supported_by_current_contract',
+    insufficient_volume: 'instrumented_but_below_minimum_sample',
+  },
+  eventCounts: {
+    availability: 'available',
+    zeroSemantics: 'zero_observed_events',
+  },
+  uniqueUsers: { availability: 'unavailable', reason: 'not_instrumented' },
+  cohorts: {
+    availability: 'unsupported',
+    reason: 'unique_user_evidence_unavailable',
+  },
+  firstReviewedStory: {
+    availability: 'unavailable',
+    reason: 'not_instrumented',
+  },
+  firstApplicationKit: {
+    availability: 'unavailable',
+    reason: 'not_instrumented',
+  },
+  practiceEntry: {
+    availability: 'unavailable',
+    reason: 'not_instrumented',
+  },
+  returnActivity: {
+    availability: 'unavailable',
+    reason: 'not_instrumented',
+  },
+  retention: {
+    availability: 'unsupported',
+    reason: 'unique_user_evidence_unavailable',
+  },
+})
+
+type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number]
+type FeedbackWorkspace = (typeof FEEDBACK_WORKSPACES)[number]
+
+const feedbackWorkspaceLabels: Partial<Record<FeedbackWorkspace, string>> = {
+  career_memory: 'Career Memory',
+  application_kit: 'the Application Kit workspace',
+  practice: 'Practice',
+  story_inbox: 'Story Inbox',
+  story_capture: 'story capture',
+  account: 'the account area',
+  settings: 'Settings',
+  profile: 'the profile workspace',
+  public_profile: 'the public-profile workspace',
+}
+
+export function expectedFeedbackSummary(
+  category: FeedbackCategory,
+  workspace: FeedbackWorkspace,
+): string {
+  const label = feedbackWorkspaceLabels[workspace]
+  if (category === 'idea') return label ? `Product idea about ${label}` : 'Product idea'
+  if (category === 'problem') {
+    return label ? `Problem report from ${label}` : 'Problem report'
+  }
+  if (category === 'confusing') {
+    return label ? `Usability feedback about ${label}` : 'Usability feedback'
+  }
+  return label ? `General feedback from ${label}` : 'General feedback'
+}
+
+const feedbackItemInputSchema = z.object({
+  reference: z.string().regex(/^FB-[0-9A-F]{12}$/),
+  category: z.enum(FEEDBACK_CATEGORIES),
+  createdAt: z.string().datetime(),
+  status: z.enum(FEEDBACK_STATUSES),
+  unread: z.boolean(),
+  workspace: z.enum(FEEDBACK_WORKSPACES),
+  route: routeString.nullable(),
+  summary: z.string().max(240),
+  optionalContextProvided: z.boolean(),
+})
+
+const feedbackItemsSchema = z.array(z.unknown()).transform((items) =>
+  items.flatMap((item) => {
+    const parsed = feedbackItemInputSchema.safeParse(item)
+    if (!parsed.success) return []
+    const expectedSummary = expectedFeedbackSummary(
+      parsed.data.category,
+      parsed.data.workspace,
+    )
+    if (parsed.data.summary !== expectedSummary) return []
+    return [{ ...parsed.data, summary: expectedSummary }]
+  }),
+)
+
+const feedbackProjectionSchema = z.object({
+  authority: z.literal('honestfit_product_feedback'),
+  privacy: z.literal('sanitized_projection'),
+  statuses: z.array(z.enum(FEEDBACK_STATUSES)),
+  query: z.object({
+    limit: z.number().int().min(1).max(50),
+    defaultLimit: z.literal(25),
+    hardLimit: z.literal(50),
+    statuses: z.array(z.enum(FEEDBACK_STATUSES)),
+    categories: z.array(z.enum(FEEDBACK_CATEGORIES)),
+    since: z.string().datetime().nullable(),
+    sinceBoundary: z.literal('inclusive'),
+    sort: z.literal('created_at_desc'),
+    pagination: z.literal('bounded_no_cursor'),
+  }),
+  items: feedbackItemsSchema,
+  counts: z.object({
+    scope: z.literal('returned_items'),
+    new: integerMetric,
+    reviewed: integerMetric,
+    closed: integerMetric,
+  }),
+  hasMore: z.boolean(),
+})
+
+const campaignMetricsSchema = z.object({
+  scope: z
+    .object({
+      purchaseRecords: z.literal('lifetime'),
+      activity: z.literal('rolling_24h'),
+      state: z.literal('current_state'),
+    })
+    .optional(),
+  customSinceSupported: z.literal(false).optional(),
+  purchaseRecords: integerMetric,
+  checkoutSessions24h: integerMetric,
+  payments24h: integerMetric,
+  paymentFailures24h: integerMetric,
+  activations24h: integerMetric,
+  activationFailures24h: integerMetric,
+  active: integerMetric,
+  expired: integerMetric,
+  refunded: integerMetric,
+  disputed: integerMetric,
+  manualReview: integerMetric,
+})
+
+const marketingSchema = z.preprocess(
+  normalizeMarketingSummary,
+  z.object({
+    window: z.literal('24h').catch('24h'),
+    scope: z.literal('rolling_24h').optional(),
+    customSinceSupported: z.literal(false).optional(),
+    trafficSources24h: z.array(marketingRankedMetricSchema).catch([]),
+    topReferrers24h: z.array(marketingRankedMetricSchema).catch([]),
+    campaigns24h: z.array(marketingRankedMetricSchema).catch([]),
+    cta24h: z
+      .object({
+        getStartedClicks: defaultNumberMetric,
+        signInClicks: defaultNumberMetric,
+        viewPlansClicks: defaultNumberMetric,
+        partnerApiEmailClicks: defaultNumberMetric,
+      })
+      .catch({
+        getStartedClicks: 0,
+        signInClicks: 0,
+        viewPlansClicks: 0,
+        partnerApiEmailClicks: 0,
+      }),
+  }),
+)
+
+const emptyMarketingSummary = {
+  window: '24h' as const,
+  trafficSources24h: [],
+  topReferrers24h: [],
+  campaigns24h: [],
+  cta24h: {
+    getStartedClicks: 0,
+    signInClicks: 0,
+    viewPlansClicks: 0,
+    partnerApiEmailClicks: 0,
+  },
+}
 
 const previousWindowSchema = z
   .object({
-    traffic: z
-      .object({
-        pageViews24h: numberMetric.optional(),
-      })
-      .optional(),
-    signups: z
-      .object({
-        pro24h: numberMetric.optional(),
-      })
-      .optional(),
+    traffic: z.object({ pageViews24h: numberMetric.optional() }).optional(),
+    signups: z.object({ pro24h: numberMetric.optional() }).optional(),
     errors: z
       .object({
         total24h: numberMetric.optional(),
@@ -95,106 +378,166 @@ const previousWindowSchema = z
   })
   .optional()
 
-export const honestFitMissionSummarySchema = z.object({
+const rawSummarySchema = z.object({
   generatedAt: z.string().datetime(),
-  window: z.string().catch('24h'),
+  window: z.literal('24h').catch('24h'),
   health: z.object({
-    status: z.enum(['ok', 'warning', 'blocked']).catch('warning'),
-    blockingIssueCount: numberMetric,
-    warningCount: numberMetric,
-    appVersion: z.string().optional(),
+    status: z.enum(['ok', 'degraded', 'warning', 'blocked']),
+    blockingIssueCount: defaultNumberMetric,
+    warningCount: defaultNumberMetric,
+    appVersion: displayString.optional(),
   }),
-  traffic: z
-    .object({
-      pageViews24h: numberMetric,
-      topPages24h: z.array(rankedMetricSchema).catch([]),
-      topReferrers24h: z.array(rankedMetricSchema).catch([]),
-      classification: trafficClassificationSchema.optional(),
-    })
-    .passthrough(),
+  traffic: z.object({
+    pageViews24h: defaultNumberMetric,
+    topPages24h: z.array(rankedMetricSchema).catch([]),
+    topReferrers24h: z.array(rankedMetricSchema).catch([]),
+    classification: trafficClassificationSchema.optional(),
+  }),
   signups: z.object({
-    freeTotal: numberMetric,
-    free24h: numberMetric,
-    proActive: numberMetric,
-    pro24h: numberMetric,
-    scheduledCancellations: numberMetric,
+    freeTotal: defaultNumberMetric,
+    free24h: defaultNumberMetric,
+    proActive: defaultNumberMetric,
+    pro24h: defaultNumberMetric,
+    scheduledCancellations: defaultNumberMetric,
   }),
   funnel: z.object({
-    magicLinksRequested24h: numberMetric,
-    magicLinksConsumed24h: numberMetric,
-    profileViews24h: numberMetric,
-    captureStarted24h: numberMetric,
-    captureSaved24h: numberMetric,
-    fitViewed24h: numberMetric,
-    fitReportsRequested24h: numberMetric,
-    resumeGenerated24h: numberMetric,
+    magicLinksRequested24h: defaultNumberMetric,
+    magicLinksConsumed24h: defaultNumberMetric,
+    profileViews24h: defaultNumberMetric,
+    captureStarted24h: defaultNumberMetric,
+    captureSaved24h: defaultNumberMetric,
+    fitViewed24h: defaultNumberMetric,
+    fitReportsRequested24h: defaultNumberMetric,
+    resumeGenerated24h: defaultNumberMetric,
   }),
+  productEvidence: z.unknown().optional(),
+  feedback: z.unknown().optional(),
   errors: z.object({
-    total24h: numberMetric,
-    critical24h: numberMetric,
-    recent: z.array(recentErrorSchema).catch([]),
+    total24h: defaultNumberMetric,
+    critical24h: defaultNumberMetric,
+    incidents: z.array(incidentSchema).optional(),
+    subsystems: z.unknown().optional(),
   }),
   billing: z.object({
-    activePro: numberMetric,
-    scheduledCancellations: numberMetric,
-    stripeWebhookEvents24h: numberMetric,
-    stripeWebhookFailures24h: numberMetric,
+    activePro: defaultNumberMetric,
+    scheduledCancellations: defaultNumberMetric,
+    stripeWebhookEvents24h: defaultNumberMetric,
+    stripeWebhookFailures24h: defaultNumberMetric,
     lastStripeWebhookAt: optionalDateString,
+    campaign: z.unknown().optional(),
   }),
+  marketing: marketingSchema.optional(),
   previous: previousWindowSchema,
   funnelGraph: z
     .object({
-      insight: optionalFlexibleDisplayString,
+      insight: z
+        .object({ message: displayString })
+        .transform((insight) => insight.message)
+        .or(displayString)
+        .optional(),
     })
-    .passthrough()
     .optional(),
   ops: z
     .object({
-      actionItems: z
-        .array(flexibleDisplayString)
-        .catch([])
-        .transform((items) => items.filter(Boolean))
-        .optional(),
-      resendAlerts24h: numberMetric.optional(),
+      launchStatus: z.enum(['ok', 'watch', 'needs_attention']).optional(),
+      resendAlerts24h: defaultNumberMetric.optional(),
     })
-    .passthrough()
     .optional(),
-  marketing: z.preprocess(
-    normalizeMarketingSummary,
-    z
-      .object({
-        trafficSources24h: z.array(marketingRankedMetricSchema).catch([]),
-        topReferrers24h: z.array(marketingRankedMetricSchema).catch([]),
-        campaigns24h: z.array(marketingRankedMetricSchema).catch([]),
-        cta24h: z
-          .object({
-            getStartedClicks: numberMetric,
-            signInClicks: numberMetric,
-            viewPlansClicks: numberMetric,
-            partnerApiEmailClicks: numberMetric,
-          })
-          .catch({
-            getStartedClicks: 0,
-            signInClicks: 0,
-            viewPlansClicks: 0,
-            partnerApiEmailClicks: 0,
-          }),
-      })
-      .optional(),
-  ),
-}).transform((summary) => ({
-  ...summary,
-  traffic: {
-    pageViews24h: summary.traffic.pageViews24h,
-    topPages24h: summary.traffic.topPages24h,
-    topReferrers24h: summary.traffic.topReferrers24h,
-    classification: currentTrafficClassification(summary),
-  },
-}))
+})
 
-export type HonestFitMissionSummary = z.infer<
-  typeof honestFitMissionSummarySchema
->
+export const honestFitMissionSummarySchema = rawSummarySchema.transform((raw) => {
+  const feedbackResult = feedbackProjectionSchema.safeParse(raw.feedback)
+  const evidenceResult = productEvidenceSchema.safeParse(raw.productEvidence)
+  const campaignResult = campaignMetricsSchema.safeParse(raw.billing.campaign)
+  const subsystemResult = subsystemMapSchema.safeParse(raw.errors.subsystems)
+  const status = raw.health.status === 'ok' ? 'ok' : 'degraded'
+  const marketing = raw.marketing ?? emptyMarketingSummary
+  const traffic = {
+    ...raw.traffic,
+    classification: currentTrafficClassification({
+      traffic: raw.traffic,
+      marketing,
+    }),
+  }
+
+  return {
+    generatedAt: raw.generatedAt,
+    window: raw.window,
+    contract: {
+      feedback:
+        raw.feedback === undefined
+          ? ('unavailable' as const)
+          : feedbackResult.success
+            ? ('available' as const)
+            : ('malformed' as const),
+      productEvidence:
+        raw.productEvidence === undefined
+          ? ('legacy_inferred' as const)
+          : evidenceResult.success
+            ? ('declared' as const)
+            : ('malformed' as const),
+      campaign:
+        raw.billing.campaign === undefined
+          ? ('unavailable' as const)
+          : campaignResult.success
+            ? campaignResult.data.scope
+              ? ('declared' as const)
+              : ('legacy_normalized' as const)
+            : ('malformed' as const),
+      incidents:
+        raw.errors.incidents === undefined || raw.errors.subsystems === undefined
+          ? ('unavailable' as const)
+          : subsystemResult.success
+            ? ('available' as const)
+            : ('malformed' as const),
+    },
+    health: { ...raw.health, status },
+    traffic,
+    signups: raw.signups,
+    funnel: raw.funnel,
+    productEvidence: evidenceResult.success
+      ? evidenceResult.data
+      : legacyProductEvidence,
+    feedback: feedbackResult.success ? feedbackResult.data : null,
+    errors: {
+      total24h: raw.errors.total24h,
+      critical24h: raw.errors.critical24h,
+      incidents: raw.errors.incidents ?? [],
+      subsystems: subsystemResult.success ? subsystemResult.data : null,
+    },
+    billing: {
+      activePro: raw.billing.activePro,
+      scheduledCancellations: raw.billing.scheduledCancellations,
+      stripeWebhookEvents24h: raw.billing.stripeWebhookEvents24h,
+      stripeWebhookFailures24h: raw.billing.stripeWebhookFailures24h,
+      lastStripeWebhookAt: raw.billing.lastStripeWebhookAt,
+      campaign: campaignResult.success
+        ? {
+            ...campaignResult.data,
+            scope: {
+              purchaseRecords: 'lifetime' as const,
+              activity: 'rolling_24h' as const,
+              state: 'current_state' as const,
+            },
+            customSinceSupported: false as const,
+          }
+        : null,
+    },
+    marketing: {
+      ...marketing,
+      scope: 'rolling_24h' as const,
+      customSinceSupported: false as const,
+    },
+    previous: raw.previous,
+    funnelGraph: raw.funnelGraph,
+    ops: raw.ops,
+  }
+})
+
+export type HonestFitMissionSummary = z.infer<typeof honestFitMissionSummarySchema>
+export type HonestFitIncidentCategory = (typeof INCIDENT_CATEGORIES)[number]
+export type HonestFitFeedback = z.infer<typeof feedbackProjectionSchema>
+export type HonestFitFeedbackItem = HonestFitFeedback['items'][number]
 
 export type HonestFitMissionSummaryResult =
   | { status: 'success'; summary: HonestFitMissionSummary }
@@ -204,7 +547,6 @@ export type HonestFitMissionSummaryResult =
 type FetchSummaryOptions = {
   env?: NodeJS.ProcessEnv
   fetchImpl?: typeof fetch
-  since?: string | null
 }
 
 type TrafficClassificationInput = {
@@ -215,18 +557,6 @@ type TrafficClassificationInput = {
   }
   marketing?: {
     trafficSources24h: {
-      source?: string
-      referrer?: string
-      campaign?: string
-      visits: number
-    }[]
-    topReferrers24h?: {
-      source?: string
-      referrer?: string
-      campaign?: string
-      visits: number
-    }[]
-    campaigns24h?: {
       source?: string
       referrer?: string
       campaign?: string
@@ -245,51 +575,32 @@ export function classifyHonestFitTraffic(
     const classified = sources.reduce(
       (totals, item) => {
         const label = trafficLabel(item)
-        if (isTestingSmokeAdminTraffic(label)) {
-          totals.testingSmokeAdmin += item.visits
-        } else if (isAmbiguousDirectTraffic(label)) {
-          totals.ambiguous += item.visits
-        } else {
-          totals.estimatedReal += item.visits
-        }
+        if (isTestingSmokeAdminTraffic(label)) totals.testingSmokeAdmin += item.visits
+        else if (isAmbiguousDirectTraffic(label)) totals.ambiguous += item.visits
+        else totals.estimatedReal += item.visits
         return totals
       },
       { estimatedReal: 0, testingSmokeAdmin: 0, ambiguous: 0 },
     )
-    const classifiedTotal =
-      classified.estimatedReal +
-      classified.testingSmokeAdmin +
-      classified.ambiguous
-    if (classifiedTotal < raw) {
-      classified.ambiguous += raw - classifiedTotal
-    }
-
+    const total =
+      classified.estimatedReal + classified.testingSmokeAdmin + classified.ambiguous
+    if (total < raw) classified.ambiguous += raw - total
     return normalizeTrafficClassification(raw, classified)
   }
 
   const classified = summary.traffic.topPages24h.reduce(
     (totals, item) => {
       const label = trafficLabel(item)
-      if (isTestingSmokeAdminTraffic(label)) {
-        totals.testingSmokeAdmin += item.views
-      } else if (isAmbiguousProductPage(label)) {
-        totals.ambiguous += item.views
-      } else {
-        totals.estimatedReal += item.views
-      }
+      if (isTestingSmokeAdminTraffic(label)) totals.testingSmokeAdmin += item.views
+      else if (isAmbiguousProductPage(label)) totals.ambiguous += item.views
+      else totals.estimatedReal += item.views
       return totals
     },
     { estimatedReal: 0, testingSmokeAdmin: 0, ambiguous: 0 },
   )
-
-  const classifiedTotal =
-    classified.estimatedReal +
-    classified.testingSmokeAdmin +
-    classified.ambiguous
-  if (classifiedTotal < raw) {
-    classified.ambiguous += raw - classifiedTotal
-  }
-
+  const total =
+    classified.estimatedReal + classified.testingSmokeAdmin + classified.ambiguous
+  if (total < raw) classified.ambiguous += raw - total
   return normalizeTrafficClassification(raw, classified)
 }
 
@@ -353,11 +664,7 @@ function isAmbiguousProductPage(label: string) {
 
 function normalizeTrafficClassification(
   raw: number,
-  classified: {
-    estimatedReal: number
-    testingSmokeAdmin: number
-    ambiguous: number
-  },
+  classified: { estimatedReal: number; testingSmokeAdmin: number; ambiguous: number },
 ) {
   const testingSmokeAdmin = Math.min(raw, classified.testingSmokeAdmin)
   const ambiguous = Math.min(raw - testingSmokeAdmin, classified.ambiguous)
@@ -366,7 +673,6 @@ function normalizeTrafficClassification(
     Math.min(raw - testingSmokeAdmin - ambiguous, classified.estimatedReal),
   )
   const assigned = estimatedReal + testingSmokeAdmin + ambiguous
-
   return {
     raw,
     estimatedReal: assigned < raw ? estimatedReal + (raw - assigned) : estimatedReal,
@@ -389,15 +695,11 @@ export async function fetchHonestFitMissionSummary(
         !apiSecret ? 'HONESTFIT_MISSION_API_SECRET' : null,
       ].filter(Boolean),
     })
-    return {
-      status: 'unavailable',
-      message: 'HonestFit telemetry is not configured.',
-    }
+    return { status: 'unavailable', message: 'HonestFit telemetry is not configured.' }
   }
 
   try {
-    const url = summaryUrlWithSince(summaryUrl, options.since)
-    const res = await (options.fetchImpl ?? fetch)(url, {
+    const res = await (options.fetchImpl ?? fetch)(summaryUrl, {
       cache: 'no-store',
       headers: {
         Authorization: `Bearer ${apiSecret}`,
@@ -425,10 +727,7 @@ export async function fetchHonestFitMissionSummary(
           code: issue.code,
         })),
       })
-      return {
-        status: 'error',
-        message: 'HonestFit telemetry response was malformed.',
-      }
+      return { status: 'error', message: 'HonestFit telemetry response was malformed.' }
     }
 
     return { status: 'success', summary: parsed.data }
@@ -438,21 +737,8 @@ export async function fetchHonestFitMissionSummary(
       errorMessage:
         error instanceof Error ? error.message.slice(0, 160) : 'Unknown error',
     })
-    return {
-      status: 'error',
-      message: 'Unable to fetch HonestFit telemetry.',
-    }
+    return { status: 'error', message: 'Unable to fetch HonestFit telemetry.' }
   }
-}
-
-function summaryUrlWithSince(summaryUrl: string, since?: string | null) {
-  if (!since) return summaryUrl
-  const parsedSince = new Date(since)
-  if (Number.isNaN(parsedSince.getTime())) return summaryUrl
-
-  const url = new URL(summaryUrl)
-  url.searchParams.set('since', parsedSince.toISOString())
-  return url.toString()
 }
 
 function normalizeMarketingSummary(value: unknown): unknown {
@@ -462,8 +748,9 @@ function normalizeMarketingSummary(value: unknown): unknown {
 
   return {
     ...record,
-    trafficSources24h:
-      record.trafficSources24h ?? record.visitsBySource24h ?? [],
+    scope: record.scope,
+    customSinceSupported: record.customSinceSupported,
+    trafficSources24h: record.trafficSources24h ?? record.visitsBySource24h ?? [],
     campaigns24h: record.campaigns24h ?? record.visitsByCampaign24h ?? [],
     topReferrers24h: record.topReferrers24h ?? [],
     cta24h:
