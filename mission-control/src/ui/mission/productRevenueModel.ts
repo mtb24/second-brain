@@ -7,6 +7,7 @@ export type RevenueState =
   | 'webhook_failure'
   | 'stale_webhook'
   | 'manual_review'
+  | 'refund_or_dispute'
   | 'healthy_no_demand'
   | 'healthy_activity'
 
@@ -34,6 +35,7 @@ export function revenueState(summary: HonestFitMissionSummary): RevenueState {
   if (campaign.activationFailures24h > 0) return 'activation_failure'
   if (summary.billing.stripeWebhookFailures24h > 0) return 'webhook_failure'
   if (campaign.manualReview > 0) return 'manual_review'
+  if (campaign.refunded > 0 || campaign.disputed > 0) return 'refund_or_dispute'
 
   const hasRecentActivity =
     campaign.checkoutSessions24h + campaign.payments24h + campaign.activations24h > 0
@@ -83,6 +85,11 @@ export const revenueStateCopy: Record<
   manual_review: {
     title: 'Campaign records need manual review',
     detail: 'The current campaign state includes records explicitly held for operator review.',
+    tone: 'warning',
+  },
+  refund_or_dispute: {
+    title: 'Refunded or disputed campaign state needs review',
+    detail: 'The current authoritative campaign state includes a refund or dispute; Mission does not reinterpret financial authority.',
     tone: 'warning',
   },
   healthy_no_demand: {

@@ -82,6 +82,8 @@ describe('Mission Revenue scope semantics', () => {
           activations24h: 0,
           activationFailures24h: 0,
           manualReview: 0,
+          refunded: 0,
+          disputed: 0,
         },
       },
     })
@@ -118,9 +120,19 @@ describe('Mission Revenue scope semantics', () => {
       billing: {
         ...newMainSummaryFixture.billing,
         lastStripeWebhookAt: '2026-07-16T12:59:59.000Z',
+        campaign: {
+          ...newMainSummaryFixture.billing.campaign,
+          refunded: 0,
+          disputed: 0,
+        },
       },
     })
     expect(revenueState(summary)).toBe('stale_webhook')
+  })
+
+  it('does not show a healthy headline over refunded or disputed current state', () => {
+    const summary = honestFitMissionSummarySchema.parse(newMainSummaryFixture)
+    expect(revenueState(summary)).toBe('refund_or_dispute')
   })
 
   it('never renders private Stripe identifiers or payment details', () => {

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:mission": "playwright test tests/e2e/mission-workspaces.playwright.ts",
     "test:e2e:openclaw": "playwright test tests/e2e/openclaw.playwright.ts",
     "test:e2e:workout": "playwright test tests/e2e/workout.playwright.ts",
     "start": "node .output/server/index.mjs",

@@ -771,7 +771,7 @@ function checkAfterTimestampForCampaign(campaign: HonestFitMarketingCampaign) {
   return new Date(posted.getTime() + 24 * 60 * 60 * 1000).toISOString()
 }
 
-function HonestFitMarketingWorkbench({
+export function HonestFitMarketingWorkbench({
   summary,
   state,
   selectedCampaignId,
@@ -1778,6 +1778,114 @@ export function HonestFitTelemetryPanel() {
           Refresh
         </button>
       </div>
+    </div>
+  )
+}
+
+export function HonestFitCampaignEditor() {
+  const queryClient = useQueryClient()
+  const campaignQuery = useQuery({
+    queryKey: ['honestfit-marketing-experiment'],
+    queryFn: fetchHonestFitMarketingExperiment,
+  })
+  const summaryQuery = useQuery({
+    queryKey: ['honestfit-mission-summary'],
+    queryFn: fetchHonestFitTelemetry,
+    refetchInterval: 60_000,
+    enabled: !campaignQuery.isLoading,
+  })
+  const mutation = useMutation({
+    mutationFn: patchHonestFitMarketingExperiment,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['honestfit-marketing-experiment'] })
+      await queryClient.invalidateQueries({ queryKey: ['honestfit-mission-summary'] })
+    },
+  })
+
+  return (
+    <HonestFitCampaignEditorView
+      result={summaryQuery.data}
+      campaignState={campaignQuery.data}
+      isLoading={summaryQuery.isLoading || summaryQuery.isFetching || campaignQuery.isLoading}
+      error={(summaryQuery.error || campaignQuery.error) as Error | null}
+      isSaving={mutation.isPending}
+      onRefresh={() => {
+        void campaignQuery.refetch()
+        void summaryQuery.refetch()
+      }}
+      onMarkPosted={({ campaignId, postedUrl }) => mutation.mutate({ action: 'mark_posted', campaignId, postedUrl })}
+      onSaveLearning={(learning) => mutation.mutate({ action: 'save_learning', ...learning })}
+      onUpdateCampaign={(campaignId, campaign) => mutation.mutate({ action: 'update', campaignId, campaign })}
+      onStartNextCampaign={(draftId) => mutation.mutate({ action: 'start_next_campaign', draftId })}
+    />
+  )
+}
+
+export function HonestFitCampaignEditorView({
+  result,
+  campaignState,
+  isLoading = false,
+  error,
+  isSaving = false,
+  onRefresh,
+  onMarkPosted,
+  onSaveLearning,
+  onUpdateCampaign,
+  onStartNextCampaign,
+}: Readonly<{
+  result?: HonestFitMissionSummaryResult
+  campaignState?: HonestFitMarketingCampaignState
+  isLoading?: boolean
+  error?: Error | null
+  isSaving?: boolean
+  onRefresh?: () => void
+  onMarkPosted?: (input: { campaignId: string; postedUrl: string }) => void
+  onSaveLearning?: (
+    input: Pick<HonestFitMarketingCampaign, 'learningWhatHappened' | 'learningWhatWasConfusing' | 'nextMessageAngle'> & { campaignId: string },
+  ) => void
+  onUpdateCampaign?: (campaignId: string, campaign: Partial<CampaignEditFields>) => void
+  onStartNextCampaign?: (draftId: string) => void
+}>) {
+  const resolvedCampaignState = campaignState ?? campaignStateForView()
+  const [selectedCampaignId, setSelectedCampaignId] = useState(resolvedCampaignState.selectedCampaignId)
+  useEffect(() => setSelectedCampaignId(resolvedCampaignState.selectedCampaignId), [resolvedCampaignState.selectedCampaignId])
+  const summary = result?.status === 'success' ? result.summary : null
+
+  return (
+    <div className="campaign-editor space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-slate-100">
+        <div>
+          <h2 className="text-lg font-semibold">Campaign editor</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Publishing, campaign state, and learning controls only. Operator telemetry lives in the five focused workspaces.</p>
+        </div>
+        <button type="button" onClick={onRefresh} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white">
+          {isLoading ? 'Refreshing…' : 'Refresh editor'}
+        </button>
+      </div>
+
+      {result?.status === 'unavailable' ? (
+        <div className="rounded-xl border border-amber-700 bg-amber-950/40 p-4 text-sm text-amber-100">Protected telemetry unavailable: {result.message}</div>
+      ) : null}
+      {result?.status === 'error' || error ? (
+        <div className="rounded-xl border border-red-700 bg-red-950/40 p-4 text-sm text-red-100">Campaign editor sources could not be loaded.</div>
+      ) : null}
+      {!campaignState && !isLoading ? (
+        <div className="rounded-xl border border-amber-700 bg-amber-950/40 p-4 text-sm text-amber-100">Campaign state is unavailable. Mutation controls are not rendered.</div>
+      ) : null}
+
+      {summary && campaignState ? (
+        <HonestFitMarketingWorkbench
+          summary={summary}
+          state={campaignState}
+          selectedCampaignId={selectedCampaignId}
+          onSelectCampaign={setSelectedCampaignId}
+          onMarkPosted={onMarkPosted}
+          onSaveLearning={onSaveLearning}
+          onUpdateCampaign={onUpdateCampaign}
+          onStartNextCampaign={onStartNextCampaign}
+          isSaving={isSaving}
+        />
+      ) : null}
     </div>
   )
 }

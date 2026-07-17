@@ -76,7 +76,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body className="h-full bg-slate-950 text-slate-100">
+      <body className="min-h-full bg-slate-950 text-slate-100">
         {children}
       </body>
     </html>

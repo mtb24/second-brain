@@ -13,6 +13,7 @@ export type TodayAttentionItem = {
 
 export function missionOperationalState(
   summary: HonestFitMissionSummary,
+  now = Date.now(),
 ): MissionOperationalState {
   const activeCritical = summary.errors.incidents.some(
     (incident) =>
@@ -38,11 +39,20 @@ export function missionOperationalState(
     summary.health.warningCount > 0 ||
     summary.errors.critical24h > 0 ||
     activeIncident ||
-    degradedSubsystem
+    degradedSubsystem ||
+    isMissionSummaryStale(summary, now)
   ) {
     return 'watch'
   }
   return 'healthy'
+}
+
+export function isMissionSummaryStale(
+  summary: HonestFitMissionSummary,
+  now = Date.now(),
+) {
+  const generatedAt = Date.parse(summary.generatedAt)
+  return Number.isNaN(generatedAt) || now - generatedAt > 5 * 60 * 1000
 }
 
 export function openIncidents(summary: HonestFitMissionSummary) {

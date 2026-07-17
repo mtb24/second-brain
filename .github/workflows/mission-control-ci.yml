@@ -53,5 +53,11 @@ jobs:
       - name: Run TypeScript checks
         run: pnpm --filter mission-control typecheck
 
+      - name: Install Chromium for Mission smoke
+        run: pnpm --filter mission-control exec playwright install --with-deps chromium
+
+      - name: Run Mission desktop and 390px smoke
+        run: pnpm --filter mission-control test:e2e:mission
+
       - name: Build production bundle
         run: pnpm --filter mission-control build

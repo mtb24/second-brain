@@ -8,6 +8,7 @@ const configDir = path.dirname(fileURLToPath(import.meta.url))
 
 loadEnv(path.resolve(configDir, '..', '.env'))
 loadEnv(path.resolve(configDir, '.env'))
+process.env.TZ ??= 'America/Los_Angeles'
 
 const port = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
 const baseURL = `http://127.0.0.1:${port}`
@@ -20,6 +21,8 @@ const webServerEnv = {
   OPENCLAW_GATEWAY_URL: process.env.OPENCLAW_GATEWAY_URL ?? 'ws://127.0.0.1:1',
   MCP_URL: process.env.MCP_URL ?? 'http://127.0.0.1:1',
   MCP_TOKEN: process.env.MCP_TOKEN ?? 'local-playwright-smoke',
+  INGEST_URL: process.env.INGEST_URL ?? 'http://127.0.0.1:1',
+  INGEST_TOKEN: process.env.INGEST_TOKEN ?? 'local-playwright-smoke',
 }
 
 export default defineConfig({
@@ -32,6 +35,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    timezoneId: 'America/Los_Angeles',
   },
   projects: [
     {
@@ -44,7 +48,9 @@ export default defineConfig({
     {
       name: 'chromium-mobile',
       use: {
-        ...devices['Pixel 7'],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 1,
+        hasTouch: true,
       },
     },
   ],
