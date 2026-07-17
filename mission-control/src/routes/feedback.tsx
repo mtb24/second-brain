@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { FeedbackFoundation } from '@/ui/mission/WorkspaceFoundations'
+import { FeedbackWorkspace } from '@/ui/mission/FeedbackWorkspace'
 
-export const Route = createFileRoute('/feedback')({ component: FeedbackFoundation })
+export const Route = createFileRoute('/feedback')({ component: FeedbackWorkspace })
