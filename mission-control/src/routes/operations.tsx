@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { OperationsFoundation } from '@/ui/mission/WorkspaceFoundations'
+import { OperationsWorkspace } from '@/ui/mission/OperationsWorkspace'
 
-export const Route = createFileRoute('/operations')({ component: OperationsFoundation })
+export const Route = createFileRoute('/operations')({ component: OperationsWorkspace })
