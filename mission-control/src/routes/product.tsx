@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ProductFoundation } from '@/ui/mission/WorkspaceFoundations'
+import { ProductWorkspace } from '@/ui/mission/ProductWorkspace'
 
-export const Route = createFileRoute('/product')({ component: ProductFoundation })
+export const Route = createFileRoute('/product')({ component: ProductWorkspace })
