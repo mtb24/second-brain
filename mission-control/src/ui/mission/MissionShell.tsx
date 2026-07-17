@@ -6,9 +6,9 @@ import {
   ExternalLink,
   Gauge,
   Home,
+  Megaphone,
   MessageSquareText,
   Search,
-  Settings2,
   ShieldCheck,
   WalletCards,
 } from 'lucide-react'
@@ -21,10 +21,10 @@ const workspaces = [
   { to: '/revenue', label: 'Revenue', icon: WalletCards },
   { to: '/operations', label: 'Operations', icon: ShieldCheck },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
+  { to: '/campaigns', label: 'Marketing', icon: Megaphone },
 ] as const
 
 const utilities = [
-  { to: '/campaigns', label: 'Campaign editor', icon: Settings2 },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/trading', label: 'Trading', icon: Activity },
   { to: '/workout', label: 'Workout', icon: Dumbbell },
@@ -92,9 +92,10 @@ export function MissionShell({
           <div className="flex items-center gap-2">
             <a
               href="/openclaw/"
-              className="hidden min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-blue-100 hover:bg-white/10 sm:inline-flex"
+              aria-label="Open OpenClaw"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium text-blue-100 hover:bg-white/10 sm:px-3"
             >
-              OpenClaw
+              <span className="hidden sm:inline">OpenClaw</span>
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
             </a>
             <form method="post" action="/logout">
@@ -114,13 +115,6 @@ export function MissionShell({
           {workspaces.map((item) => (
             <NavLink key={item.to} {...item} mobile />
           ))}
-          <a
-            href="/openclaw/"
-            className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/15 px-2 text-xs font-semibold text-blue-100 hover:bg-white/10"
-          >
-            <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">OpenClaw</span>
-          </a>
         </nav>
       </header>
 

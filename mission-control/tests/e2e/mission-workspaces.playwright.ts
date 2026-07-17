@@ -7,6 +7,10 @@ import {
   currentProductionSummaryFixture,
   newMainSummaryFixture,
 } from '../../src/test-fixtures/honestFitMissionSummary'
+import type {
+  HonestFitMarketingCampaign,
+  HonestFitMarketingCampaignState,
+} from '../../src/lib/honestFitMarketingExperiment'
 
 const currentProductionSummary = honestFitMissionSummarySchema.parse(
   currentProductionSummaryFixture,
@@ -29,26 +33,43 @@ const controlledTrafficSummary = honestFitMissionSummarySchema.parse({
   },
 })
 
+const activeCampaign = campaignFixture()
+const preparedCampaign = campaignFixture({
+  id: 'campaign-prepared',
+  title: 'Recruiter-value Trust Layer post',
+  status: 'ready',
+  angle: 'Recruiter-value',
+})
+const campaignState: HonestFitMarketingCampaignState = {
+  campaigns: [activeCampaign, preparedCampaign],
+  selectedCampaignId: activeCampaign.id,
+}
+
 const workspaces = [
   { path: '/', slug: 'today', heading: 'What needs my attention now?', ready: 'Current production state' },
   { path: '/product', slug: 'product', heading: 'Are users reaching value?', ready: 'Journey interpretation' },
   { path: '/revenue', slug: 'revenue', heading: 'Is the Job Search Campaign selling and activating correctly?', ready: 'Campaign state' },
   { path: '/operations', slug: 'operations', heading: 'Is HonestFit functioning reliably?', ready: 'Reliability overview' },
   { path: '/feedback', slug: 'feedback', heading: 'What are users telling us?', ready: 'Read-only queue' },
+  { path: '/campaigns', slug: 'marketing', heading: 'What should I publish or adjust next?', ready: 'Marketing decision' },
 ] as const
 
 test.beforeEach(async ({ context, baseURL, page }) => {
   await authenticate(context, baseURL)
   await fulfillSummary(page, newMainSummary)
+  await fulfillCampaignState(page, campaignState)
 })
 
-test('renders all five workspaces without overflow or undersized controls', async ({ page }, testInfo) => {
+test('renders all six workspaces without overflow or undersized controls', async ({ page }, testInfo) => {
   for (const workspace of workspaces) {
     await page.goto(workspace.path)
     await expect(page.getByRole('heading', { level: 1, name: workspace.heading })).toBeVisible()
     await expect(page.getByText(workspace.ready, { exact: true })).toBeVisible()
     await expect(page.locator('h1')).toHaveCount(1)
     await expect(page.locator('main')).not.toContainText(/rawMessage|SECRET_STACK|cus_private|person@example\.com/)
+    if (workspace.slug === 'marketing') {
+      await expect(page.getByText('HonestFit evidence · Read only')).toBeVisible()
+    }
 
     const layout = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -90,6 +111,70 @@ test('renders all five workspaces without overflow or undersized controls', asyn
     await saveLayoutEvidence(testInfo.project.name, workspace.slug, layout)
     await saveEvidenceScreenshot(page, testInfo.project.name, workspace.slug)
   }
+})
+
+test('protects campaign edits from accidental selection changes', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => undefined },
+    })
+  })
+  await page.goto('/campaigns')
+  await page.getByRole('button', { name: 'Copy post body' }).click()
+  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
+  const postBody = page.getByRole('textbox', { name: 'Post body' })
+  await postBody.fill('Updated campaign copy')
+  await expect(page.getByRole('button', { name: 'Copy post body' })).toBeVisible()
+
+  const hook = page.getByRole('textbox', { name: 'Hook', exact: true })
+  await hook.fill('A locally edited campaign hook')
+  await expect(page.getByText('Unsaved campaign changes')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save or discard edits' })).toBeDisabled()
+
+  page.once('dialog', async (dialog) => {
+    expect(dialog.type()).toBe('confirm')
+    expect(dialog.message()).toContain('Unsaved campaign changes will be lost')
+    await dialog.dismiss()
+  })
+  await page.getByRole('link', { name: 'Product', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'What should I publish or adjust next?' })).toBeVisible()
+
+  const postedUrl = page.getByRole('textbox', { name: 'Posted URL' })
+  await postedUrl.fill('https://www.linkedin.com/posts/example')
+  await expect(page.getByRole('button', { name: 'Mark as posted' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Save campaign' })).toBeDisabled()
+  await expect(page.getByText('Campaign copy and a live URL are both unsaved.')).toBeVisible()
+  await postedUrl.fill('')
+  await expect(page.getByRole('button', { name: 'Save campaign' })).toBeEnabled()
+
+  const compactPipeline = page.locator('summary').filter({ hasText: 'Campaign pipeline' })
+  if (await compactPipeline.isVisible()) await compactPipeline.click()
+  const prepared = page.getByRole('button', {
+    name: 'Recruiter-value Trust Layer post, Prepared',
+  })
+  await expect(prepared).toBeDisabled()
+
+  await page.getByRole('button', { name: 'Discard local changes' }).click()
+  await expect(page.getByText('Unsaved campaign changes')).toHaveCount(0)
+  await expect(prepared).toBeEnabled()
+  await prepared.click()
+  await expect(page.getByRole('heading', { level: 2, name: 'Recruiter-value Trust Layer post', exact: true })).toBeVisible()
+})
+
+test('keeps campaign controls usable when telemetry fails', async ({ page }) => {
+  await page.unroute('**/api/honestfit/mission-summary')
+  await page.route('**/api/honestfit/mission-summary', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'error', message: 'fixture failure' }),
+    })
+  })
+
+  await page.goto('/campaigns')
+  await expect(page.getByText('Marketing evidence unavailable')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy post body' })).toBeVisible()
+  await expect(page.getByText('Zero observed events')).toHaveCount(0)
 })
 
 test('supports keyboard navigation, visible focus, and reduced motion', async ({ page }) => {
@@ -157,6 +242,70 @@ async function fulfillSummary(
       body: JSON.stringify({ status: 'success', summary }),
     })
   })
+}
+
+async function fulfillCampaignState(
+  page: Page,
+  initialState: HonestFitMarketingCampaignState,
+) {
+  let state = structuredClone(initialState)
+  await page.unroute('**/api/honestfit/marketing-experiment').catch(() => undefined)
+  await page.route('**/api/honestfit/marketing-experiment', async (route) => {
+    const request = route.request()
+    if (request.method() === 'PATCH') {
+      const body = request.postDataJSON() as {
+        action?: string
+        campaignId?: string
+        campaign?: Partial<HonestFitMarketingCampaign>
+      }
+      if (body.action === 'update' && body.campaignId && body.campaign) {
+        state = {
+          ...state,
+          campaigns: state.campaigns.map((campaign) =>
+            campaign.id === body.campaignId
+              ? { ...campaign, ...body.campaign, updatedAt: '2026-07-17T14:00:00.000Z' }
+              : campaign,
+          ),
+          selectedCampaignId: body.campaignId,
+        }
+      }
+    }
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(state),
+    })
+  })
+}
+
+function campaignFixture(
+  patch: Partial<HonestFitMarketingCampaign> = {},
+): HonestFitMarketingCampaign {
+  return {
+    id: 'campaign-active',
+    title: 'Problem-first Trust Layer post',
+    status: 'draft',
+    channel: 'linkedin',
+    targetUrl: 'https://honestfit.ai/c/ken-downey',
+    postBody: 'A resume is a list of claims. HonestFit helps candidates show what supports them.',
+    postDraft: 'A resume is a list of claims. HonestFit helps candidates show what supports them.',
+    hook: 'A resume is a list of claims.',
+    angle: 'Problem-first',
+    audience: 'Recruiters and senior candidates',
+    hypothesis: 'A direct hook will earn qualified profile visits.',
+    suggestedScreenshot: 'Public profile first fold',
+    feedbackAsk: 'What evidence would you want?',
+    postedUrl: null,
+    postUrl: null,
+    postedAt: null,
+    checkAfter: null,
+    checkAfterHours: 24,
+    learningWhatHappened: '',
+    learningWhatWasConfusing: '',
+    nextMessageAngle: '',
+    createdAt: '2026-07-17T10:00:00.000Z',
+    updatedAt: '2026-07-17T11:00:00.000Z',
+    ...patch,
+  }
 }
 
 async function authenticate(context: BrowserContext, baseURL?: string) {

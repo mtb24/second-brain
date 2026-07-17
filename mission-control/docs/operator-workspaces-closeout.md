@@ -10,7 +10,7 @@ HonestFit deployed SHA during validation: `cc954c0dfe6155f70523c4e55534b66e701ed
 
 ## Product definition
 
-Mission Control is now a read-only founder/operator workspace organized around five decisions:
+Mission Control is now a founder/operator workspace organized around six decisions. The five protected HonestFit evidence workspaces remain read-only; Marketing adds the existing authenticated campaign workflow:
 
 | Workspace | Primary question | Operator outcome |
 | --- | --- | --- |
@@ -19,8 +19,9 @@ Mission Control is now a read-only founder/operator workspace organized around f
 | Revenue | Is the Job Search Campaign selling and activating correctly? | Campaign purchase, activity, webhook, and current-state evidence separated by authoritative time scope |
 | Operations | Is HonestFit functioning reliably? | Canonical subsystem health plus sanitized incidents and safe technical-authority links |
 | Feedback | What are users telling us? | A bounded, read-only projection of deterministic operator summaries with explicit available, empty, partial, and unavailable states |
+| Marketing | What should I publish or adjust next? | Campaign decision, message production, publishing state, rolling evidence, qualitative learning, and the next prepared angle |
 
-The shell gives urgent operational state priority over editor and marketing controls. Healthy systems collapse; active exceptions remain visible; detail is disclosed on demand. The former combined telemetry wall is no longer rendered by the campaign editor route, while the required campaign editing capabilities remain available at `/campaigns`.
+The shell gives urgent operational state priority on Today. Healthy systems collapse; active exceptions remain visible; detail is disclosed on demand. The former combined telemetry wall is no longer rendered. The existing campaign capabilities now live in a decision-first Marketing command center at `/campaigns`.
 
 ## Source-authority map
 
@@ -34,7 +35,8 @@ The shell gives urgent operational state priority over editor and marketing cont
 | Incidents | HonestFit sanitized incident projection; Sentry remains technical authority | Displays only protected incident fields and allowlisted HTTPS Sentry links |
 | Subsystem health | HonestFit sanitized subsystem projection | Maps application, authentication, source processing, billing/entitlement, Stripe webhooks, voice, and database; release and capacity are marked unavailable when not measured |
 | Feedback | HonestFit sanitized feedback projection | Displays only controlled fields and deterministic summaries; never fetches or renders raw feedback |
-| Campaign editor | Mission's existing campaign configuration APIs | Preserved as a separate editor capability; it does not precede or obscure system health on Today |
+| Marketing campaign workflow | Mission's existing authenticated campaign configuration APIs | Preserves draft, posted, learning, and next-campaign actions without changing the schema or API |
+| Marketing response evidence | HonestFit protected rolling-24-hour marketing and funnel aggregates | Displays aggregate events separately from campaign state; does not claim “since posted” attribution, unique people, or paid-media evidence |
 
 ## Adapter reconciliation and compatibility
 
@@ -129,7 +131,7 @@ HonestFit does not currently declare an incident-origin field. Mission therefore
 
 ## Responsive and accessibility evidence
 
-The Playwright matrix covers desktop at 1440 × 900 and mobile at exactly 390 × 844 for all five workspaces.
+The Playwright matrix covers desktop at 1440 × 900 and mobile at exactly 390 × 844 for all six workspaces.
 
 - one logical H1 per workspace;
 - discoverable keyboard-operable workspace navigation, including OpenClaw deep-link access;
@@ -150,18 +152,19 @@ Final loaded-state measurements:
 | Revenue | 1,359px | 2,732px | 270 | 66ms | 0 |
 | Operations | 900px | 1,328px | 246 | 68ms | 0 |
 | Feedback | 900px | 1,483px | 210 | 58ms | 0 |
+| Marketing | 1,895px | 3,111px | 338 | 74ms | 0 |
 
 Today is 1.12 desktop viewports and 2.19 mobile viewports, down from the audited approximately 4,480px desktop / 8,435px mobile wall. Reviewed Darwin visual baselines for every workspace and viewport are committed under `tests/e2e/mission-workspaces.playwright.ts-snapshots/`.
 
 ## Validation evidence
 
-- 83 Vitest unit, contract, model, component, privacy, and regression tests pass.
+- 88 Vitest unit, contract, model, component, privacy, and regression tests pass.
 - TypeScript typecheck passes.
 - Repository lint command passes.
 - Production build passes.
-- Focused Mission Playwright smoke passes on desktop and 390px.
+- Focused Mission Playwright smoke passes all six workspaces on desktop and 390px, including unsaved-edit protection and telemetry-failure independence.
 - OpenClaw navigation/proxy regression passes on desktop and 390px.
-- All ten reviewed workspace visual comparisons pass when `MISSION_VISUAL_REGRESSION=1`.
+- All twelve reviewed workspace visual comparisons pass when `MISSION_VISUAL_REGRESSION=1`.
 - The repository-wide browser run passes 14 tests and skips the two opt-in visual cases. Its two unrelated workout data-flow cases require `DB_URL` or `DATABASE_URL`, which was not configured in the isolated Mission worktree; workout authentication-boundary cases pass.
 - `git diff --check` passes.
 - Required GitHub Actions checks passed on implementation PRs.
