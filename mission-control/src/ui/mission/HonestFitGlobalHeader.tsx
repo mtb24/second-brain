@@ -80,7 +80,7 @@ export function HonestFitGlobalHeader() {
           </div>
         </div>
         <div className="text-xs font-semibold uppercase tracking-wide opacity-75">
-          Production · Read only
+          HonestFit evidence · Read only
         </div>
       </div>
     </div>
